@@ -14,8 +14,10 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
   UserApiKeyService? _keyService;
   bool _isLoading = true;
   bool _isHybridMode = true;
+  bool _isPiHubMode = false;
   CloudLlmProvider _selectedProvider = CloudLlmProvider.gemini;
   late TextEditingController _apiKeyController;
+  late TextEditingController _serverUrlController;
   bool _obscureKey = true;
   String _ggufModel = 'Gemma 3n 2B (Q4_K_M)';
 
@@ -23,6 +25,7 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
   void initState() {
     super.initState();
     _apiKeyController = TextEditingController();
+    _serverUrlController = TextEditingController();
     _loadSettings();
   }
 
@@ -31,8 +34,10 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
     setState(() {
       _keyService = service;
       _isHybridMode = service.isHybridModeEnabled;
+      _isPiHubMode = service.isPiHubModeEnabled;
       _selectedProvider = service.activeProvider;
       _apiKeyController.text = service.apiKey;
+      _serverUrlController.text = service.customServerUrl;
       _ggufModel = service.ggufModelName;
       _isLoading = false;
     });
@@ -64,6 +69,7 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
   @override
   void dispose() {
     _apiKeyController.dispose();
+    _serverUrlController.dispose();
     super.dispose();
   }
 
@@ -273,13 +279,77 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Local REST Gateway', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                                Text('http://127.0.0.1:8000', style: TextStyle(color: Color(0xFF64748B), fontSize: 12)),
-                              ],
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _isPiHubMode ? 'PiHub Local Discovery (LAN)' : 'Cloud / Custom Internet Backend',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _isPiHubMode
+                                        ? 'Auto-discovers Raspberry Pi gateway on local subnet (127.0.0.1, 10.0.2.2, pihub.local)'
+                                        : 'Connects directly over internet to configured URL',
+                                    style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                                  ),
+                                ],
+                              ),
                             ),
+                            Switch(
+                              value: _isPiHubMode,
+                              activeColor: primaryIndigo,
+                              onChanged: (val) async {
+                                setState(() {
+                                  _isPiHubMode = val;
+                                });
+                                await _keyService?.setPiHubModeEnabled(val);
+                              },
+                            ),
+                          ],
+                        ),
+                        const Divider(height: 24, color: borderColor),
+                        if (!_isPiHubMode) ...[
+                          const Text(
+                            'Internet Backend URL (from .env / settings)',
+                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                          ),
+                          const SizedBox(height: 6),
+                          TextField(
+                            controller: _serverUrlController,
+                            onChanged: (val) async {
+                              await _keyService?.setCustomServerUrl(val);
+                            },
+                            decoration: InputDecoration(
+                              hintText: 'https://api.mentora.app or http://127.0.0.1:8000',
+                              filled: true,
+                              fillColor: slateBg,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(color: borderColor),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: const BorderSide(color: primaryIndigo),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _isPiHubMode
+                                    ? 'Search Mode: Local LAN Subnet Probing'
+                                    : 'Active URL: ${_serverUrlController.text}',
+                                style: const TextStyle(color: Color(0xFF64748B), fontSize: 12, overflow: TextOverflow.ellipsis),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
                             ElevatedButton.icon(
                               onPressed: () async {
                                 final client = MentoraBackendClient();
@@ -288,7 +358,7 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text(res['online']
-                                          ? '✅ Gateway Connected! (${res['latencyMs']} ms latency)'
+                                          ? '✅ Gateway Connected! (${res['latencyMs']} ms)\nURL: ${res['gateway']}'
                                           : '❌ Connection Failed: ${res['status']}'),
                                       backgroundColor: res['online'] ? const Color(0xFF10B981) : const Color(0xFFEF4444),
                                     ),

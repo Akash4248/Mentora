@@ -24,8 +24,19 @@ class MentoraBackendClient {
     }
   }
 
-  // Subnet Auto-Discovery: Probe candidate local IPs to auto-connect to backend
+  // Subnet Auto-Discovery: Probe candidate local IPs only when PiHub mode is ON
   Future<String> autoDiscoverGatewayUrl() async {
+    final keyService = await UserApiKeyService.getInstance();
+
+    // If PiHub toggle is OFF, connect directly to cloud/internet URL without local subnet probing
+    if (!keyService.isPiHubModeEnabled) {
+      _activeBaseUrl = keyService.customServerUrl.isNotEmpty
+          ? keyService.customServerUrl
+          : 'http://127.0.0.1:8000';
+      return _activeBaseUrl;
+    }
+
+    // If PiHub toggle is ON, probe candidate local LAN/subnet endpoints
     for (final candidate in candidateGatewayUrls) {
       try {
         final res = await _client.get(Uri.parse('$candidate/health')).timeout(const Duration(seconds: 2));

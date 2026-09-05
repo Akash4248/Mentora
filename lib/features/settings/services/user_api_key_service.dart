@@ -21,9 +21,11 @@ enum CloudLlmProvider {
 
 class UserApiKeyService {
   static const String _keyHybridMode = 'mentora_hybrid_mode_enabled';
+  static const String _keyPiHubMode = 'mentora_pihub_mode_enabled';
   static const String _keyCloudProvider = 'mentora_cloud_llm_provider';
   static const String _keyApiKey = 'mentora_user_cloud_api_key';
   static const String _keyGgufModel = 'mentora_active_gguf_model';
+  static const String _keyCustomServerUrl = 'mentora_custom_server_url';
 
   static UserApiKeyService? _instance;
   final SharedPreferences _prefs;
@@ -42,6 +44,18 @@ class UserApiKeyService {
 
   Future<void> setHybridModeEnabled(bool enabled) async {
     await _prefs.setBool(_keyHybridMode, enabled);
+  }
+
+  bool get isPiHubModeEnabled => _prefs.getBool(_keyPiHubMode) ?? false;
+
+  Future<void> setPiHubModeEnabled(bool enabled) async {
+    await _prefs.setBool(_keyPiHubMode, enabled);
+  }
+
+  String get customServerUrl => _prefs.getString(_keyCustomServerUrl) ?? 'http://127.0.0.1:8000';
+
+  Future<void> setCustomServerUrl(String url) async {
+    await _prefs.setString(_keyCustomServerUrl, url.trim());
   }
 
   CloudLlmProvider get activeProvider {
