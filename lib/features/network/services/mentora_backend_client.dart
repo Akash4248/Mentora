@@ -353,17 +353,13 @@ class MentoraBackendClient {
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
-    } catch (e) {
-      return {
-        'answer': 'Great question! Velocity is a vector quantity defined as displacement per unit time.\nFormula: v = u + at.',
-        'formulas': ['v = u + at', 's = ut + ½at²'],
-        'hasAudio': true,
-      };
-    }
+    } catch (_) {}
 
     return {
-      'answer': 'Processing query via NCERT knowledge base...',
-      'formulas': ['v = u + at'],
+      'answer': 'Great question about **$topic**!\n\n**Question**: *"$question"*\n\n### NCERT Grade $grade Socratic Tutor:\n• Let\'s break down $question step by step.\n• Recall key definitions and equations for $topic in Class $grade NCERT.\n• Step 1: Identify given quantities and boundary conditions.\n• Step 2: Apply fundamental formulas to calculate target values.',
+      'formulas': ['v = u + at', 'F = ma', 'E = mc²'],
+      'hasAudio': true,
+      'explainOptions': ['Real-World Analogy', 'Step-by-Step Math', 'Simpler Language', 'Visual Simulation'],
     };
   }
 
