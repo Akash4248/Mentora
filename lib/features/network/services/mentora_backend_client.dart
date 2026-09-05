@@ -338,69 +338,40 @@ class OfflineSocraticEngine {
     required String topic,
     int grade = 9,
   }) {
-    final qLower = question.toLowerCase();
+    final qClean = question.trim();
+    final tClean = topic.isEmpty ? "General Science & Mathematics" : topic.trim();
+    final words = qClean.split(' ').where((w) => w.length > 2).toList();
+    final keyConcept = words.isNotEmpty ? words.first[0].toUpperCase() + words.first.substring(1) : "Concept";
+    final queryContext = words.isNotEmpty ? words.take(5).join(' ') : qClean;
 
-    // 1. Motion / Kinematics / Speed / Velocity
-    if (qLower.contains('speed') || qLower.contains('velocity') || qLower.contains('acceleration') || qLower.contains('motion')) {
-      return {
-        'answer': 'Great question about **$topic**!\n\n**Query**: *"$question"*\n\n### NCERT Class $grade Core Concepts:\n• **Speed ($s$)**: Scalar quantity representing distance travelled per unit time ($s = d/t$).\n• **Velocity ($v$)**: Vector quantity representing rate of displacement ($v = \\Delta x / t$).\n• **Acceleration ($a$)**: Rate of change of velocity ($a = \\frac{v - u}{t}$).\n\n### Kinematic Equations:\n1. $v = u + at$\n2. $s = ut + \\frac{1}{2}at^2$\n3. $v^2 = u^2 + 2as$',
-        'formulas': ['v = u + at', 's = ut + ½at²', 'v² = u² + 2as'],
-        'hasAudio': true,
-        'source': 'offline_socratic_engine',
-        'explainOptions': ['Real-World Analogy', 'Step-by-Step Math', 'Simpler Language', 'Visual Simulation'],
-      };
-    }
+    final answer = '''### NCERT Class $grade Socratic Explanation
 
-    // 2. Force & Laws of Motion
-    if (qLower.contains('force') || qLower.contains('newton') || qLower.contains('inertia') || qLower.contains('friction') || qLower.contains('momentum')) {
-      return {
-        'answer': 'Excellent inquiry on **Force & Dynamics** (Grade $grade NCERT)!\n\n**Query**: *"$question"*\n\n### Newton\'s Laws of Motion:\n1. **First Law (Inertia)**: An object at rest or uniform motion stays in its state unless acted upon by an unbalanced force.\n2. **Second Law**: Force equals rate of change of momentum ($F = ma$).\n3. **Third Law**: For every action, there is an equal and opposite reaction ($F_{AB} = -F_{BA}$).',
-        'formulas': ['F = ma', 'p = mv', 'F_{12} = -F_{21}'],
-        'hasAudio': true,
-        'source': 'offline_socratic_engine',
-        'explainOptions': ['Real-World Analogy', 'Step-by-Step Math', 'Simpler Language', 'Visual Simulation'],
-      };
-    }
+**Topic**: $tClean
+**Question**: *"$qClean"*
 
-    // 3. Cell Biology
-    if (qLower.contains('cell') || qLower.contains('mitochondria') || qLower.contains('nucleus') || qLower.contains('dna') || qLower.contains('plant') || qLower.contains('animal') || qLower.contains('organelle')) {
-      return {
-        'answer': 'Wonderful question in **Biology: Cell Structure** (Grade $grade NCERT)!\n\n**Query**: *"$question"*\n\n### Key Concepts:\n• **The Cell**: Fundamental structural and functional unit of all living organisms.\n• **Mitochondria**: Double-membrane organelle responsible for ATP synthesis via cellular respiration.\n• **Nucleus**: Controls cell growth and contains genetic instructions (DNA/RNA).\n• **Cell Wall & Chloroplasts**: Present in plant cells for structural rigidity and photosynthesis.',
-        'formulas': ['C_6H_{12}O_6 + 6O_2 \\rightarrow 6CO_2 + 6H_2O + ATP'],
-        'hasAudio': true,
-        'source': 'offline_socratic_engine',
-        'explainOptions': ['Real-World Analogy', 'Step-by-Step Math', 'Simpler Language', 'Visual Simulation'],
-      };
-    }
+#### Core Conceptual Analysis:
+When investigating **"$qClean"** in NCERT Grade $grade **$tClean**, we analyze how *$queryContext* operates based on fundamental principles.
 
-    // 4. Chemistry / Atomic Structure / Matter
-    if (qLower.contains('atom') || qLower.contains('molecule') || qLower.contains('electron') || qLower.contains('proton') || qLower.contains('acid') || qLower.contains('base') || qLower.contains('element') || qLower.contains('reaction')) {
-      return {
-        'answer': 'Great question in **Chemistry** (Grade $grade NCERT)!\n\n**Query**: *"$question"*\n\n### Key Principles:\n• **Atomic Structure**: Subatomic particles consist of protons (+), neutrons (neutral), and orbiting electrons (-).\n• **Atomic Number ($Z$)**: Number of protons in nucleus.\n• **Mass Number ($A$)**: Total count of protons and neutrons ($A = Z + N$).\n• **Acids & Bases**: Acids donate $H^+$ ions (pH < 7); Bases accept $H^+$ or release $OH^-$ (pH > 7).',
-        'formulas': ['A = Z + N', 'pH = -\\log_{10}[H^+]'],
-        'hasAudio': true,
-        'source': 'offline_socratic_engine',
-        'explainOptions': ['Real-World Analogy', 'Step-by-Step Math', 'Simpler Language', 'Visual Simulation'],
-      };
-    }
+1. **Core Definition & Principles**:
+   - **$keyConcept**: Refers to the fundamental property and behavior of $qClean within the context of $tClean.
+   - In the Class $grade curriculum, students study how these parameters interact under standard physical, chemical, or mathematical conditions.
 
-    // 5. Mathematics
-    if (qLower.contains('math') || qLower.contains('equation') || qLower.contains('triangle') || qLower.contains('quadratic') || qLower.contains('pythagoras') || qLower.contains('area') || qLower.contains('volume') || qLower.contains('fraction')) {
-      return {
-        'answer': 'Here is the step-by-step mathematical breakdown for **$topic** (Grade $grade NCERT):\n\n**Query**: *"$question"*\n\n### Core Theorems & Formulas:\n• **Pythagoras Theorem**: $a^2 + b^2 = c^2$ in right-angled triangles.\n• **Quadratic Formula**: $x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$.\n• **Area Calculation**: $\\text{Area} = \\frac{1}{2} \\times \\text{base} \\times \\text{height}$.',
-        'formulas': ['a² + b² = c²', 'x = (-b ± √(b² - 4ac)) / (2a)'],
-        'hasAudio': true,
-        'source': 'offline_socratic_engine',
-        'explainOptions': ['Real-World Analogy', 'Step-by-Step Math', 'Simpler Language', 'Visual Simulation'],
-      };
-    }
+2. **Methodological Step-by-Step Breakdown**:
+   - **Step 1 (Identify Parameters)**: Extract given values, boundary conditions, and standard SI units relevant to $qClean.
+   - **Step 2 (Apply Governing Laws)**: Use core equations and theoretical frameworks for $tClean to formulate an analytical solution.
+   - **Step 3 (Synthesize & Validate)**: Confirm dimensional consistency, state boundary assumptions, and relate findings to real-world NCERT applications.
 
-    // 6. Generic NCERT Socratic Guidance
+3. **Key Takeaway for Exams**:
+   Clear mastery of **$qClean** ensures a solid foundation for NCERT Grade $grade assessments, practical lab experiments, and advanced problem solving.''';
+
     return {
-      'answer': 'Thanks for asking about **$topic** (Grade $grade NCERT)!\n\n**Question**: *"$question"*\n\n### NCERT Socratic Learning Path:\n• Let\'s analyze **"$question"** using fundamental principles of $topic.\n• **Step 1**: Identify given parameters, target variables, and physical units.\n• **Step 2**: Recall relevant formulas and laws from Class $grade NCERT textbook.\n• **Step 3**: Perform step-by-step algebraic substitution and verify dimensional consistency.',
-      'formulas': ['NCERT Standard Formula Set'],
+      'answer': answer,
+      'formulas': [
+        'Standard NCERT Equation for $tClean',
+        'SI Units & Parameter Relationships ($keyConcept)'
+      ],
       'hasAudio': true,
-      'source': 'offline_socratic_engine',
+      'source': 'offline_socratic_generative_engine',
       'explainOptions': ['Real-World Analogy', 'Step-by-Step Math', 'Simpler Language', 'Visual Simulation'],
     };
   }
