@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../network/services/mentora_backend_client.dart';
 
 class MentoraHomeScreen extends StatefulWidget {
   const MentoraHomeScreen({Key? key}) : super(key: key);
@@ -10,41 +11,24 @@ class MentoraHomeScreen extends StatefulWidget {
 class _MentoraHomeScreenState extends State<MentoraHomeScreen> {
   int _selectedGrade = 9;
   int _selectedNavIndex = 0;
+  final MentoraBackendClient _client = MentoraBackendClient();
+  List<Map<String, dynamic>> _subjects = [];
+  bool _isLoading = true;
 
-  final List<Map<String, dynamic>> _subjects = [
-    {
-      'name': 'Physics',
-      'icon': Icons.science_outlined,
-      'color': const Color(0xFF4F46E5),
-      'progress': 0.58,
-      'chaptersCompleted': 7,
-      'totalChapters': 12,
-    },
-    {
-      'name': 'Chemistry',
-      'icon': Icons.biotech_outlined,
-      'color': const Color(0xFF10B981),
-      'progress': 0.45,
-      'chaptersCompleted': 5,
-      'totalChapters': 11,
-    },
-    {
-      'name': 'Biology',
-      'icon': Icons.nature_outlined,
-      'color': const Color(0xFF14B8A6),
-      'progress': 0.60,
-      'chaptersCompleted': 6,
-      'totalChapters': 10,
-    },
-    {
-      'name': 'Mathematics',
-      'icon': Icons.calculate_outlined,
-      'color': const Color(0xFFF59E0B),
-      'progress': 0.40,
-      'chaptersCompleted': 6,
-      'totalChapters': 15,
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _fetchBackendSubjects();
+  }
+
+  Future<void> _fetchBackendSubjects() async {
+    setState(() => _isLoading = true);
+    final data = await _client.getSubjectsForGrade(_selectedGrade);
+    setState(() {
+      _subjects = data;
+      _isLoading = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -105,6 +89,7 @@ class _MentoraHomeScreenState extends State<MentoraHomeScreen> {
                     setState(() {
                       _selectedGrade = val;
                     });
+                    _fetchBackendSubjects();
                   }
                 },
               ),

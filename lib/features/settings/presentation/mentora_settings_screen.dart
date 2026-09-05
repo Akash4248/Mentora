@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/user_api_key_service.dart';
+import '../../network/services/mentora_backend_client.dart';
 
 class MentoraSettingsScreen extends StatefulWidget {
   const MentoraSettingsScreen({Key? key}) : super(key: key);
@@ -254,7 +255,59 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // SECTION 3: APP INFO & LICENSE
+                // SECTION 3: BACKEND GATEWAY CONNECTION
+                _buildSectionHeader('BACKEND GATEWAY CONNECTION'),
+                const SizedBox(height: 8),
+                Card(
+                  elevation: 0,
+                  color: cardBg,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: const BorderSide(color: borderColor),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Local REST Gateway', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                Text('http://127.0.0.1:8000', style: TextStyle(color: Color(0xFF64748B), fontSize: 12)),
+                              ],
+                            ),
+                            ElevatedButton.icon(
+                              onPressed: () async {
+                                final client = MentoraBackendClient();
+                                final res = await client.checkBackendHealth();
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(res['online']
+                                          ? '✅ Gateway Connected! (${res['latencyMs']} ms latency)'
+                                          : '❌ Connection Failed: ${res['status']}'),
+                                      backgroundColor: res['online'] ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                                    ),
+                                  );
+                                }
+                              },
+                              icon: const Icon(Icons.bolt, size: 16, color: Colors.white),
+                              label: const Text('Test Connection', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                              style: ElevatedButton.styleFrom(backgroundColor: primaryIndigo),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // SECTION 4: APP INFO & LICENSE
                 _buildSectionHeader('APP INFO & LICENSE'),
                 const SizedBox(height: 8),
                 Card(
