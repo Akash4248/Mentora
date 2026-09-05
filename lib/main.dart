@@ -21,6 +21,8 @@ import 'features/course/presentation/subject_chapters_screen.dart';
 import 'features/tutor/presentation/chapter_learning_workspace_screen.dart';
 import 'features/settings/presentation/mentora_settings_screen.dart';
 
+import 'features/voice/screens/voice_debug_screen.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -91,7 +93,11 @@ class OfflineTutorApp extends StatelessWidget {
             '/subject_chapters': (context) => const SubjectChaptersScreen(),
             '/chapter_workspace': (context) => const ChapterLearningWorkspaceScreen(),
             '/settings': (context) => const MentoraSettingsScreen(),
+            '/voice_overlay': (context) => const VoiceDebugScreen(),
           },
+          onUnknownRoute: (settings) => MaterialPageRoute(
+            builder: (context) => const MentoraHomeScreen(),
+          ),
         );
       },
     );

@@ -40,6 +40,10 @@ class _SubjectChaptersScreenState extends State<SubjectChaptersScreen> {
     const cardBg = Color(0xFFFFFFFF);
     const borderColor = Color(0xFFE2E8F0);
 
+    final int overallMastery = _chapters.isEmpty
+        ? 0
+        : (_chapters.fold<int>(0, (sum, ch) => sum + ((ch['mastery'] as num?)?.toInt() ?? 0)) / _chapters.length).round();
+
     return Scaffold(
       backgroundColor: slateBg,
       appBar: AppBar(
@@ -59,10 +63,10 @@ class _SubjectChaptersScreenState extends State<SubjectChaptersScreen> {
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: const Color(0xFFA7F3D0)),
             ),
-            child: const Center(
+            child: Center(
               child: Text(
-                '58% Mastered',
-                style: TextStyle(color: Color(0xFF059669), fontWeight: FontWeight.bold, fontSize: 12),
+                '$overallMastery% Mastered',
+                style: const TextStyle(color: Color(0xFF059669), fontWeight: FontWeight.bold, fontSize: 12),
               ),
             ),
           ),

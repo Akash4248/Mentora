@@ -160,7 +160,7 @@ class MentoraBackendClient {
     try {
       final headers = await _buildHeaders();
       final response = await _client
-          .get(Uri.parse('$baseUrl/catalog/subjects?grade=$grade'), headers: headers)
+          .get(Uri.parse('$_activeBaseUrl/catalog/subjects?grade=$grade'), headers: headers)
           .timeout(const Duration(seconds: 4));
 
       if (response.statusCode == 200) {
@@ -172,10 +172,10 @@ class MentoraBackendClient {
     }
 
     return [
-      {'name': 'Physics', 'code': 'PHY09', 'progress': 0.58, 'chaptersCompleted': 7, 'totalChapters': 12},
-      {'name': 'Chemistry', 'code': 'CHE09', 'progress': 0.45, 'chaptersCompleted': 5, 'totalChapters': 11},
-      {'name': 'Biology', 'code': 'BIO09', 'progress': 0.60, 'chaptersCompleted': 6, 'totalChapters': 10},
-      {'name': 'Mathematics', 'code': 'MAT09', 'progress': 0.40, 'chaptersCompleted': 6, 'totalChapters': 15},
+      {'name': 'Physics', 'code': 'PHY09', 'progress': 0.0, 'chaptersCompleted': 0, 'totalChapters': 12},
+      {'name': 'Chemistry', 'code': 'CHE09', 'progress': 0.0, 'chaptersCompleted': 0, 'totalChapters': 11},
+      {'name': 'Biology', 'code': 'BIO09', 'progress': 0.0, 'chaptersCompleted': 0, 'totalChapters': 10},
+      {'name': 'Mathematics', 'code': 'MAT09', 'progress': 0.0, 'chaptersCompleted': 0, 'totalChapters': 15},
     ];
   }
 
@@ -184,7 +184,7 @@ class MentoraBackendClient {
     try {
       final headers = await _buildHeaders();
       final response = await _client
-          .get(Uri.parse('$baseUrl/catalog/chapters?subject=$subjectName'), headers: headers)
+          .get(Uri.parse('$_activeBaseUrl/catalog/chapters?subject=$subjectName'), headers: headers)
           .timeout(const Duration(seconds: 4));
 
       if (response.statusCode == 200) {
@@ -196,8 +196,8 @@ class MentoraBackendClient {
     }
 
     return [
-      {'number': 1, 'title': 'Motion', 'status': 'completed', 'duration': '25 mins', 'mastery': 92},
-      {'number': 2, 'title': 'Force and Laws of Motion', 'status': 'in_progress', 'duration': '30 mins', 'mastery': 58},
+      {'number': 1, 'title': 'Motion', 'status': 'not_started', 'duration': '25 mins', 'mastery': 0},
+      {'number': 2, 'title': 'Force and Laws of Motion', 'status': 'not_started', 'duration': '30 mins', 'mastery': 0},
       {'number': 3, 'title': 'Gravitation', 'status': 'locked', 'duration': '20 mins', 'mastery': 0},
       {'number': 4, 'title': 'Work and Energy', 'status': 'locked', 'duration': '35 mins', 'mastery': 0},
       {'number': 5, 'title': 'Sound', 'status': 'locked', 'duration': '25 mins', 'mastery': 0},
@@ -209,7 +209,7 @@ class MentoraBackendClient {
     try {
       final headers = await _buildHeaders();
       final response = await _client
-          .get(Uri.parse('$baseUrl/api/v1/simulations/$chapter'), headers: headers)
+          .get(Uri.parse('$_activeBaseUrl/api/v1/simulations/$chapter'), headers: headers)
           .timeout(const Duration(seconds: 4));
 
       if (response.statusCode == 200) {
@@ -234,7 +234,7 @@ class MentoraBackendClient {
     try {
       final headers = await _buildHeaders();
       final response = await _client
-          .get(Uri.parse('$baseUrl/videos/$chapter'), headers: headers)
+          .get(Uri.parse('$_activeBaseUrl/videos/$chapter'), headers: headers)
           .timeout(const Duration(seconds: 4));
 
       if (response.statusCode == 200) {
@@ -269,7 +269,7 @@ class MentoraBackendClient {
     try {
       final headers = await _buildHeaders();
       final response = await _client
-          .get(Uri.parse('$baseUrl/quizzes/$chapter'), headers: headers)
+          .get(Uri.parse('$_activeBaseUrl/quizzes/$chapter'), headers: headers)
           .timeout(const Duration(seconds: 4));
 
       if (response.statusCode == 200) {
@@ -281,7 +281,7 @@ class MentoraBackendClient {
       'chapter': chapter,
       'title': 'Diagnostic Assessment: Motion & Velocity',
       'totalQuestions': 3,
-      'userMastery': 85,
+      'userMastery': 0,
       'questions': [
         {
           'id': 'q1',
@@ -313,7 +313,7 @@ class MentoraBackendClient {
     try {
       final headers = await _buildHeaders();
       final response = await _client
-          .get(Uri.parse('$baseUrl/api/user/profile'), headers: headers)
+          .get(Uri.parse('$_activeBaseUrl/api/user/profile'), headers: headers)
           .timeout(const Duration(seconds: 4));
 
       if (response.statusCode == 200) {
@@ -322,10 +322,10 @@ class MentoraBackendClient {
     } catch (_) {}
 
     return {
-      'name': 'Rahul Sharma',
+      'name': 'Student',
       'grade': 9,
-      'streakDays': 5,
-      'dailyMinsLearned': 24,
+      'streakDays': 0,
+      'dailyMinsLearned': 0,
       'dailyGoalMins': 30,
       'activeSubject': 'Physics',
       'activeChapter': 'Motion',
@@ -377,7 +377,7 @@ class MentoraBackendClient {
   Future<Map<String, dynamic>> loginUser(String email, String password) async {
     final headers = {'Content-Type': 'application/json'};
     final response = await _client.post(
-      Uri.parse('$baseUrl/api/auth/login'),
+      Uri.parse('$_activeBaseUrl/api/auth/login'),
       headers: headers,
       body: jsonEncode({'email': email, 'password': password}),
     );
