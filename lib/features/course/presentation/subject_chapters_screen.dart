@@ -119,7 +119,15 @@ class _SubjectChaptersScreenState extends State<SubjectChaptersScreen> {
                     child: InkWell(
                       borderRadius: BorderRadius.circular(12),
                       onTap: () {
-                        Navigator.pushNamed(context, '/chapter_workspace', arguments: ch['title']);
+                        Navigator.pushNamed(
+                          context,
+                          '/chapter_workspace',
+                          arguments: {
+                            'chapterTitle': ch['title'],
+                            'subjectName': _activeSubject,
+                            'grade': _activeGrade,
+                          },
+                        );
                       },
                       child: Padding(
                         padding: const EdgeInsets.all(16.0),

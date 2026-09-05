@@ -3,10 +3,14 @@ import '../../network/services/mentora_backend_client.dart';
 
 class ChapterLearningWorkspaceScreen extends StatefulWidget {
   final String chapterTitle;
+  final String subjectName;
+  final int grade;
 
   const ChapterLearningWorkspaceScreen({
     Key? key,
     this.chapterTitle = 'Motion',
+    this.subjectName = 'Science',
+    this.grade = 9,
   }) : super(key: key);
 
   @override
@@ -18,26 +22,14 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
   final TextEditingController _chatController = TextEditingController();
   final MentoraBackendClient _client = MentoraBackendClient();
 
+  String _activeChapterTitle = 'Motion';
+  String _activeSubjectName = 'Science';
+  int _activeGrade = 9;
+  bool _argsResolved = false;
+
   // Tab 1 state
   bool _isSending = false;
-  final List<Map<String, dynamic>> _messages = [
-    {
-      'isUser': false,
-      'text': 'Hello Rahul! 👋 Welcome to Chapter 8: Motion.\n\nIn NCERT Class 9 Physics, motion is defined as a change in position of an object with time. Key equations of motion:\n\n• First Equation: v = u + at\n• Second Equation: s = ut + ½at²\n• Third Equation: v² = u² + 2as',
-      'formulas': ['v = u + at', 's = ut + ½at²', 'v² = u² + 2as'],
-      'hasAudio': true,
-    },
-    {
-      'isUser': true,
-      'text': 'What is the difference between speed and velocity?',
-    },
-    {
-      'isUser': false,
-      'text': 'Great question! Here is the simple distinction:\n\n• Speed is a scalar quantity (has magnitude only, e.g., 50 km/h).\n• Velocity is a vector quantity (has both magnitude and direction, e.g., 50 km/h North).\n\nFormula: Velocity = Displacement / Time',
-      'formulas': ['Velocity = Displacement / Time'],
-      'hasAudio': true,
-    },
-  ];
+  final List<Map<String, dynamic>> _messages = [];
 
   // Tab 2 Simulation state
   Map<String, dynamic>? _simData;
@@ -60,13 +52,44 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
-    _loadTabResources();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_argsResolved) {
+      _argsResolved = true;
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is Map<String, dynamic>) {
+        _activeChapterTitle = args['chapterTitle']?.toString() ?? widget.chapterTitle;
+        _activeSubjectName = args['subjectName']?.toString() ?? args['subject']?.toString() ?? widget.subjectName;
+        _activeGrade = (args['grade'] as num?)?.toInt() ?? widget.grade;
+      } else if (args is String) {
+        _activeChapterTitle = args;
+        _activeSubjectName = widget.subjectName;
+        _activeGrade = widget.grade;
+      } else {
+        _activeChapterTitle = widget.chapterTitle;
+        _activeSubjectName = widget.subjectName;
+        _activeGrade = widget.grade;
+      }
+
+      _messages.clear();
+      _messages.add({
+        'isUser': false,
+        'text': 'Welcome to Grade $_activeGrade $_activeSubjectName: *$_activeChapterTitle*! 👋\n\nI am your Mentora Socratic AI Tutor. Ask me any question or concept related to *$_activeChapterTitle* to begin learning.',
+        'formulas': <String>[],
+        'hasAudio': false,
+      });
+
+      _loadTabResources();
+    }
   }
 
   Future<void> _loadTabResources() async {
-    final sim = await _client.getSimulationForChapter(widget.chapterTitle);
-    final video = await _client.getVideoLecturesForChapter(widget.chapterTitle);
-    final quiz = await _client.getQuizForChapter(widget.chapterTitle);
+    final sim = await _client.getSimulationForChapter(_activeChapterTitle);
+    final video = await _client.getVideoLecturesForChapter(_activeChapterTitle);
+    final quiz = await _client.getQuizForChapter(_activeChapterTitle);
 
     if (mounted) {
       setState(() {
@@ -89,7 +112,8 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
 
     final reply = await _client.queryAiTutor(
       question: text,
-      topic: widget.chapterTitle,
+      topic: _activeChapterTitle,
+      grade: _activeGrade,
     );
 
     if (mounted) {
@@ -98,7 +122,7 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
         _messages.add({
           'isUser': false,
           'text': reply['answer'] ?? reply['response'] ?? 'I have analyzed your query from the NCERT curriculum.',
-          'formulas': List<String>.from(reply['formulas'] ?? ['v = u + at']),
+          'formulas': List<String>.from(reply['formulas'] ?? <String>[]),
           'hasAudio': true,
         });
       });
@@ -119,10 +143,10 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
             children: [
               const Text('💡 How would you like me to explain this?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               const SizedBox(height: 16),
-              _buildExplainOption(Icons.directions_car, 'Use a Real-World Analogy', 'Car on a highway example'),
+              _buildExplainOption(Icons.directions_car, 'Use a Real-World Analogy', 'Practical daily life example'),
               _buildExplainOption(Icons.child_care, 'Simplify the Language', 'Easier words for younger readers'),
-              _buildExplainOption(Icons.format_list_numbered, 'Show Step-by-Step Math', 'Detailed formula breakdown'),
-              _buildExplainOption(Icons.science, 'Suggest a Visual Simulation', 'Opens interactive pendulum lab'),
+              _buildExplainOption(Icons.format_list_numbered, 'Show Step-by-Step Math', 'Detailed breakdown'),
+              _buildExplainOption(Icons.science, 'Suggest a Visual Simulation', 'Opens interactive lab'),
             ],
           ),
         );
@@ -137,7 +161,7 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
       subtitle: Text(subtitle, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
       onTap: () {
         Navigator.pop(context);
-        _sendMessageWithTopic('Explain "$title" for ${widget.chapterTitle}');
+        _sendMessageWithTopic('Explain "$title" for $_activeChapterTitle');
       },
     );
   }
@@ -150,7 +174,8 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
 
     final reply = await _client.queryAiTutor(
       question: text,
-      topic: widget.chapterTitle,
+      topic: _activeChapterTitle,
+      grade: _activeGrade,
     );
 
     if (mounted) {
@@ -159,7 +184,7 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
         _messages.add({
           'isUser': false,
           'text': reply['answer'] ?? reply['response'] ?? 'Here is a simplified explanation with step-by-step breakdown.',
-          'formulas': List<String>.from(reply['formulas'] ?? ['v = u + at']),
+          'formulas': List<String>.from(reply['formulas'] ?? <String>[]),
           'hasAudio': true,
         });
       });
@@ -181,8 +206,8 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Grade 9 Physics > ${widget.chapterTitle}', style: const TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.bold, fontSize: 16)),
-            const Text('NCERT Class 9 Chapter 8', style: TextStyle(color: Color(0xFF64748B), fontSize: 11)),
+            Text('Grade $_activeGrade $_activeSubjectName > $_activeChapterTitle', style: const TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.bold, fontSize: 16)),
+            Text('NCERT Class $_activeGrade $_activeSubjectName', style: const TextStyle(color: Color(0xFF64748B), fontSize: 11)),
           ],
         ),
         iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
@@ -297,7 +322,7 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
                         controller: _chatController,
                         onSubmitted: (_) => _sendMessage(),
                         decoration: InputDecoration(
-                          hintText: 'Ask anything about ${widget.chapterTitle}...',
+                          hintText: 'Ask anything about $_activeChapterTitle...',
                           filled: true,
                           fillColor: slateBg,
                           contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -355,21 +380,26 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
             child: Stack(
               children: [
                 Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(_simIsPlaying ? Icons.science : Icons.pause_circle_filled, size: 48, color: const Color(0xFF8B5CF6)),
-                      const SizedBox(height: 8),
-                      Text(
-                        _simData?['title'] ?? 'Interactive Pendulum Lab',
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Period T = ${(2 * 3.14159 * ( _simLength / _simGravity ).clamp(0.1, 10.0)).toStringAsFixed(2)}s',
-                        style: const TextStyle(color: Color(0xFF38BDF8), fontWeight: FontWeight.bold, fontSize: 14),
-                      ),
-                    ],
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(_simIsPlaying ? Icons.science : Icons.pause_circle_filled, size: 48, color: const Color(0xFF8B5CF6)),
+                        const SizedBox(height: 8),
+                        Text(
+                          _simData?['title'] ?? 'Interactive $_activeChapterTitle Lab',
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _simData?['description'] ?? 'Adjust key parameters to observe principles of $_activeChapterTitle',
+                          style: const TextStyle(color: Color(0xFF38BDF8), fontWeight: FontWeight.w500, fontSize: 12),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 Positioned(
@@ -398,13 +428,13 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
                   const Text('⚙️ Simulation Controls', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                   const SizedBox(height: 16),
 
-                  // Slider 1: Length
+                  // Slider 1: Intensity / Parameter 1
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Length (L): ${_simLength.toStringAsFixed(1)} m', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                      Text('Intensity (I): ${_simLength.toStringAsFixed(1)}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                       Chip(
-                        label: Text('${_simLength.toStringAsFixed(1)} m', style: const TextStyle(color: primaryIndigo, fontWeight: FontWeight.bold, fontSize: 11)),
+                        label: Text('${_simLength.toStringAsFixed(1)} units', style: const TextStyle(color: primaryIndigo, fontWeight: FontWeight.bold, fontSize: 11)),
                         backgroundColor: const Color(0xFFEEF2FF),
                       ),
                     ],
@@ -419,22 +449,22 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
                   ),
                   const SizedBox(height: 10),
 
-                  // Slider 2: Gravity
+                  // Slider 2: Factor / Parameter 2
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Gravity (g): ${_simGravity.toStringAsFixed(1)} m/s²', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                      Text('Environmental Factor (k): ${_simGravity.toStringAsFixed(1)}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                       Chip(
-                        label: Text('${_simGravity.toStringAsFixed(1)} m/s²', style: const TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 11)),
+                        label: Text('${_simGravity.toStringAsFixed(1)} const', style: const TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 11)),
                         backgroundColor: const Color(0xFFECFDF5),
                       ),
                     ],
                   ),
                   Slider(
-                    value: _simGravity,
-                    min: 1.6,
-                    max: 24.8,
-                    divisions: 232,
+                    value: _simGravity.clamp(1.0, 10.0),
+                    min: 1.0,
+                    max: 10.0,
+                    divisions: 90,
                     activeColor: const Color(0xFF10B981),
                     onChanged: (val) => setState(() => _simGravity = val),
                   ),
@@ -463,34 +493,34 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
             child: Container(
               height: 200,
               width: double.infinity,
-              color: const Color(0xFF0F172A),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
               child: Stack(
                 children: [
-                  Positioned.fill(
-                    child: Image.network(
-                      'https://img.youtube.com/vi/tBmavvMwu68/hqdefault.jpg',
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          decoration: const BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                          ),
-                          child: const Center(
-                            child: Icon(Icons.video_library_outlined, size: 48, color: Color(0xFF8B5CF6)),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
                   Center(
-                    child: CircleAvatar(
-                      radius: 28,
-                      backgroundColor: primaryIndigo,
-                      child: const Icon(Icons.play_arrow, color: Colors.white, size: 36),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const CircleAvatar(
+                          radius: 28,
+                          backgroundColor: primaryIndigo,
+                          child: Icon(Icons.play_arrow, color: Colors.white, size: 36),
+                        ),
+                        const SizedBox(height: 10),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                          child: Text(
+                            'NCERT Class $_activeGrade $_activeSubjectName: $_activeChapterTitle',
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -503,10 +533,10 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'NCERT Class 9 Physics: Motion & Velocity',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A)),
+                  'NCERT Class $_activeGrade $_activeSubjectName: $_activeChapterTitle',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A)),
                 ),
               ),
               FilterChip(
@@ -560,7 +590,7 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
             children: [
               Text('Question ${_currentQuestionIndex + 1} of ${questions.length}', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF64748B), fontSize: 13)),
               Chip(
-                label: Text('${_quizData?['userMastery'] ?? 85}% Mastered', style: const TextStyle(color: Color(0xFF059669), fontWeight: FontWeight.bold, fontSize: 11)),
+                label: Text('${_quizData?['userMastery'] ?? 0}% Mastered', style: const TextStyle(color: Color(0xFF059669), fontWeight: FontWeight.bold, fontSize: 11)),
                 backgroundColor: const Color(0xFFECFDF5),
               ),
             ],
