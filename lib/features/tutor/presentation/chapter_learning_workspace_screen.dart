@@ -458,23 +458,42 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // EMBEDDED YOUTUBE VIDEO CARD
-          Container(
-            height: 200,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: Colors.black,
-              borderRadius: BorderRadius.circular(16),
-              image: const DecorationImage(
-                image: NetworkImage('https://img.youtube.com/vi/tBmavvMwu68/hqdefault.jpg'),
-                fit: BoxFit.cover,
-                opacity: 0.8,
-              ),
-            ),
-            child: Center(
-              child: CircleAvatar(
-                radius: 28,
-                backgroundColor: primaryIndigo,
-                child: const Icon(Icons.play_arrow, color: Colors.white, size: 36),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              height: 200,
+              width: double.infinity,
+              color: const Color(0xFF0F172A),
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: Image.network(
+                      'https://img.youtube.com/vi/tBmavvMwu68/hqdefault.jpg',
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                          ),
+                          child: const Center(
+                            child: Icon(Icons.video_library_outlined, size: 48, color: Color(0xFF8B5CF6)),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  Center(
+                    child: CircleAvatar(
+                      radius: 28,
+                      backgroundColor: primaryIndigo,
+                      child: const Icon(Icons.play_arrow, color: Colors.white, size: 36),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

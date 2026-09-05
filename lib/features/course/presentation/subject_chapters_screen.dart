@@ -152,19 +152,26 @@ class _SubjectChaptersScreenState extends State<SubjectChaptersScreen> {
                                   children: [
                                     const Icon(Icons.schedule, size: 14, color: Color(0xFF64748B)),
                                     const SizedBox(width: 4),
-                                    Text(ch['duration'] as String, style: const TextStyle(color: Color(0xFF64748B), fontSize: 12)),
+                                    Text((ch['duration'] ?? '20 mins').toString(), style: const TextStyle(color: Color(0xFF64748B), fontSize: 12)),
                                   ],
                                 ),
-                                Row(
-                                  children: [
-                                    _buildActionPill('Chat', Icons.chat_bubble_outline, primaryIndigo),
-                                    const SizedBox(width: 6),
-                                    _buildActionPill('Sims', Icons.science_outlined, const Color(0xFF10B981)),
-                                    const SizedBox(width: 6),
-                                    _buildActionPill('Watch', Icons.play_arrow_outlined, const Color(0xFFF59E0B)),
-                                    const SizedBox(width: 6),
-                                    _buildActionPill('Quiz', Icons.quiz_outlined, const Color(0xFF8B5CF6)),
-                                  ],
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    reverse: true,
+                                    child: Row(
+                                      children: [
+                                        _buildActionPill('Chat', Icons.chat_bubble_outline, primaryIndigo),
+                                        const SizedBox(width: 4),
+                                        _buildActionPill('Sims', Icons.science_outlined, const Color(0xFF10B981)),
+                                        const SizedBox(width: 4),
+                                        _buildActionPill('Watch', Icons.play_arrow_outlined, const Color(0xFFF59E0B)),
+                                        const SizedBox(width: 4),
+                                        _buildActionPill('Quiz', Icons.quiz_outlined, const Color(0xFF8B5CF6)),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),

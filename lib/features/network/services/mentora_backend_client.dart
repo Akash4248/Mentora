@@ -4,15 +4,39 @@ import 'package:http/http.dart' as http;
 import '../../settings/services/user_api_key_service.dart';
 
 class MentoraBackendClient {
-  static const String defaultBaseUrl = 'http://127.0.0.1:8000';
-  final String baseUrl;
+  static const List<String> candidateGatewayUrls = [
+    'http://127.0.0.1:8000',
+    'http://10.0.2.2:8000',
+    'http://pihub.local:8000',
+    'http://pihub.local',
+  ];
+
+  static String _activeBaseUrl = 'http://127.0.0.1:8000';
+  String get baseUrl => _activeBaseUrl;
   final http.Client _client;
 
   MentoraBackendClient({
     String? baseUrl,
     http.Client? client,
-  })  : baseUrl = baseUrl ?? defaultBaseUrl,
-        _client = client ?? http.Client();
+  }) : _client = client ?? http.Client() {
+    if (baseUrl != null) {
+      _activeBaseUrl = baseUrl;
+    }
+  }
+
+  // Subnet Auto-Discovery: Probe candidate local IPs to auto-connect to backend
+  Future<String> autoDiscoverGatewayUrl() async {
+    for (final candidate in candidateGatewayUrls) {
+      try {
+        final res = await _client.get(Uri.parse('$candidate/health')).timeout(const Duration(seconds: 2));
+        if (res.statusCode == 200) {
+          _activeBaseUrl = candidate;
+          return candidate;
+        }
+      } catch (_) {}
+    }
+    return _activeBaseUrl;
+  }
 
   Future<Map<String, String>> _buildHeaders() async {
     final keyService = await UserApiKeyService.getInstance();
@@ -36,9 +60,10 @@ class MentoraBackendClient {
         final List data = jsonDecode(response.body);
         return List<Map<String, dynamic>>.from(data);
       }
-    } catch (_) {}
+    } catch (_) {
+      await autoDiscoverGatewayUrl();
+    }
 
-    // Fallback real-structured NCERT curriculum data if gateway endpoint is starting up
     return [
       {'name': 'Physics', 'code': 'PHY09', 'progress': 0.58, 'chaptersCompleted': 7, 'totalChapters': 12},
       {'name': 'Chemistry', 'code': 'CHE09', 'progress': 0.45, 'chaptersCompleted': 5, 'totalChapters': 11},
@@ -59,7 +84,9 @@ class MentoraBackendClient {
         final List data = jsonDecode(response.body);
         return List<Map<String, dynamic>>.from(data);
       }
-    } catch (_) {}
+    } catch (_) {
+      await autoDiscoverGatewayUrl();
+    }
 
     return [
       {'number': 1, 'title': 'Motion', 'status': 'completed', 'duration': '25 mins', 'mastery': 92},
@@ -246,16 +273,18 @@ class MentoraBackendClient {
 
   // 9. Check Gateway Connection Health
   Future<Map<String, dynamic>> checkBackendHealth() async {
+    final activeUrl = await autoDiscoverGatewayUrl();
     final stopwatch = Stopwatch()..start();
     try {
       final response = await _client
-          .get(Uri.parse('$baseUrl/health'))
+          .get(Uri.parse('$activeUrl/health'))
           .timeout(const Duration(seconds: 4));
       stopwatch.stop();
 
       if (response.statusCode == 200) {
         return {
           'online': true,
+          'activeUrl': activeUrl,
           'latencyMs': stopwatch.elapsedMilliseconds,
           'status': 'Connected',
           'details': jsonDecode(response.body),
@@ -265,6 +294,7 @@ class MentoraBackendClient {
       stopwatch.stop();
       return {
         'online': false,
+        'activeUrl': activeUrl,
         'latencyMs': stopwatch.elapsedMilliseconds,
         'status': 'Error: $e',
       };
@@ -272,6 +302,7 @@ class MentoraBackendClient {
 
     return {
       'online': false,
+      'activeUrl': activeUrl,
       'latencyMs': stopwatch.elapsedMilliseconds,
       'status': 'Gateway offline',
     };
