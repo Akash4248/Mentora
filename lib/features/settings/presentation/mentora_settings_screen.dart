@@ -161,22 +161,25 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  _isHybridMode ? 'Hybrid Cloud Mode' : '100% Offline GGUF Mode',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  _isHybridMode
-                                      ? 'Routes to Cloud API when online, GGUF when offline'
-                                      : 'Runs fully on-device with zero network requests',
-                                  style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
-                                ),
-                              ],
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _isHybridMode ? 'Hybrid Cloud Mode' : '100% Offline GGUF Mode',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _isHybridMode
+                                        ? 'Routes to Cloud API when online, GGUF when offline'
+                                        : 'Runs fully on-device with zero network requests',
+                                    style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                                  ),
+                                ],
+                              ),
                             ),
+                            const SizedBox(width: 8),
                             Switch(
                               value: _isHybridMode,
                               activeColor: primaryIndigo,
@@ -402,23 +405,28 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(
-                                      _isDiscovering
-                                          ? 'Probing Subnet (${_discoveryProgress?.step ?? 0}/${_discoveryProgress?.totalSteps ?? 1})'
-                                          : (_connectedUrl != null ? '✅ Connected Device Found' : '❌ Device Not Found'),
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 13,
-                                        color: _isDiscovering
-                                            ? primaryIndigo
-                                            : (_connectedUrl != null ? const Color(0xFF10B981) : const Color(0xFFEF4444)),
+                                    Expanded(
+                                      child: Text(
+                                        _isDiscovering
+                                            ? 'Probing Subnet (${_discoveryProgress?.step ?? 0}/${_discoveryProgress?.totalSteps ?? 1})'
+                                            : (_connectedUrl != null ? '✅ Connected Device Found' : '❌ Device Not Found'),
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                          color: _isDiscovering
+                                              ? primaryIndigo
+                                              : (_connectedUrl != null ? const Color(0xFF10B981) : const Color(0xFFEF4444)),
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
-                                    if (_latencyMs != null)
+                                    if (_latencyMs != null) ...[
+                                      const SizedBox(width: 8),
                                       Text(
                                         '$_latencyMs ms',
                                         style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
                                       ),
+                                    ],
                                   ],
                                 ),
                                 const SizedBox(height: 8),
