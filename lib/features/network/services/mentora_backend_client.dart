@@ -430,6 +430,21 @@ class OfflineSocraticEngine {
   }) {
     final qClean = question.trim();
     final tClean = topic.isEmpty ? "General Science & Mathematics" : topic.trim();
+
+    final standaloneGreeting = RegExp(
+      r'^(hi|hello|hey|hii+|good\s*(morning|afternoon|evening)|how are you)[\s!.?]*$',
+      caseSensitive: false,
+    );
+    if (standaloneGreeting.hasMatch(qClean)) {
+      return {
+        'answer': 'Hello! 👋 I am your NCERT Class $grade Socratic AI Tutor for **$tClean**.\n\nHow can I help you master **$tClean** today? Feel free to ask any question or concept from this chapter!',
+        'formulas': <String>[],
+        'hasAudio': true,
+        'source': 'offline_socratic_greeting',
+        'explainOptions': ['Explain Core Concepts', 'Show Example Problems', 'Real-World Applications'],
+      };
+    }
+
     final words = qClean.split(' ').where((w) => w.length > 2).toList();
     final keyConcept = words.isNotEmpty ? words.first[0].toUpperCase() + words.first.substring(1) : "Concept";
     final queryContext = words.isNotEmpty ? words.take(5).join(' ') : qClean;

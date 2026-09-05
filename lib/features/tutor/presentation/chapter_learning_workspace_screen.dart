@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../network/services/mentora_backend_client.dart';
+import '../../chat/presentation/formatted_text_widget.dart';
 
 class ChapterLearningWorkspaceScreen extends StatefulWidget {
   final String chapterTitle;
@@ -252,10 +253,15 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              msg['text'] as String,
-                              style: TextStyle(color: isUser ? Colors.white : const Color(0xFF0F172A), fontSize: 14, height: 1.4),
-                            ),
+                            isUser
+                                ? Text(
+                                    msg['text'] as String,
+                                    style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.4),
+                                  )
+                                : FormattedTextWidget(
+                                    text: msg['text'] as String,
+                                    style: const TextStyle(color: Color(0xFF0F172A), fontSize: 14, height: 1.4),
+                                  ),
                             if (!isUser && msg['formulas'] != null) ...[
                               const SizedBox(height: 10),
                               Wrap(

@@ -18,59 +18,84 @@ class FormattedTextWidget extends StatelessWidget {
     final List<Widget> children = [];
 
     List<String> currentList = [];
+    bool isNumberedList = false;
 
     void flushList() {
       if (currentList.isNotEmpty) {
-        children.add(_buildBulletList(currentList));
+        children.add(_buildList(currentList, isNumbered: isNumberedList));
         currentList = [];
+        isNumberedList = false;
       }
     }
+
+    final numberedRegex = RegExp(r'^\d+\.\s+');
 
     for (var line in lines) {
       final trimmed = line.trim();
       if (trimmed.isEmpty) {
         flushList();
-        children.add(const SizedBox(height: 8));
+        children.add(const SizedBox(height: 6));
         continue;
       }
 
       // Check for bullet list
       if (trimmed.startsWith('* ') || trimmed.startsWith('- ') || trimmed.startsWith('• ')) {
+        if (isNumberedList) flushList();
+        isNumberedList = false;
         final content = trimmed.substring(2);
         currentList.add(content);
+      } else if (numberedRegex.hasMatch(trimmed)) {
+        if (!isNumberedList) flushList();
+        isNumberedList = true;
+        currentList.add(trimmed);
       } else {
         flushList();
-        
-        // Check for headers
-        if (trimmed.startsWith('### ')) {
+
+        // Check for headers (####, ###, ##, #)
+        if (trimmed.startsWith('#### ')) {
           children.add(Padding(
             padding: const EdgeInsets.only(top: 8, bottom: 4),
-            child: Text(
-              trimmed.substring(4),
-              style: IDPTypography.titleSmall.copyWith(
+            child: _buildRichText(
+              trimmed.substring(5),
+              customStyle: (style ?? IDPTypography.bodyMd).copyWith(
                 fontWeight: FontWeight.bold,
+                fontSize: 15,
+                color: const Color(0xFF1E293B),
+              ),
+            ),
+          ));
+        } else if (trimmed.startsWith('### ')) {
+          children.add(Padding(
+            padding: const EdgeInsets.only(top: 10, bottom: 4),
+            child: _buildRichText(
+              trimmed.substring(4),
+              customStyle: (style ?? IDPTypography.titleSmall).copyWith(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
                 color: IDPColors.primary,
               ),
             ),
           ));
         } else if (trimmed.startsWith('## ')) {
           children.add(Padding(
-            padding: const EdgeInsets.only(top: 10, bottom: 6),
-            child: Text(
+            padding: const EdgeInsets.only(top: 12, bottom: 6),
+            child: _buildRichText(
               trimmed.substring(3),
-              style: IDPTypography.titleMd.copyWith(
+              customStyle: (style ?? IDPTypography.titleMd).copyWith(
                 fontWeight: FontWeight.bold,
+                fontSize: 18,
                 color: IDPColors.primary,
               ),
             ),
           ));
         } else if (trimmed.startsWith('# ')) {
           children.add(Padding(
-            padding: const EdgeInsets.only(top: 12, bottom: 8),
-            child: Text(
+            padding: const EdgeInsets.only(top: 14, bottom: 8),
+            child: _buildRichText(
               trimmed.substring(2),
-              style: IDPTypography.titleLarge.copyWith(
+              customStyle: (style ?? IDPTypography.titleLarge).copyWith(
                 fontWeight: FontWeight.bold,
+                fontSize: 20,
                 color: IDPColors.primary,
               ),
             ),
@@ -94,55 +119,114 @@ class FormattedTextWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildBulletList(List<String> items) {
+  Widget _buildList(List<String> items, {required bool isNumbered}) {
+    final numberedRegex = RegExp(r'^(\d+\.)\s+(.*)$');
+
     return Padding(
-      padding: const EdgeInsets.only(left: 8, top: 4, bottom: 4),
+      padding: const EdgeInsets.only(left: 4, top: 4, bottom: 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: items.map((item) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 3),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  margin: const EdgeInsets.only(top: 8, right: 8),
-                  width: 5,
-                  height: 5,
-                  decoration: const BoxDecoration(
-                    color: IDPColors.primary,
-                    shape: BoxShape.circle,
+          if (isNumbered) {
+            final match = numberedRegex.firstMatch(item);
+            final prefix = match != null ? match.group(1)! : '•';
+            final body = match != null ? match.group(2)! : item;
+
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '$prefix ',
+                    style: (style ?? IDPTypography.bodyMd).copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: IDPColors.primary,
+                    ),
                   ),
-                ),
-                Expanded(child: _buildRichText(item)),
-              ],
-            ),
-          );
+                  Expanded(child: _buildRichText(body)),
+                ],
+              ),
+            );
+          } else {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(top: 7, right: 8),
+                    width: 5,
+                    height: 5,
+                    decoration: const BoxDecoration(
+                      color: IDPColors.primary,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  Expanded(child: _buildRichText(item)),
+                ],
+              ),
+            );
+          }
         }).toList(),
       ),
     );
   }
 
-  Widget _buildRichText(String rawText) {
+  Widget _buildRichText(String rawText, {TextStyle? customStyle}) {
+    final baseStyle = customStyle ?? style ?? IDPTypography.bodyMd.copyWith(color: IDPColors.onSurface);
     final spans = <TextSpan>[];
-    final parts = rawText.split('**');
-    
-    final baseStyle = style ?? IDPTypography.bodyMd.copyWith(color: IDPColors.onSurface);
-    final boldStyle = baseStyle.copyWith(fontWeight: FontWeight.bold);
 
-    for (var i = 0; i < parts.length; i++) {
-      if (parts[i].isEmpty && i == 0) continue; // Skip empty first element if text starts with **
-      
-      // Odd indices are bold because they are between ** markers
-      final isBold = i % 2 != 0;
+    // Simple markdown inline parser for **bold** and *italic*
+    final regExp = RegExp(r'(\*\*.*?\*\*|\*.*?\*|`.*?`)');
+    int lastMatchEnd = 0;
+
+    for (final match in regExp.allMatches(rawText)) {
+      if (match.start > lastMatchEnd) {
+        spans.add(TextSpan(
+          text: rawText.substring(lastMatchEnd, match.start),
+          style: baseStyle,
+        ));
+      }
+
+      final matchText = match.group(0)!;
+      if (matchText.startsWith('**') && matchText.endsWith('**') && matchText.length >= 4) {
+        final content = matchText.substring(2, matchText.length - 2);
+        spans.add(TextSpan(
+          text: content,
+          style: baseStyle.copyWith(fontWeight: FontWeight.bold),
+        ));
+      } else if (matchText.startsWith('*') && matchText.endsWith('*') && matchText.length >= 2) {
+        final content = matchText.substring(1, matchText.length - 1);
+        spans.add(TextSpan(
+          text: content,
+          style: baseStyle.copyWith(fontStyle: FontStyle.italic),
+        ));
+      } else if (matchText.startsWith('`') && matchText.endsWith('`') && matchText.length >= 2) {
+        final content = matchText.substring(1, matchText.length - 1);
+        spans.add(TextSpan(
+          text: content,
+          style: baseStyle.copyWith(
+            fontFamily: 'monospace',
+            backgroundColor: const Color(0xFFF1F5F9),
+          ),
+        ));
+      } else {
+        spans.add(TextSpan(text: matchText, style: baseStyle));
+      }
+
+      lastMatchEnd = match.end;
+    }
+
+    if (lastMatchEnd < rawText.length) {
       spans.add(TextSpan(
-        text: parts[i],
-        style: isBold ? boldStyle : baseStyle,
+        text: rawText.substring(lastMatchEnd),
+        style: baseStyle,
       ));
     }
 
     return SelectableText.rich(
-      TextSpan(children: spans),
+      TextSpan(children: spans.isEmpty ? [TextSpan(text: rawText, style: baseStyle)] : spans),
     );
   }
 }
