@@ -15,6 +15,10 @@ import 'core/theme/idp_theme.dart';
 import 'features/experiment/runtime/behaviors/behavior_registry.dart';
 import 'features/experiment/runtime/effects/effect_registry.dart';
 import 'features/experiment/runtime/tools/measurement_registry.dart';
+import 'features/home/presentation/mentora_home_screen.dart';
+import 'features/course/presentation/subject_chapters_screen.dart';
+import 'features/tutor/presentation/chapter_learning_workspace_screen.dart';
+import 'features/settings/presentation/mentora_settings_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -78,11 +82,13 @@ class OfflineTutorApp extends StatelessWidget {
             GlobalWidgetsLocalizations.delegate,
           ],
           supportedLocales: AppLocalizations.supportedLocales,
-          home: AppShell(
-            courseRepository: courseRepository,
-            startupCoordinator: startupCoordinator,
-            languageProvider: languageProvider,
-          ),
+          home: const MentoraHomeScreen(),
+          routes: {
+            '/home': (context) => const MentoraHomeScreen(),
+            '/subject_chapters': (context) => const SubjectChaptersScreen(),
+            '/chapter_workspace': (context) => const ChapterLearningWorkspaceScreen(),
+            '/settings': (context) => const MentoraSettingsScreen(),
+          },
         );
       },
     );

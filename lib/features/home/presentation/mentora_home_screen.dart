@@ -1,0 +1,309 @@
+import 'package:flutter/material.dart';
+
+class MentoraHomeScreen extends StatefulWidget {
+  const MentoraHomeScreen({Key? key}) : super(key: key);
+
+  @override
+  State<MentoraHomeScreen> createState() => _MentoraHomeScreenState();
+}
+
+class _MentoraHomeScreenState extends State<MentoraHomeScreen> {
+  int _selectedGrade = 9;
+  int _selectedNavIndex = 0;
+
+  final List<Map<String, dynamic>> _subjects = [
+    {
+      'name': 'Physics',
+      'icon': Icons.science_outlined,
+      'color': const Color(0xFF4F46E5),
+      'progress': 0.58,
+      'chaptersCompleted': 7,
+      'totalChapters': 12,
+    },
+    {
+      'name': 'Chemistry',
+      'icon': Icons.biotech_outlined,
+      'color': const Color(0xFF10B981),
+      'progress': 0.45,
+      'chaptersCompleted': 5,
+      'totalChapters': 11,
+    },
+    {
+      'name': 'Biology',
+      'icon': Icons.nature_outlined,
+      'color': const Color(0xFF14B8A6),
+      'progress': 0.60,
+      'chaptersCompleted': 6,
+      'totalChapters': 10,
+    },
+    {
+      'name': 'Mathematics',
+      'icon': Icons.calculate_outlined,
+      'color': const Color(0xFFF59E0B),
+      'progress': 0.40,
+      'chaptersCompleted': 6,
+      'totalChapters': 15,
+    },
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    const primaryIndigo = Color(0xFF4F46E5);
+    const slateBg = Color(0xFFF8FAFC);
+    const cardBg = Color(0xFFFFFFFF);
+    const borderColor = Color(0xFFE2E8F0);
+
+    return Scaffold(
+      backgroundColor: slateBg,
+      appBar: AppBar(
+        backgroundColor: cardBg,
+        elevation: 0.5,
+        title: Row(
+          children: [
+            const CircleAvatar(
+              backgroundColor: Color(0xFFEEF2FF),
+              child: Icon(Icons.school, color: primaryIndigo, size: 20),
+            ),
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Text(
+                  'Hello Rahul! 👋',
+                  style: TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                Text(
+                  'What will you learn today?',
+                  style: TextStyle(color: Color(0xFF64748B), fontSize: 11),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          Container(
+            margin: const EdgeInsets.only(right: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEEF2FF),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFC7D2FE)),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<int>(
+                value: _selectedGrade,
+                icon: const Icon(Icons.arrow_drop_down, color: primaryIndigo),
+                style: const TextStyle(color: primaryIndigo, fontWeight: FontWeight.bold, fontSize: 13),
+                items: List.generate(8, (i) => i + 5).map((grade) {
+                  return DropdownMenuItem<int>(
+                    value: grade,
+                    child: Text('Grade $grade - NCERT'),
+                  );
+                }).toList(),
+                onChanged: (val) {
+                  if (val != null) {
+                    setState(() {
+                      _selectedGrade = val;
+                    });
+                  }
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // HERO MOTIVATIONAL CARD
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF4F46E5), Color(0xFF6366F1)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: primaryIndigo.withOpacity(0.25),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text(
+                            'Daily Goal: 30 Mins',
+                            style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Grade 9 NCERT Science & Math',
+                          style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Continue Chapter 8: Motion & Velocity',
+                          style: TextStyle(color: Color(0xFFE0E7FF), fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/chapter_workspace');
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: primaryIndigo,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    ),
+                    child: const Text('Resume', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // SUBJECTS GRID HEADER
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Grade $_selectedGrade NCERT Subjects',
+                  style: const TextStyle(color: Color(0xFF0F172A), fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                TextButton(
+                  onPressed: () {},
+                  child: const Text('View All', style: TextStyle(color: primaryIndigo, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // SUBJECTS GRID
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 1.1,
+              ),
+              itemCount: _subjects.length,
+              itemBuilder: (context, index) {
+                final sub = _subjects[index];
+                return InkWell(
+                  onTap: () {
+                    Navigator.pushNamed(context, '/subject_chapters', arguments: sub['name']);
+                  },
+                  borderRadius: BorderRadius.circular(14),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: cardBg,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: borderColor),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.02),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: (sub['color'] as Color).withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(sub['icon'] as IconData, color: sub['color'] as Color, size: 22),
+                            ),
+                            Text(
+                              '${(sub['progress'] * 100).toInt()}%',
+                              style: TextStyle(color: sub['color'] as Color, fontWeight: FontWeight.bold, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              sub['name'] as String,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF0F172A)),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${sub['chaptersCompleted']}/${sub['totalChapters']} Chapters',
+                              style: const TextStyle(color: Color(0xFF64748B), fontSize: 11),
+                            ),
+                            const SizedBox(height: 6),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: LinearProgressIndicator(
+                                value: sub['progress'] as double,
+                                backgroundColor: const Color(0xFFF1F5F9),
+                                valueColor: AlwaysStoppedAnimation<Color>(sub['color'] as Color),
+                                minHeight: 5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedNavIndex,
+        selectedItemColor: primaryIndigo,
+        unselectedItemColor: const Color(0xFF94A3B8),
+        type: BottomNavigationBarType.fixed,
+        onTap: (index) {
+          setState(() {
+            _selectedNavIndex = index;
+          });
+          if (index == 3) {
+            Navigator.pushNamed(context, '/settings');
+          }
+        },
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.assignment_outlined), label: 'Practice'),
+          BottomNavigationBarItem(icon: Icon(Icons.leaderboard_outlined), label: 'Mastery'),
+          BottomNavigationBarItem(icon: Icon(Icons.settings_outlined), label: 'Settings'),
+        ],
+      ),
+    );
+  }
+}
