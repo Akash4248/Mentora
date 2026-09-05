@@ -3,13 +3,46 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import '../../settings/services/user_api_key_service.dart';
 
+class DiscoveryProgress {
+  final String currentCandidate;
+  final int step;
+  final int totalSteps;
+  final double progress;
+  final bool isFinished;
+  final bool isSuccess;
+  final String? connectedUrl;
+  final String? connectedDeviceName;
+
+  DiscoveryProgress({
+    required this.currentCandidate,
+    required this.step,
+    required this.totalSteps,
+    required this.progress,
+    this.isFinished = false,
+    this.isSuccess = false,
+    this.connectedUrl,
+    this.connectedDeviceName,
+  });
+}
+
 class MentoraBackendClient {
-  static const List<String> candidateGatewayUrls = [
-    'http://127.0.0.1:8000',
-    'http://10.0.2.2:8000',
-    'http://pihub.local:8000',
-    'http://pihub.local',
-  ];
+  static List<String> getCandidateGatewayUrls() {
+    final list = <String>[];
+    try {
+      final hostname = Platform.localHostname;
+      if (hostname.isNotEmpty) {
+        list.add('http://$hostname.local:8000');
+        list.add('http://$hostname:8000');
+      }
+    } catch (_) {}
+    list.addAll([
+      'http://127.0.0.1:8000',
+      'http://10.0.2.2:8000',
+      'http://pihub.local:8000',
+      'http://pihub.local',
+    ]);
+    return list.toSet().toList();
+  }
 
   static String _activeBaseUrl = 'http://127.0.0.1:8000';
   String get baseUrl => _activeBaseUrl;
@@ -24,8 +57,10 @@ class MentoraBackendClient {
     }
   }
 
-  // Subnet Auto-Discovery: Probe candidate local IPs only when PiHub mode is ON
-  Future<String> autoDiscoverGatewayUrl() async {
+  // Subnet Auto-Discovery: Probe candidate local IPs & Laptop hostname only when PiHub mode is ON
+  Future<String> autoDiscoverGatewayUrl({
+    void Function(DiscoveryProgress progress)? onProgress,
+  }) async {
     final keyService = await UserApiKeyService.getInstance();
 
     // If PiHub toggle is OFF, connect directly to cloud/internet URL without local subnet probing
@@ -33,19 +68,73 @@ class MentoraBackendClient {
       _activeBaseUrl = keyService.customServerUrl.isNotEmpty
           ? keyService.customServerUrl
           : 'http://127.0.0.1:8000';
+      onProgress?.call(DiscoveryProgress(
+        currentCandidate: _activeBaseUrl,
+        step: 1,
+        totalSteps: 1,
+        progress: 1.0,
+        isFinished: true,
+        isSuccess: true,
+        connectedUrl: _activeBaseUrl,
+        connectedDeviceName: 'Cloud / Internet Gateway ($_activeBaseUrl)',
+      ));
       return _activeBaseUrl;
     }
 
-    // If PiHub toggle is ON, probe candidate local LAN/subnet endpoints
-    for (final candidate in candidateGatewayUrls) {
+    final candidates = getCandidateGatewayUrls();
+    for (int i = 0; i < candidates.length; i++) {
+      final candidate = candidates[i];
+      final double progressVal = (i + 1) / candidates.length;
+      onProgress?.call(DiscoveryProgress(
+        currentCandidate: candidate,
+        step: i + 1,
+        totalSteps: candidates.length,
+        progress: progressVal,
+        isFinished: false,
+        isSuccess: false,
+      ));
+
       try {
-        final res = await _client.get(Uri.parse('$candidate/health')).timeout(const Duration(seconds: 2));
+        final res = await _client
+            .get(Uri.parse('$candidate/health'))
+            .timeout(const Duration(seconds: 2));
         if (res.statusCode == 200) {
           _activeBaseUrl = candidate;
+          String deviceName = 'Local Subnet Gateway ($candidate)';
+          try {
+            final hName = Platform.localHostname;
+            if (hName.isNotEmpty && candidate.contains(hName)) {
+              deviceName = 'Laptop Gateway ($hName)';
+            } else if (candidate.contains('127.0.0.1') || candidate.contains('localhost')) {
+              deviceName = 'Laptop Localhost (127.0.0.1)';
+            } else if (candidate.contains('pihub')) {
+              deviceName = 'Raspberry Pi Gateway (PiHub)';
+            }
+          } catch (_) {}
+
+          onProgress?.call(DiscoveryProgress(
+            currentCandidate: candidate,
+            step: i + 1,
+            totalSteps: candidates.length,
+            progress: 1.0,
+            isFinished: true,
+            isSuccess: true,
+            connectedUrl: candidate,
+            connectedDeviceName: deviceName,
+          ));
           return candidate;
         }
       } catch (_) {}
     }
+
+    onProgress?.call(DiscoveryProgress(
+      currentCandidate: _activeBaseUrl,
+      step: candidates.length,
+      totalSteps: candidates.length,
+      progress: 1.0,
+      isFinished: true,
+      isSuccess: false,
+    ));
     return _activeBaseUrl;
   }
 
@@ -283,8 +372,10 @@ class MentoraBackendClient {
   }
 
   // 9. Check Gateway Connection Health
-  Future<Map<String, dynamic>> checkBackendHealth() async {
-    final activeUrl = await autoDiscoverGatewayUrl();
+  Future<Map<String, dynamic>> checkBackendHealth({
+    void Function(DiscoveryProgress progress)? onProgress,
+  }) async {
+    final activeUrl = await autoDiscoverGatewayUrl(onProgress: onProgress);
     final stopwatch = Stopwatch()..start();
     try {
       final response = await _client

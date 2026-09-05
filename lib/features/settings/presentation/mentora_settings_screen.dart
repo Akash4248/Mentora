@@ -21,6 +21,12 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
   bool _obscureKey = true;
   String _ggufModel = 'Gemma 3n 2B (Q4_K_M)';
 
+  bool _isDiscovering = false;
+  DiscoveryProgress? _discoveryProgress;
+  String? _connectedDeviceName;
+  String? _connectedUrl;
+  int? _latencyMs;
+
   @override
   void initState() {
     super.initState();
@@ -41,6 +47,47 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
       _ggufModel = service.ggufModelName;
       _isLoading = false;
     });
+  }
+
+  Future<void> _runBackendDiscovery() async {
+    setState(() {
+      _isDiscovering = true;
+      _discoveryProgress = null;
+      _connectedDeviceName = null;
+      _connectedUrl = null;
+      _latencyMs = null;
+    });
+
+    final client = MentoraBackendClient();
+    final res = await client.checkBackendHealth(
+      onProgress: (progress) {
+        if (mounted) {
+          setState(() {
+            _discoveryProgress = progress;
+            if (progress.isSuccess) {
+              _connectedUrl = progress.connectedUrl;
+              _connectedDeviceName = progress.connectedDeviceName;
+            }
+          });
+        }
+      },
+    );
+
+    if (mounted) {
+      setState(() {
+        _isDiscovering = false;
+        _latencyMs = res['online'] ? res['latencyMs'] : null;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(res['online']
+              ? '✅ Connected: ${res['activeUrl']} (${res['latencyMs']} ms)'
+              : '❌ Backend Discovery Failed: ${res['status']}'),
+          backgroundColor: res['online'] ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+        ),
+      );
+    }
   }
 
   Future<void> _saveApiKey() async {
@@ -284,13 +331,13 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    _isPiHubMode ? 'PiHub Local Discovery (LAN)' : 'Cloud / Custom Internet Backend',
+                                    _isPiHubMode ? 'PiHub Local Discovery (LAN & Hostname)' : 'Cloud / Custom Internet Backend',
                                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
                                     _isPiHubMode
-                                        ? 'Auto-discovers Raspberry Pi gateway on local subnet (127.0.0.1, 10.0.2.2, pihub.local)'
+                                        ? 'Auto-discovers Raspberry Pi / Laptop hostname gateway on local LAN'
                                         : 'Connects directly over internet to configured URL',
                                     style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
                                   ),
@@ -305,6 +352,7 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
                                   _isPiHubMode = val;
                                 });
                                 await _keyService?.setPiHubModeEnabled(val);
+                                _runBackendDiscovery();
                               },
                             ),
                           ],
@@ -338,35 +386,87 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
                           ),
                           const SizedBox(height: 16),
                         ],
+
+                        // DISCOVERY PROGRESS BAR & STATUS CARD
+                        if (_isDiscovering || _discoveryProgress != null) ...[
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: slateBg,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: borderColor),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      _isDiscovering
+                                          ? 'Probing Subnet (${_discoveryProgress?.step ?? 0}/${_discoveryProgress?.totalSteps ?? 1})'
+                                          : (_connectedUrl != null ? '✅ Connected Device Found' : '❌ Device Not Found'),
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                        color: _isDiscovering
+                                            ? primaryIndigo
+                                            : (_connectedUrl != null ? const Color(0xFF10B981) : const Color(0xFFEF4444)),
+                                      ),
+                                    ),
+                                    if (_latencyMs != null)
+                                      Text(
+                                        '$_latencyMs ms',
+                                        style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+                                      ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: LinearProgressIndicator(
+                                    value: _isDiscovering ? (_discoveryProgress?.progress ?? 0.0) : 1.0,
+                                    backgroundColor: const Color(0xFFE2E8F0),
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      _isDiscovering
+                                          ? primaryIndigo
+                                          : (_connectedUrl != null ? const Color(0xFF10B981) : const Color(0xFFEF4444)),
+                                    ),
+                                    minHeight: 6,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  _isDiscovering
+                                      ? 'Testing candidate: ${_discoveryProgress?.currentCandidate ?? ""}'
+                                      : (_connectedDeviceName ?? _connectedUrl ?? 'Offline'),
+                                  style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Expanded(
                               child: Text(
                                 _isPiHubMode
-                                    ? 'Search Mode: Local LAN Subnet Probing'
+                                    ? 'Probing Laptop Host & Subnet IPs...'
                                     : 'Active URL: ${_serverUrlController.text}',
                                 style: const TextStyle(color: Color(0xFF64748B), fontSize: 12, overflow: TextOverflow.ellipsis),
                               ),
                             ),
                             const SizedBox(width: 8),
                             ElevatedButton.icon(
-                              onPressed: () async {
-                                final client = MentoraBackendClient();
-                                final res = await client.checkBackendHealth();
-                                if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(res['online']
-                                          ? '✅ Gateway Connected! (${res['latencyMs']} ms)\nURL: ${res['gateway']}'
-                                          : '❌ Connection Failed: ${res['status']}'),
-                                      backgroundColor: res['online'] ? const Color(0xFF10B981) : const Color(0xFFEF4444),
-                                    ),
-                                  );
-                                }
-                              },
-                              icon: const Icon(Icons.bolt, size: 16, color: Colors.white),
-                              label: const Text('Test Connection', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                              onPressed: _isDiscovering ? null : _runBackendDiscovery,
+                              icon: Icon(_isDiscovering ? Icons.sync : Icons.bolt, size: 16, color: Colors.white),
+                              label: Text(
+                                _isDiscovering ? 'Discovering...' : 'Test Connection',
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                              ),
                               style: ElevatedButton.styleFrom(backgroundColor: primaryIndigo),
                             ),
                           ],
