@@ -107,12 +107,23 @@ class _MentoraPracticeScreenState extends State<MentoraPracticeScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Chip(
-                                  label: Text('Question ${_currentQuestionIndex + 1}/${questions.length}', style: const TextStyle(color: primaryIndigo, fontWeight: FontWeight.bold, fontSize: 11)),
-                                  backgroundColor: const Color(0xFFEEF2FF),
+                                Flexible(
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFEEF2FF),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                      'Question ${_currentQuestionIndex + 1}/${questions.length}',
+                                      style: const TextStyle(color: primaryIndigo, fontWeight: FontWeight.bold, fontSize: 11),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
                                 ),
+                                const SizedBox(width: 8),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                                   decoration: BoxDecoration(color: const Color(0xFFFEF3C7), borderRadius: BorderRadius.circular(6)),
                                   child: const Text('Difficulty: Medium', style: TextStyle(color: Color(0xFFD97706), fontWeight: FontWeight.bold, fontSize: 11)),
                                 ),

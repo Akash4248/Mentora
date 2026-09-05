@@ -211,9 +211,12 @@ class _MentoraHomeScreenState extends State<MentoraHomeScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Grade $_selectedGrade NCERT Subjects',
-                  style: const TextStyle(color: Color(0xFF0F172A), fontSize: 16, fontWeight: FontWeight.bold),
+                Expanded(
+                  child: Text(
+                    'Grade $_selectedGrade NCERT Subjects',
+                    style: const TextStyle(color: Color(0xFF0F172A), fontSize: 16, fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
                 TextButton(
                   onPressed: () {},

@@ -142,10 +142,24 @@ class _MentoraMasteryScreenState extends State<MentoraMasteryScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF0F172A))),
-                                Chip(
-                                  label: Text('$percentage% Mastered', style: TextStyle(color: _getScoreColor(percentage), fontWeight: FontWeight.bold, fontSize: 11)),
-                                  backgroundColor: _getScoreColor(percentage).withOpacity(0.1),
+                                Expanded(
+                                  child: Text(
+                                    name,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF0F172A)),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: _getScoreColor(percentage).withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    '$percentage% Mastered',
+                                    style: TextStyle(color: _getScoreColor(percentage), fontWeight: FontWeight.bold, fontSize: 11),
+                                  ),
                                 ),
                               ],
                             ),
