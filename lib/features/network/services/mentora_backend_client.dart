@@ -27,12 +27,19 @@ class DiscoveryProgress {
 
 class MentoraBackendClient {
   static List<String> getCandidateGatewayUrls() {
-    final list = <String>[];
+    final list = <String>[
+      'http://akash-Ubuntu.local:8000',
+      'http://akash-Ubuntu:8000',
+      'http://akash-Ubuntu.local',
+      'http://akash-Ubuntu',
+    ];
     try {
       final hostname = Platform.localHostname;
       if (hostname.isNotEmpty) {
         list.add('http://$hostname.local:8000');
         list.add('http://$hostname:8000');
+        list.add('http://$hostname.local');
+        list.add('http://$hostname');
       }
     } catch (_) {}
     list.addAll([
