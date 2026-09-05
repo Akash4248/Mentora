@@ -332,51 +332,6 @@ class MentoraBackendClient {
     };
   }
 
-class OfflineSocraticEngine {
-  static Map<String, dynamic> generateResponse({
-    required String question,
-    required String topic,
-    int grade = 9,
-  }) {
-    final qClean = question.trim();
-    final tClean = topic.isEmpty ? "General Science & Mathematics" : topic.trim();
-    final words = qClean.split(' ').where((w) => w.length > 2).toList();
-    final keyConcept = words.isNotEmpty ? words.first[0].toUpperCase() + words.first.substring(1) : "Concept";
-    final queryContext = words.isNotEmpty ? words.take(5).join(' ') : qClean;
-
-    final answer = '''### NCERT Class $grade Socratic Explanation
-
-**Topic**: $tClean
-**Question**: *"$qClean"*
-
-#### Core Conceptual Analysis:
-When investigating **"$qClean"** in NCERT Grade $grade **$tClean**, we analyze how *$queryContext* operates based on fundamental principles.
-
-1. **Core Definition & Principles**:
-   - **$keyConcept**: Refers to the fundamental property and behavior of $qClean within the context of $tClean.
-   - In the Class $grade curriculum, students study how these parameters interact under standard physical, chemical, or mathematical conditions.
-
-2. **Methodological Step-by-Step Breakdown**:
-   - **Step 1 (Identify Parameters)**: Extract given values, boundary conditions, and standard SI units relevant to $qClean.
-   - **Step 2 (Apply Governing Laws)**: Use core equations and theoretical frameworks for $tClean to formulate an analytical solution.
-   - **Step 3 (Synthesize & Validate)**: Confirm dimensional consistency, state boundary assumptions, and relate findings to real-world NCERT applications.
-
-3. **Key Takeaway for Exams**:
-   Clear mastery of **$qClean** ensures a solid foundation for NCERT Grade $grade assessments, practical lab experiments, and advanced problem solving.''';
-
-    return {
-      'answer': answer,
-      'formulas': [
-        'Standard NCERT Equation for $tClean',
-        'SI Units & Parameter Relationships ($keyConcept)'
-      ],
-      'hasAudio': true,
-      'source': 'offline_socratic_generative_engine',
-      'explainOptions': ['Real-World Analogy', 'Step-by-Step Math', 'Simpler Language', 'Visual Simulation'],
-    };
-  }
-}
-
   // 7. Send Query to Gateway AI Tutor Endpoint
   Future<Map<String, dynamic>> queryAiTutor({
     required String question,
@@ -465,6 +420,51 @@ When investigating **"$qClean"** in NCERT Grade $grade **$tClean**, we analyze h
       'activeUrl': activeUrl,
       'latencyMs': stopwatch.elapsedMilliseconds,
       'status': 'Gateway offline',
+    };
+  }
+}
+
+class OfflineSocraticEngine {
+  static Map<String, dynamic> generateResponse({
+    required String question,
+    required String topic,
+    int grade = 9,
+  }) {
+    final qClean = question.trim();
+    final tClean = topic.isEmpty ? "General Science & Mathematics" : topic.trim();
+    final words = qClean.split(' ').where((w) => w.length > 2).toList();
+    final keyConcept = words.isNotEmpty ? words.first[0].toUpperCase() + words.first.substring(1) : "Concept";
+    final queryContext = words.isNotEmpty ? words.take(5).join(' ') : qClean;
+
+    final answer = '''### NCERT Class $grade Socratic Explanation
+
+**Topic**: $tClean
+**Question**: *"$qClean"*
+
+#### Core Conceptual Analysis:
+When investigating **"$qClean"** in NCERT Grade $grade **$tClean**, we analyze how *$queryContext* operates based on fundamental principles.
+
+1. **Core Definition & Principles**:
+   - **$keyConcept**: Refers to the fundamental property and behavior of $qClean within the context of $tClean.
+   - In the Class $grade curriculum, students study how these parameters interact under standard physical, chemical, or mathematical conditions.
+
+2. **Methodological Step-by-Step Breakdown**:
+   - **Step 1 (Identify Parameters)**: Extract given values, boundary conditions, and standard SI units relevant to $qClean.
+   - **Step 2 (Apply Governing Laws)**: Use core equations and theoretical frameworks for $tClean to formulate an analytical solution.
+   - **Step 3 (Synthesize & Validate)**: Confirm dimensional consistency, state boundary assumptions, and relate findings to real-world NCERT applications.
+
+3. **Key Takeaway for Exams**:
+   Clear mastery of **"$qClean"** ensures a solid foundation for NCERT Grade $grade assessments, practical lab experiments, and advanced problem solving.''';
+
+    return {
+      'answer': answer,
+      'formulas': [
+        'Standard NCERT Equation for $tClean',
+        'SI Units & Parameter Relationships ($keyConcept)'
+      ],
+      'hasAudio': true,
+      'source': 'offline_socratic_generative_engine',
+      'explainOptions': ['Real-World Analogy', 'Step-by-Step Math', 'Simpler Language', 'Visual Simulation'],
     };
   }
 }
