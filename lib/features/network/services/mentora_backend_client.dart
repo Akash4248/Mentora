@@ -179,12 +179,12 @@ class MentoraBackendClient {
     ];
   }
 
-  // 2. Fetch Real Chapters for Selected Subject
-  Future<List<Map<String, dynamic>>> getChaptersForSubject(String subjectName) async {
+  // 2. Fetch Real Chapters for Selected Subject & Grade
+  Future<List<Map<String, dynamic>>> getChaptersForSubject(String subjectName, {int grade = 9}) async {
     try {
       final headers = await _buildHeaders();
       final response = await _client
-          .get(Uri.parse('$_activeBaseUrl/catalog/chapters?subject=$subjectName'), headers: headers)
+          .get(Uri.parse('$_activeBaseUrl/catalog/chapters?subject=$subjectName&grade=$grade'), headers: headers)
           .timeout(const Duration(seconds: 4));
 
       if (response.statusCode == 200) {
@@ -196,11 +196,9 @@ class MentoraBackendClient {
     }
 
     return [
-      {'number': 1, 'title': 'Motion', 'status': 'not_started', 'duration': '25 mins', 'mastery': 0},
-      {'number': 2, 'title': 'Force and Laws of Motion', 'status': 'not_started', 'duration': '30 mins', 'mastery': 0},
-      {'number': 3, 'title': 'Gravitation', 'status': 'locked', 'duration': '20 mins', 'mastery': 0},
-      {'number': 4, 'title': 'Work and Energy', 'status': 'locked', 'duration': '35 mins', 'mastery': 0},
-      {'number': 5, 'title': 'Sound', 'status': 'locked', 'duration': '25 mins', 'mastery': 0},
+      {'number': 1, 'title': 'Introduction to $subjectName (Grade $grade)', 'status': 'not_started', 'duration': '25 mins', 'mastery': 0},
+      {'number': 2, 'title': 'Core Principles & Fundamentals', 'status': 'not_started', 'duration': '30 mins', 'mastery': 0},
+      {'number': 3, 'title': 'Advanced Concepts', 'status': 'not_started', 'duration': '20 mins', 'mastery': 0},
     ];
   }
 

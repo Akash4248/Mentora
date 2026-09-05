@@ -178,21 +178,27 @@ class _MentoraHomeScreenState extends State<MentoraHomeScreen> {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        const Text(
-                          'Grade 9 NCERT Science & Math',
-                          style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                        Text(
+                          'Grade $_selectedGrade NCERT Curriculum',
+                          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 4),
-                        const Text(
-                          'Continue Chapter 8: Motion & Velocity',
-                          style: TextStyle(color: Color(0xFFE0E7FF), fontSize: 12),
+                        Text(
+                          'Start learning Grade $_selectedGrade subjects from 0% progress',
+                          style: const TextStyle(color: Color(0xFFE0E7FF), fontSize: 12),
                         ),
                       ],
                     ),
                   ),
                   ElevatedButton(
                     onPressed: () {
-                      Navigator.pushNamed(context, '/chapter_workspace');
+                      if (_subjects.isNotEmpty) {
+                        Navigator.pushNamed(
+                          context,
+                          '/subject_chapters',
+                          arguments: {'subject': _subjects.first['name'], 'grade': _selectedGrade},
+                        );
+                      }
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
@@ -200,7 +206,7 @@ class _MentoraHomeScreenState extends State<MentoraHomeScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     ),
-                    child: const Text('Resume', style: TextStyle(fontWeight: FontWeight.bold)),
+                    child: const Text('Start', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),
@@ -245,7 +251,11 @@ class _MentoraHomeScreenState extends State<MentoraHomeScreen> {
 
                 return InkWell(
                   onTap: () {
-                    Navigator.pushNamed(context, '/subject_chapters', arguments: sub['name']);
+                    Navigator.pushNamed(
+                      context,
+                      '/subject_chapters',
+                      arguments: {'subject': sub['name'], 'grade': _selectedGrade},
+                    );
                   },
                   borderRadius: BorderRadius.circular(14),
                   child: Container(

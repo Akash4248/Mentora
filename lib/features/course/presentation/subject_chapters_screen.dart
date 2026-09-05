@@ -3,10 +3,12 @@ import '../../network/services/mentora_backend_client.dart';
 
 class SubjectChaptersScreen extends StatefulWidget {
   final String subjectName;
+  final int grade;
 
   const SubjectChaptersScreen({
     Key? key,
     this.subjectName = 'Physics',
+    this.grade = 9,
   }) : super(key: key);
 
   @override
@@ -17,20 +19,39 @@ class _SubjectChaptersScreenState extends State<SubjectChaptersScreen> {
   final MentoraBackendClient _client = MentoraBackendClient();
   List<Map<String, dynamic>> _chapters = [];
   bool _isLoading = true;
+  int _activeGrade = 9;
+  String _activeSubject = 'Physics';
 
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _resolveArgsAndLoad();
+  }
+
+  void _resolveArgsAndLoad() {
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is Map<String, dynamic>) {
+      _activeSubject = args['subject']?.toString() ?? widget.subjectName;
+      _activeGrade = (args['grade'] as num?)?.toInt() ?? widget.grade;
+    } else if (args is String) {
+      _activeSubject = args;
+      _activeGrade = widget.grade;
+    } else {
+      _activeSubject = widget.subjectName;
+      _activeGrade = widget.grade;
+    }
     _loadChapters();
   }
 
   Future<void> _loadChapters() async {
     setState(() => _isLoading = true);
-    final data = await _client.getChaptersForSubject(widget.subjectName);
-    setState(() {
-      _chapters = data;
-      _isLoading = false;
-    });
+    final data = await _client.getChaptersForSubject(_activeSubject, grade: _activeGrade);
+    if (mounted) {
+      setState(() {
+        _chapters = data;
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -50,7 +71,7 @@ class _SubjectChaptersScreenState extends State<SubjectChaptersScreen> {
         backgroundColor: cardBg,
         elevation: 0.5,
         title: Text(
-          'Grade 9 ${widget.subjectName}',
+          'Grade $_activeGrade $_activeSubject',
           style: const TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.bold, fontSize: 18),
         ),
         iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
