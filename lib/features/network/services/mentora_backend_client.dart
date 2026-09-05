@@ -351,7 +351,7 @@ class MentoraBackendClient {
 
       final response = await _client
           .post(Uri.parse('$_activeBaseUrl/ai/tutor'), headers: headers, body: payload)
-          .timeout(const Duration(seconds: 8));
+          .timeout(const Duration(seconds: 45));
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
