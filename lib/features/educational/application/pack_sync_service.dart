@@ -84,12 +84,9 @@ class PackSyncService {
                 EducationalPackModel(
                   packId: packId,
                   name: item['title']?.toString() ?? item['name']?.toString() ?? packId,
-                  subject: item['subject']?.toString() ?? 'General',
-                  grade: (item['grade'] as num?)?.toInt() ?? 6,
+                  description: '${item['subject'] ?? 'General'} (Grade ${item['grade'] ?? 6}) • ${item['size_mb'] ?? 5.0} MB',
                   version: item['version']?.toString() ?? '1.0.0',
                   totalChapters: (item['total_chapters'] as num?)?.toInt() ?? 0,
-                  totalSizeMB: (item['size_mb'] as num?)?.toDouble() ?? 5.0,
-                  checksum: item['checksum']?.toString() ?? '',
                   localPath: item['download_url']?.toString() ?? '${_endpoints.baseUrl}/packs/$packId/download',
                   isOfflineAvailable: false,
                 ),
