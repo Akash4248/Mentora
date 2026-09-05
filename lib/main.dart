@@ -7,7 +7,6 @@ import 'bootstrap/critical_bootstrap.dart';
 import 'bootstrap/startup_coordinator.dart';
 import 'config/app_environment.dart';
 import 'features/course/data/local/course_repository.dart';
-import 'features/home/presentation/app_shell.dart';
 import 'features/language/providers/language_provider.dart';
 import 'features/onboarding/application/background_prefetch_service.dart';
 import 'core/observers/app_provider_observer.dart';
@@ -16,6 +15,8 @@ import 'features/experiment/runtime/behaviors/behavior_registry.dart';
 import 'features/experiment/runtime/effects/effect_registry.dart';
 import 'features/experiment/runtime/tools/measurement_registry.dart';
 import 'features/home/presentation/mentora_home_screen.dart';
+import 'features/assessment/presentation/mentora_practice_screen.dart';
+import 'features/progress/presentation/mentora_mastery_screen.dart';
 import 'features/course/presentation/subject_chapters_screen.dart';
 import 'features/tutor/presentation/chapter_learning_workspace_screen.dart';
 import 'features/settings/presentation/mentora_settings_screen.dart';
@@ -85,6 +86,8 @@ class OfflineTutorApp extends StatelessWidget {
           home: const MentoraHomeScreen(),
           routes: {
             '/home': (context) => const MentoraHomeScreen(),
+            '/practice': (context) => const MentoraPracticeScreen(),
+            '/mastery': (context) => const MentoraMasteryScreen(),
             '/subject_chapters': (context) => const SubjectChaptersScreen(),
             '/chapter_workspace': (context) => const ChapterLearningWorkspaceScreen(),
             '/settings': (context) => const MentoraSettingsScreen(),

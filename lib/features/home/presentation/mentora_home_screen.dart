@@ -322,7 +322,11 @@ class _MentoraHomeScreenState extends State<MentoraHomeScreen> {
           setState(() {
             _selectedNavIndex = index;
           });
-          if (index == 3) {
+          if (index == 1) {
+            Navigator.pushNamed(context, '/practice');
+          } else if (index == 2) {
+            Navigator.pushNamed(context, '/mastery');
+          } else if (index == 3) {
             Navigator.pushNamed(context, '/settings');
           }
         },
