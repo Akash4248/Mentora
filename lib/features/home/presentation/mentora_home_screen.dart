@@ -30,6 +30,46 @@ class _MentoraHomeScreenState extends State<MentoraHomeScreen> {
     });
   }
 
+  Color _parseColor(dynamic colorVal) {
+    if (colorVal is Color) return colorVal;
+    if (colorVal is String) {
+      String hex = colorVal.replaceAll('#', '').replaceAll('0x', '');
+      if (hex.length == 6) hex = 'FF$hex';
+      final intColor = int.tryParse(hex, radix: 16);
+      if (intColor != null) return Color(intColor);
+    }
+    return const Color(0xFF4F46E5);
+  }
+
+  IconData _parseIcon(dynamic iconVal) {
+    if (iconVal is IconData) return iconVal;
+    if (iconVal is String) {
+      switch (iconVal.toLowerCase()) {
+        case 'science_outlined':
+        case 'science':
+          return Icons.science_outlined;
+        case 'biotech_outlined':
+        case 'biotech':
+          return Icons.biotech_outlined;
+        case 'nature_outlined':
+        case 'nature':
+          return Icons.nature_outlined;
+        case 'calculate_outlined':
+        case 'calculate':
+        case 'math':
+          return Icons.calculate_outlined;
+        default:
+          return Icons.menu_book_outlined;
+      }
+    }
+    return Icons.school_outlined;
+  }
+
+  double _parseProgress(dynamic progressVal) {
+    if (progressVal is num) return progressVal.toDouble();
+    return 0.0;
+  }
+
   @override
   Widget build(BuildContext context) {
     const primaryIndigo = Color(0xFF4F46E5);
@@ -196,6 +236,10 @@ class _MentoraHomeScreenState extends State<MentoraHomeScreen> {
               itemCount: _subjects.length,
               itemBuilder: (context, index) {
                 final sub = _subjects[index];
+                final Color subColor = _parseColor(sub['color']);
+                final IconData subIcon = _parseIcon(sub['icon']);
+                final double subProgress = _parseProgress(sub['progress']);
+
                 return InkWell(
                   onTap: () {
                     Navigator.pushNamed(context, '/subject_chapters', arguments: sub['name']);
@@ -225,14 +269,14 @@ class _MentoraHomeScreenState extends State<MentoraHomeScreen> {
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: (sub['color'] as Color).withOpacity(0.1),
+                                color: subColor.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: Icon(sub['icon'] as IconData, color: sub['color'] as Color, size: 22),
+                              child: Icon(subIcon, color: subColor, size: 22),
                             ),
                             Text(
-                              '${(sub['progress'] * 100).toInt()}%',
-                              style: TextStyle(color: sub['color'] as Color, fontWeight: FontWeight.bold, fontSize: 12),
+                              '${(subProgress * 100).toInt()}%',
+                              style: TextStyle(color: subColor, fontWeight: FontWeight.bold, fontSize: 12),
                             ),
                           ],
                         ),
@@ -240,21 +284,21 @@ class _MentoraHomeScreenState extends State<MentoraHomeScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              sub['name'] as String,
+                              (sub['name'] ?? 'Subject').toString(),
                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF0F172A)),
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              '${sub['chaptersCompleted']}/${sub['totalChapters']} Chapters',
+                              '${sub['chaptersCompleted'] ?? 0}/${sub['totalChapters'] ?? 10} Chapters',
                               style: const TextStyle(color: Color(0xFF64748B), fontSize: 11),
                             ),
                             const SizedBox(height: 6),
                             ClipRRect(
                               borderRadius: BorderRadius.circular(4),
                               child: LinearProgressIndicator(
-                                value: sub['progress'] as double,
+                                value: subProgress,
                                 backgroundColor: const Color(0xFFF1F5F9),
-                                valueColor: AlwaysStoppedAnimation<Color>(sub['color'] as Color),
+                                valueColor: AlwaysStoppedAnimation<Color>(subColor),
                                 minHeight: 5,
                               ),
                             ),
