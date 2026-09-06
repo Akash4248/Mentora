@@ -620,11 +620,22 @@ class MentoraBackendClient {
       }
 
       final gateway = PlatformTutorInferenceGateway();
-      final prompt =
-          'Grade $grade student studying $topic asks: $question\nProvide a clear and helpful explanation:';
+      final tClean = topic.trim().isEmpty ? 'Science & Mathematics' : topic.trim();
+      final prompt = '''<|im_start|>system
+You are an expert NCERT school AI tutor for Class $grade $tClean.
+Answer the student's question directly and clearly using Markdown formatting, bullet points, and formulas.
+Start your response with: ### $tClean Explained
+Do not output internal monologues or planning steps.
+<|im_end|>
+<|im_start|>user
+$question
+<|im_end|>
+<|im_start|>assistant
+### $tClean Explained
+''';
 
       final filter = ReasoningOutputFilter();
-      final buffer = StringBuffer();
+      final buffer = StringBuffer('### $tClean Explained\n\n');
 
       await for (final chunk in gateway.streamResponse(prompt: prompt)) {
         final pushed = filter.push(chunk);
