@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
-import '../../../config/app_environment.dart';
 import '../../../core/theme/idp_colors.dart';
 import '../../../core/widgets/idp_core_widgets.dart';
 import '../../../l10n/app_localizations.dart';
@@ -301,7 +300,10 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
   double _downloadProgress = 0.0;
   bool _downloadingModel = false;
 
-  Future<void> _downloadModelFromHub() async {
+  Future<void> _downloadModelFromUrl({
+    String url = 'https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf',
+    String fileName = 'qwen2.5-1.5b-instruct-q4_k_m.gguf',
+  }) async {
     setState(() {
       _downloadingModel = true;
       _downloadProgress = 0.0;
@@ -309,17 +311,16 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
     });
 
     try {
-      final baseUrl = AppEnvironment.backendBaseUrl;
-      final url = Uri.parse('$baseUrl/models/qwen2.5-1.5b.gguf');
-      final request = http.Request('GET', url);
-      final response = await http.Client().send(request).timeout(const Duration(minutes: 5));
+      final uri = Uri.parse(url);
+      final request = http.Request('GET', uri);
+      final response = await http.Client().send(request).timeout(const Duration(minutes: 15));
 
-      if (response.statusCode != 200) {
+      if (response.statusCode != 200 && response.statusCode != 302) {
         throw Exception('Server returned HTTP ${response.statusCode}');
       }
 
       final appDir = await getApplicationDocumentsDirectory();
-      final targetFile = File('${appDir.path}/models/qwen2.5-1.5b.gguf');
+      final targetFile = File('${appDir.path}/models/$fileName');
       await targetFile.parent.create(recursive: true);
 
       final sink = targetFile.openWrite();
@@ -347,12 +348,12 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
       await _load();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Successfully downloaded & activated Qwen2.5 1.5B GGUF model!')),
+        SnackBar(content: Text('Successfully downloaded & activated $fileName from HuggingFace!')),
       );
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = 'Failed to download model from PiHub server: $e';
+        _error = 'Failed to download model from HuggingFace: $e';
       });
     } finally {
       if (mounted) {
@@ -501,7 +502,7 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
 
                   // Action buttons
                   FilledButton.icon(
-                    onPressed: _downloadingModel ? null : _downloadModelFromHub,
+                    onPressed: _downloadingModel ? null : _downloadModelFromUrl,
                     style: FilledButton.styleFrom(
                       backgroundColor: IDPColors.primary,
                       padding: const EdgeInsets.symmetric(vertical: IDPSpacing.md),
@@ -517,7 +518,7 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
                     label: Text(
                       _downloadingModel
                           ? 'Downloading GGUF Model (${(_downloadProgress * 100).toInt()}%)...'
-                          : 'Download Qwen2.5 1.5B GGUF from PiHub',
+                          : 'Download Qwen2.5 1.5B GGUF from HuggingFace',
                       style: IDPTypography.labelLarge.copyWith(color: Colors.white),
                     ),
                   ),
