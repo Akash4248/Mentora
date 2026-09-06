@@ -1,6 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:sqflite/sqflite.dart';
+import '../../course/data/local/app_database.dart';
+import '../../course/data/local/course_repository.dart';
+import '../../course/domain/course_tree.dart';
+import '../domain/runtime_backend_url.dart';
 import '../../settings/services/user_api_key_service.dart';
 
 class DiscoveryProgress {
@@ -149,17 +154,39 @@ class MentoraBackendClient {
 
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body);
-        return List<Map<String, dynamic>>.from(data);
+        if (data.isNotEmpty) {
+          return List<Map<String, dynamic>>.from(data);
+        }
       }
     } catch (_) {
       await autoDiscoverGatewayUrl();
     }
 
+    final courseRepo = CourseRepository();
+    await courseRepo.ensureSeedData();
+    final subjects = await courseRepo.getSubjects('course_$grade');
+    if (subjects.isNotEmpty) {
+      final result = <Map<String, dynamic>>[];
+      for (final s in subjects) {
+        final chapters = await courseRepo.getChapters(s.id);
+        result.add({
+          'name': s.name,
+          'code': '${s.name.substring(0, s.name.length >= 3 ? 3 : s.name.length).toUpperCase()}${grade.toString().padLeft(2, '0')}',
+          'progress': 0.0,
+          'chaptersCompleted': 0,
+          'totalChapters': chapters.length,
+          'color': _colorForSubject(s.name),
+          'icon': _iconForSubject(s.name),
+        });
+      }
+      return result;
+    }
+
     return [
-      {'name': 'Physics', 'code': 'PHY09', 'progress': 0.0, 'chaptersCompleted': 0, 'totalChapters': 12},
-      {'name': 'Chemistry', 'code': 'CHE09', 'progress': 0.0, 'chaptersCompleted': 0, 'totalChapters': 11},
-      {'name': 'Biology', 'code': 'BIO09', 'progress': 0.0, 'chaptersCompleted': 0, 'totalChapters': 10},
-      {'name': 'Mathematics', 'code': 'MAT09', 'progress': 0.0, 'chaptersCompleted': 0, 'totalChapters': 15},
+      {'name': 'Mathematics', 'code': 'MAT${grade.toString().padLeft(2, '0')}', 'progress': 0.0, 'chaptersCompleted': 0, 'totalChapters': 12, 'color': '0xFFF59E0B', 'icon': 'calculate_outlined'},
+      {'name': 'Science', 'code': 'SCI${grade.toString().padLeft(2, '0')}', 'progress': 0.0, 'chaptersCompleted': 0, 'totalChapters': 12, 'color': '0xFF10B981', 'icon': 'science_outlined'},
+      {'name': 'Social Science', 'code': 'SOC${grade.toString().padLeft(2, '0')}', 'progress': 0.0, 'chaptersCompleted': 0, 'totalChapters': 12, 'color': '0xFF3B82F6', 'icon': 'public_outlined'},
+      {'name': 'English', 'code': 'ENG${grade.toString().padLeft(2, '0')}', 'progress': 0.0, 'chaptersCompleted': 0, 'totalChapters': 12, 'color': '0xFF8B5CF6', 'icon': 'menu_book_outlined'},
     ];
   }
 
@@ -173,17 +200,110 @@ class MentoraBackendClient {
 
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body);
-        return List<Map<String, dynamic>>.from(data);
+        final list = List<Map<String, dynamic>>.from(data);
+        if (list.isNotEmpty) {
+          await _saveBackendChaptersToLocalDb(list, subjectName, grade);
+          return list;
+        }
       }
     } catch (_) {
       await autoDiscoverGatewayUrl();
     }
 
-    return [
-      {'number': 1, 'title': 'Introduction to $subjectName (Grade $grade)', 'status': 'not_started', 'duration': '25 mins', 'mastery': 0},
-      {'number': 2, 'title': 'Core Principles & Fundamentals', 'status': 'not_started', 'duration': '30 mins', 'mastery': 0},
-      {'number': 3, 'title': 'Advanced Concepts', 'status': 'not_started', 'duration': '20 mins', 'mastery': 0},
-    ];
+    final courseRepo = CourseRepository();
+    await courseRepo.ensureSeedData();
+    final slug = subjectName.toLowerCase().trim().replaceAll(RegExp(r'[^a-z0-9]+'), '_');
+    final subjectId = 'sub_${slug}_$grade';
+    var chapters = await courseRepo.getChapters(subjectId);
+
+    if (chapters.isEmpty) {
+      final subjects = await courseRepo.getSubjects('course_$grade');
+      final matchingSub = subjects.firstWhere(
+        (s) => s.name.toLowerCase().contains(subjectName.toLowerCase()) || subjectName.toLowerCase().contains(s.name.toLowerCase()),
+        orElse: () => subjects.isNotEmpty ? subjects.first : Subject(id: subjectId, courseId: 'course_$grade', name: subjectName),
+      );
+      chapters = await courseRepo.getChapters(matchingSub.id);
+    }
+
+    if (chapters.isNotEmpty) {
+      return List.generate(chapters.length, (index) {
+        return {
+          'number': index + 1,
+          'title': chapters[index].title,
+          'status': index == 0 ? 'in_progress' : 'not_started',
+          'duration': '25 mins',
+          'mastery': 0,
+        };
+      });
+    }
+
+    return [];
+  }
+
+  Future<void> _saveBackendChaptersToLocalDb(
+    List<Map<String, dynamic>> chapters,
+    String subjectName,
+    int grade,
+  ) async {
+    try {
+      final db = await AppDatabase.instance.database;
+      final batch = db.batch();
+      final slug = subjectName.toLowerCase().trim().replaceAll(RegExp(r'[^a-z0-9]+'), '_');
+      final subjectId = 'sub_${slug}_$grade';
+
+      batch.insert(
+        'courses',
+        {'id': 'course_$grade', 'name': 'Class $grade'},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+
+      batch.insert(
+        'subjects',
+        {'id': subjectId, 'course_id': 'course_$grade', 'name': subjectName},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+
+      for (int i = 0; i < chapters.length; i++) {
+        final ch = chapters[i];
+        final title = ch['title']?.toString() ?? 'Chapter ${i + 1}';
+        final chId = 'ch_${slug}_${grade}_${i + 1}';
+        batch.insert(
+          'chapters',
+          {
+            'id': chId,
+            'subject_id': subjectId,
+            'title': title,
+            'summary': ch['summary']?.toString() ?? title,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      await batch.commit(noResult: true);
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  String _colorForSubject(String name) {
+    final lower = name.toLowerCase();
+    if (lower.contains('physic')) return '0xFF4F46E5';
+    if (lower.contains('chem')) return '0xFF10B981';
+    if (lower.contains('bio')) return '0xFF14B8A6';
+    if (lower.contains('sci')) return '0xFF10B981';
+    if (lower.contains('math')) return '0xFFF59E0B';
+    if (lower.contains('soc') || lower.contains('hist') || lower.contains('geog')) return '0xFF3B82F6';
+    if (lower.contains('eng')) return '0xFF8B5CF6';
+    if (lower.contains('kan')) return '0xFFEC4899';
+    return '0xFF6366F1';
+  }
+
+  String _iconForSubject(String name) {
+    final lower = name.toLowerCase();
+    if (lower.contains('chem')) return 'biotech_outlined';
+    if (lower.contains('bio')) return 'nature_outlined';
+    if (lower.contains('sci') || lower.contains('physic')) return 'science_outlined';
+    if (lower.contains('math')) return 'calculate_outlined';
+    return 'menu_book_outlined';
   }
 
   // 3. Fetch Interactive Simulation Config for Chapter
@@ -342,17 +462,27 @@ class MentoraBackendClient {
         if (decoded is Map<String, dynamic> && decoded['answer'] != null) {
           return decoded;
         }
+      } else if (response.statusCode == 504) {
+        return {
+          'answer': '⚠️ **Backend LLM Timeout**: The local Ollama AI model took longer than 90 seconds to generate on CPU. Please retry or ask a shorter query.',
+          'hasAudio': false,
+          'source': 'backend_timeout_error',
+        };
       }
-    } catch (_) {
-      // Auto-discover gateway in background for subsequent requests
+    } catch (e) {
       autoDiscoverGatewayUrl();
+      return {
+        'answer': '⚠️ **Backend Network Connection Error**: Could not connect to backend at $_activeBaseUrl. Please check your Wi-Fi or load an offline model (.gguf) in Settings.',
+        'hasAudio': false,
+        'source': 'backend_connection_error',
+      };
     }
 
-    return OfflineSocraticEngine.generateResponse(
-      question: question,
-      topic: topic,
-      grade: grade,
-    );
+    return {
+      'answer': '⚠️ **Backend Error**: Service returned an unexpected response. Please try again.',
+      'hasAudio': false,
+      'source': 'unexpected_response_error',
+    };
   }
 
   // 8. Authenticate User with Gateway

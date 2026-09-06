@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/user_api_key_service.dart';
 import '../../network/services/mentora_backend_client.dart';
+import 'model_selection_screen.dart';
 
 class MentoraSettingsScreen extends StatefulWidget {
   const MentoraSettingsScreen({Key? key}) : super(key: key);
@@ -485,7 +486,33 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // SECTION 4: APP INFO & LICENSE
+                // SECTION 4: OFFLINE AI MODELS & SELECTION
+                _buildSectionHeader('OFFLINE AI MODELS & SELECTION (.GGUF)'),
+                const SizedBox(height: 8),
+                Card(
+                  elevation: 0,
+                  color: cardBg,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: const BorderSide(color: borderColor),
+                  ),
+                  child: ListTile(
+                    leading: const Icon(Icons.memory, color: primaryIndigo),
+                    title: const Text('Local .gguf Model Selection', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                    subtitle: Text('Active Model: $_ggufModel\nTap to pick a local .gguf model file or download Qwen2.5 GGUF.'),
+                    trailing: const Icon(Icons.chevron_right, color: Color(0xFF64748B)),
+                    onTap: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const ModelSelectionScreen()),
+                      );
+                      _loadSettings();
+                    },
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // SECTION 5: APP INFO & LICENSE
                 _buildSectionHeader('APP INFO & LICENSE'),
                 const SizedBox(height: 8),
                 Card(
