@@ -44,7 +44,9 @@ class _SubjectChaptersScreenState extends State<SubjectChaptersScreen> {
   }
 
   Future<void> _loadChapters() async {
-    setState(() => _isLoading = true);
+    if (_chapters.isEmpty) {
+      setState(() => _isLoading = true);
+    }
     final data = await _client.getChaptersForSubject(_activeSubject, grade: _activeGrade);
     if (mounted) {
       setState(() {

@@ -144,42 +144,30 @@ class MentoraBackendClient {
     return headers;
   }
 
-  // 1. Fetch Real Subjects & Progress for Grade
-  Future<List<Map<String, dynamic>>> getSubjectsForGrade(int grade) async {
-    try {
-      final headers = await _buildHeaders();
-      final response = await _client
-          .get(Uri.parse('$_activeBaseUrl/catalog/subjects?grade=$grade'), headers: headers)
-          .timeout(const Duration(seconds: 4));
+  static final Map<int, List<Map<String, dynamic>>> _subjectsCache = {};
+  static final Map<String, List<Map<String, dynamic>>> _chaptersCache = {};
 
-      if (response.statusCode == 200) {
-        final List data = jsonDecode(response.body);
-        if (data.isNotEmpty) {
-          return List<Map<String, dynamic>>.from(data);
-        }
-      }
-    } catch (_) {
-      await autoDiscoverGatewayUrl();
+  // 1. Fetch Real Subjects & Progress for Grade (Instant Cache + Local DB + Silent Background Sync)
+  Future<List<Map<String, dynamic>>> getSubjectsForGrade(int grade) async {
+    if (_subjectsCache.containsKey(grade) && _subjectsCache[grade]!.isNotEmpty) {
+      // Refresh silently in background
+      _syncSubjectsInBackground(grade);
+      return _subjectsCache[grade]!;
     }
 
-    final courseRepo = CourseRepository();
-    await courseRepo.ensureSeedData();
-    final subjects = await courseRepo.getSubjects('course_$grade');
-    if (subjects.isNotEmpty) {
-      final result = <Map<String, dynamic>>[];
-      for (final s in subjects) {
-        final chapters = await courseRepo.getChapters(s.id);
-        result.add({
-          'name': s.name,
-          'code': '${s.name.substring(0, s.name.length >= 3 ? 3 : s.name.length).toUpperCase()}${grade.toString().padLeft(2, '0')}',
-          'progress': 0.0,
-          'chaptersCompleted': 0,
-          'totalChapters': chapters.length,
-          'color': _colorForSubject(s.name),
-          'icon': _iconForSubject(s.name),
-        });
-      }
-      return result;
+    // Fast local DB lookup
+    final localList = await _loadSubjectsFromLocalDb(grade);
+    if (localList.isNotEmpty) {
+      _subjectsCache[grade] = localList;
+      _syncSubjectsInBackground(grade);
+      return localList;
+    }
+
+    // Fallback sync
+    final netList = await _fetchSubjectsFromNetwork(grade);
+    if (netList.isNotEmpty) {
+      _subjectsCache[grade] = netList;
+      return netList;
     }
 
     return [
@@ -190,53 +178,134 @@ class MentoraBackendClient {
     ];
   }
 
-  // 2. Fetch Real Chapters for Selected Subject & Grade
+  Future<List<Map<String, dynamic>>> _fetchSubjectsFromNetwork(int grade) async {
+    try {
+      final headers = await _buildHeaders();
+      final response = await _client
+          .get(Uri.parse('$_activeBaseUrl/catalog/subjects?grade=$grade'), headers: headers)
+          .timeout(const Duration(seconds: 3));
+
+      if (response.statusCode == 200) {
+        final List data = jsonDecode(response.body);
+        if (data.isNotEmpty) {
+          final list = List<Map<String, dynamic>>.from(data);
+          _subjectsCache[grade] = list;
+          return list;
+        }
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  void _syncSubjectsInBackground(int grade) {
+    _fetchSubjectsFromNetwork(grade);
+  }
+
+  Future<List<Map<String, dynamic>>> _loadSubjectsFromLocalDb(int grade) async {
+    try {
+      final courseRepo = CourseRepository();
+      await courseRepo.ensureSeedData();
+      final subjects = await courseRepo.getSubjects('course_$grade');
+      if (subjects.isNotEmpty) {
+        final result = <Map<String, dynamic>>[];
+        for (final s in subjects) {
+          final chapters = await courseRepo.getChapters(s.id);
+          result.add({
+            'name': s.name,
+            'code': '${s.name.substring(0, s.name.length >= 3 ? 3 : s.name.length).toUpperCase()}${grade.toString().padLeft(2, '0')}',
+            'progress': 0.0,
+            'chaptersCompleted': 0,
+            'totalChapters': chapters.length,
+            'color': _colorForSubject(s.name),
+            'icon': _iconForSubject(s.name),
+          });
+        }
+        return result;
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  // 2. Fetch Real Chapters for Selected Subject & Grade (Instant Cache + Local DB + Silent Background Sync)
   Future<List<Map<String, dynamic>>> getChaptersForSubject(String subjectName, {int grade = 9}) async {
+    final key = '${grade}_${subjectName.toLowerCase().trim()}';
+    if (_chaptersCache.containsKey(key) && _chaptersCache[key]!.isNotEmpty) {
+      _syncChaptersInBackground(subjectName, grade);
+      return _chaptersCache[key]!;
+    }
+
+    // Fast local DB lookup
+    final localList = await _loadChaptersFromLocalDb(subjectName, grade);
+    if (localList.isNotEmpty) {
+      _chaptersCache[key] = localList;
+      _syncChaptersInBackground(subjectName, grade);
+      return localList;
+    }
+
+    // Fallback sync
+    final netList = await _fetchChaptersFromNetwork(subjectName, grade);
+    if (netList.isNotEmpty) {
+      _chaptersCache[key] = netList;
+      return netList;
+    }
+
+    return [];
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchChaptersFromNetwork(String subjectName, int grade) async {
     try {
       final headers = await _buildHeaders();
       final response = await _client
           .get(Uri.parse('$_activeBaseUrl/catalog/chapters?subject=$subjectName&grade=$grade'), headers: headers)
-          .timeout(const Duration(seconds: 4));
+          .timeout(const Duration(seconds: 3));
 
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body);
         final list = List<Map<String, dynamic>>.from(data);
         if (list.isNotEmpty) {
+          final key = '${grade}_${subjectName.toLowerCase().trim()}';
+          _chaptersCache[key] = list;
           await _saveBackendChaptersToLocalDb(list, subjectName, grade);
           return list;
         }
       }
-    } catch (_) {
-      await autoDiscoverGatewayUrl();
-    }
+    } catch (_) {}
+    return [];
+  }
 
-    final courseRepo = CourseRepository();
-    await courseRepo.ensureSeedData();
-    final slug = subjectName.toLowerCase().trim().replaceAll(RegExp(r'[^a-z0-9]+'), '_');
-    final subjectId = 'sub_${slug}_$grade';
-    var chapters = await courseRepo.getChapters(subjectId);
+  void _syncChaptersInBackground(String subjectName, int grade) {
+    _fetchChaptersFromNetwork(subjectName, grade);
+  }
 
-    if (chapters.isEmpty) {
-      final subjects = await courseRepo.getSubjects('course_$grade');
-      final matchingSub = subjects.firstWhere(
-        (s) => s.name.toLowerCase().contains(subjectName.toLowerCase()) || subjectName.toLowerCase().contains(s.name.toLowerCase()),
-        orElse: () => subjects.isNotEmpty ? subjects.first : Subject(id: subjectId, courseId: 'course_$grade', name: subjectName),
-      );
-      chapters = await courseRepo.getChapters(matchingSub.id);
-    }
+  Future<List<Map<String, dynamic>>> _loadChaptersFromLocalDb(String subjectName, int grade) async {
+    try {
+      final courseRepo = CourseRepository();
+      await courseRepo.ensureSeedData();
+      final slug = subjectName.toLowerCase().trim().replaceAll(RegExp(r'[^a-z0-9]+'), '_');
+      final subjectId = 'sub_${slug}_$grade';
+      var chapters = await courseRepo.getChapters(subjectId);
 
-    if (chapters.isNotEmpty) {
-      return List.generate(chapters.length, (index) {
-        return {
-          'number': index + 1,
-          'title': chapters[index].title,
-          'status': index == 0 ? 'in_progress' : 'not_started',
-          'duration': '25 mins',
-          'mastery': 0,
-        };
-      });
-    }
+      if (chapters.isEmpty) {
+        final subjects = await courseRepo.getSubjects('course_$grade');
+        final matchingSub = subjects.firstWhere(
+          (s) => s.name.toLowerCase().contains(subjectName.toLowerCase()) || subjectName.toLowerCase().contains(s.name.toLowerCase()),
+          orElse: () => subjects.isNotEmpty ? subjects.first : Subject(id: subjectId, courseId: 'course_$grade', name: subjectName),
+        );
+        chapters = await courseRepo.getChapters(matchingSub.id);
+      }
 
+      if (chapters.isNotEmpty) {
+        return List.generate(chapters.length, (index) {
+          return {
+            'number': index + 1,
+            'title': chapters[index].title,
+            'status': index == 0 ? 'in_progress' : 'not_started',
+            'duration': '25 mins',
+            'mastery': 0,
+          };
+        });
+      }
+    } catch (_) {}
     return [];
   }
 

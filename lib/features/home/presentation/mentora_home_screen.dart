@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../network/services/mentora_backend_client.dart';
 
 class MentoraHomeScreen extends StatefulWidget {
@@ -11,6 +12,7 @@ class MentoraHomeScreen extends StatefulWidget {
 class _MentoraHomeScreenState extends State<MentoraHomeScreen> {
   int _selectedGrade = 9;
   int _selectedNavIndex = 0;
+  String _userName = 'Learner';
   final MentoraBackendClient _client = MentoraBackendClient();
   List<Map<String, dynamic>> _subjects = [];
   bool _isLoading = true;
@@ -18,16 +20,33 @@ class _MentoraHomeScreenState extends State<MentoraHomeScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchBackendSubjects();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final name = prefs.getString('user_name') ?? 'Learner';
+    final savedGrade = prefs.getInt('selected_grade') ?? 9;
+    if (mounted) {
+      setState(() {
+        _userName = name;
+        _selectedGrade = savedGrade;
+      });
+      _fetchBackendSubjects();
+    }
   }
 
   Future<void> _fetchBackendSubjects() async {
-    setState(() => _isLoading = true);
+    if (_subjects.isEmpty) {
+      setState(() => _isLoading = true);
+    }
     final data = await _client.getSubjectsForGrade(_selectedGrade);
-    setState(() {
-      _subjects = data;
-      _isLoading = false;
-    });
+    if (mounted) {
+      setState(() {
+        _subjects = data;
+        _isLoading = false;
+      });
+    }
   }
 
   Color _parseColor(dynamic colorVal) {
@@ -91,12 +110,12 @@ class _MentoraHomeScreenState extends State<MentoraHomeScreen> {
             const SizedBox(width: 10),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
+              children: [
                 Text(
-                  'Hello Rahul! 👋',
-                  style: TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.bold, fontSize: 16),
+                  'Hello $_userName! 👋',
+                  style: const TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.bold, fontSize: 16),
                 ),
-                Text(
+                const Text(
                   'What will you learn today?',
                   style: TextStyle(color: Color(0xFF64748B), fontSize: 11),
                 ),
@@ -124,11 +143,13 @@ class _MentoraHomeScreenState extends State<MentoraHomeScreen> {
                     child: Text('Grade $grade - NCERT'),
                   );
                 }).toList(),
-                onChanged: (val) {
+                onChanged: (val) async {
                   if (val != null) {
                     setState(() {
                       _selectedGrade = val;
                     });
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setInt('selected_grade', val);
                     _fetchBackendSubjects();
                   }
                 },
@@ -233,7 +254,12 @@ class _MentoraHomeScreenState extends State<MentoraHomeScreen> {
             const SizedBox(height: 12),
 
             // SUBJECTS GRID
-            GridView.builder(
+            _isLoading
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 32.0),
+                    child: Center(child: CircularProgressIndicator(color: primaryIndigo)),
+                  )
+                : GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
