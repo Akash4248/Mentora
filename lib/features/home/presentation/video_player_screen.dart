@@ -38,34 +38,31 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       widget.videoUrl.contains('youtu.be') ||
       RegExp(r'^[a-zA-Z0-9_-]{11}$').hasMatch(widget.videoUrl.trim());
 
-  String get _youtubeEmbedUrl {
-    final uri = Uri.tryParse(widget.videoUrl);
-    String? videoId;
+  String _extractYouTubeId(String rawUrl) {
+    final uri = Uri.tryParse(rawUrl);
+    String? id;
     if (uri != null) {
       if (uri.queryParameters.containsKey('v')) {
-        videoId = uri.queryParameters['v'];
+        id = uri.queryParameters['v'];
       } else if (uri.host.contains('youtu.be') && uri.pathSegments.isNotEmpty) {
-        videoId = uri.pathSegments.first;
+        id = uri.pathSegments.first;
       } else if (uri.pathSegments.contains('embed') && uri.pathSegments.isNotEmpty) {
-        videoId = uri.pathSegments.last;
+        id = uri.pathSegments.last;
       }
     }
 
-    if (videoId == null || videoId.isEmpty) {
-      final trimmed = widget.videoUrl.trim();
+    if (id == null || id.isEmpty) {
+      final trimmed = rawUrl.trim();
       if (RegExp(r'^[a-zA-Z0-9_-]{11}$').hasMatch(trimmed)) {
-        videoId = trimmed;
+        id = trimmed;
       }
     }
 
-    if (videoId != null && videoId.isNotEmpty) {
-      final String embedUrl = 'https://www.youtube.com/embed/$videoId?autoplay=1&playsinline=1&rel=0&modestbranding=1&enablejsapi=1&origin=https://www.youtube.com';
-      print('[VIDEO_DEBUG] Raw URL/ID: "${widget.videoUrl}" -> Formatted YouTube Embed URL: "$embedUrl"');
-      return embedUrl;
+    if (id == null || id.isEmpty || !RegExp(r'^[a-zA-Z0-9_-]{11}$').hasMatch(id)) {
+      return 'M7lc1UVf-VE';
     }
 
-    print('[VIDEO_DEBUG] Raw URL: "${widget.videoUrl}" -> Using direct URL');
-    return widget.videoUrl;
+    return id;
   }
 
   @override
@@ -78,7 +75,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     print('[VIDEO_DEBUG] Initializing VideoPlayerScreen for title: "${widget.title}", URL: "${widget.videoUrl}", isYouTube: $_isYouTube');
     try {
       if (_isYouTube) {
-        print('[VIDEO_DEBUG] Configured YouTube embed target: $_youtubeEmbedUrl');
+        print('[VIDEO_DEBUG] Configured YouTube embed target for URL: ${widget.videoUrl}');
         if (mounted) {
           setState(() {
             _isInitialized = true;
@@ -162,53 +159,47 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: IDPColors.background,
-      extendBodyBehindAppBar: true, // For glassmorphic app bar
-      body: Stack(
-        children: [
-          // Main Scrollable Content
-          SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+      body: SafeArea(
+        child: Stack(
+          children: [
+            Column(
               children: [
-                // Top padding for the fixed app bar
-                SizedBox(height: MediaQuery.of(context).padding.top + 72),
-                if (_initError != null)
-                  _buildErrorState()
-                else ...[
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: IDPSpacing.containerMargin),
+                _buildAppBar(context),
+                Expanded(
+                  child: SingleChildScrollView(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _buildHeroHeader(),
-                        const SizedBox(height: IDPSpacing.xl),
-                        _buildVideoSection(),
-                        const SizedBox(height: IDPSpacing.xxl),
-                        _buildDetailsSection(),
-                        const SizedBox(height: 120), // Bottom padding for FAB
+                        if (_initError != null)
+                          _buildErrorState()
+                        else ...[
+                          _buildVideoSection(),
+                          Padding(
+                            padding: const EdgeInsets.all(IDPSpacing.containerMargin),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildHeroHeader(),
+                                const SizedBox(height: IDPSpacing.lg),
+                                _buildDetailsSection(),
+                                const SizedBox(height: 80),
+                              ],
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
-                ],
+                ),
               ],
             ),
-          ),
-          
-          // Fixed App Bar
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: _buildAppBar(context),
-          ),
-          
-          // Fixed FAB
-          Positioned(
-            bottom: IDPSpacing.xl,
-            right: IDPSpacing.containerMargin,
-            child: _buildAskAIFab(),
-          ),
-        ],
+            Positioned(
+              bottom: IDPSpacing.lg,
+              right: IDPSpacing.containerMargin,
+              child: _buildAskAIFab(),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -256,16 +247,25 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       children: [
         Text(
           widget.title,
-          style: IDPTypography.displayLarge.copyWith(
-            color: IDPColors.onBackground,
-            letterSpacing: -0.02,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF0F172A),
+            height: 1.3,
           ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
         ),
-        if (widget.subtitle != null) ...[
-          const SizedBox(height: IDPSpacing.md),
+        if (widget.subtitle != null && widget.subtitle!.isNotEmpty && widget.subtitle != widget.title) ...[
+          const SizedBox(height: 6),
           Text(
             widget.subtitle!,
-            style: IDPTypography.bodyLarge.copyWith(color: IDPColors.onSurfaceVariant),
+            style: const TextStyle(
+              fontSize: 13,
+              color: Color(0xFF64748B),
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ],
@@ -273,27 +273,22 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   Widget _buildAppBar(BuildContext context) {
-    return ClipRRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: Container(
-          padding: EdgeInsets.only(
-            top: MediaQuery.of(context).padding.top + IDPSpacing.md,
-            bottom: IDPSpacing.md,
-            left: IDPSpacing.containerMargin,
-            right: IDPSpacing.containerMargin,
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: IDPSpacing.containerMargin,
+        vertical: IDPSpacing.md,
+      ),
+      decoration: BoxDecoration(
+        color: IDPColors.surface,
+        border: Border(bottom: BorderSide(color: Colors.black.withValues(alpha: 0.05))),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
           ),
-          decoration: BoxDecoration(
-            color: IDPColors.surface.withValues(alpha: 0.8),
-            border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.1))),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 4,
-                offset: const Offset(0, 1),
-              ),
-            ],
-          ),
+        ],
+      ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -351,8 +346,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
               ),
             ],
           ),
-        ),
-      ),
     );
   }
 
@@ -394,28 +387,73 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   Widget _buildVideoSection() {
+    final videoId = _extractYouTubeId(widget.videoUrl);
+    final htmlContent = '''
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background-color: #000000;
+      overflow: hidden;
+    }
+    .video-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="video-container">
+    <iframe
+      id="player"
+      src="https://www.youtube.com/embed/$videoId?autoplay=1&playsinline=1&enablejsapi=1&rel=0&origin=https://www.youtube.com"
+      title="YouTube video player"
+      frameborder="0"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+      referrerpolicy="strict-origin-when-cross-origin"
+      allowfullscreen>
+    </iframe>
+  </div>
+</body>
+</html>
+''';
+
     return Container(
       decoration: BoxDecoration(
-        color: IDPColors.surfaceContainer,
-        borderRadius: BorderRadius.circular(IDPRadius.defaultRadius), // rounded-lg
+        color: Colors.black,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04), // shadow-sm
-            blurRadius: 4,
-            offset: const Offset(0, 1),
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
-        border: Border.all(color: IDPColors.outlineVariant), // border-outline-variant
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
-          if (_isYouTube)
+          if (_isYouTube) ...[
             AspectRatio(
               aspectRatio: 16 / 9,
               child: InAppWebView(
-                initialUrlRequest: URLRequest(
-                  url: WebUri(_youtubeEmbedUrl),
+                initialData: InAppWebViewInitialData(
+                  data: htmlContent,
+                  baseUrl: WebUri('https://www.youtube.com'),
+                  mimeType: 'text/html',
+                  encoding: 'utf-8',
                 ),
                 initialSettings: InAppWebViewSettings(
                   javaScriptEnabled: true,
@@ -428,10 +466,18 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   domStorageEnabled: true,
                   databaseEnabled: true,
                   mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
+                  allowFileAccessFromFileURLs: true,
+                  allowUniversalAccessFromFileURLs: true,
                   userAgent: 'Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
                 ),
+                onPermissionRequest: (controller, permissionRequest) async {
+                  return PermissionResponse(
+                    resources: permissionRequest.resources,
+                    action: PermissionResponseAction.GRANT,
+                  );
+                },
                 onWebViewCreated: (controller) {
-                  print('[VIDEO_DEBUG] WebView created for URL: ${widget.videoUrl}');
+                  print('[VIDEO_DEBUG] WebView created with iframe HTML for videoId: "$videoId"');
                 },
                 onLoadStart: (controller, url) {
                   print('[VIDEO_DEBUG] WebView load started: $url');
@@ -449,7 +495,53 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   print('[VIDEO_DEBUG] WebView JS Console [${consoleMessage.messageLevel}]: ${consoleMessage.message}');
                 },
               ),
-            )
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              color: const Color(0xFF1E293B),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.youtube_searched_for, color: Colors.redAccent, size: 18),
+                      const SizedBox(width: 8),
+                      Text(
+                        'YouTube Player (ID: $videoId)',
+                        style: const TextStyle(color: Colors.white70, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                  TextButton.icon(
+                    onPressed: () async {
+                      try {
+                        final browser = InAppBrowser();
+                        await browser.openUrlRequest(
+                          urlRequest: URLRequest(
+                            url: WebUri('https://www.youtube.com/watch?v=$videoId'),
+                          ),
+                          settings: InAppBrowserClassSettings(
+                            browserSettings: InAppBrowserSettings(
+                              toolbarTopFixedTitle: widget.title,
+                            ),
+                          ),
+                        );
+                      } catch (e) {
+                        print('[VIDEO_DEBUG] Error launching external browser: $e');
+                      }
+                    },
+                    icon: const Icon(Icons.open_in_new, size: 14, color: Colors.white),
+                    label: const Text('Open Full Player', style: TextStyle(color: Colors.white, fontSize: 12)),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ]
           else if (_isInitialized && _controller != null)
             AspectRatio(
               aspectRatio: 16 / 9,

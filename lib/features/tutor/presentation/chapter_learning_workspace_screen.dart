@@ -90,12 +90,6 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
   int _score = 0;
 
   @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 4, vsync: this);
-  }
-
-  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!_argsResolved) {

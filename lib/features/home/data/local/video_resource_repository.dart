@@ -86,14 +86,16 @@ class VideoResourceRepository {
         0;
 
     final sample = await db.rawQuery('SELECT video_url FROM chapter_video_resources WHERE grade = ? LIMIT 1', <Object?>[grade]);
-    final bool hasSyntheticUrls = sample.isNotEmpty && sample.first['video_url']?.toString().contains('MAG_BR') == true;
+    final bool hasInvalidUrls = sample.isNotEmpty &&
+        (sample.first['video_url']?.toString().contains('MAG_BR') == true ||
+            sample.first['video_url']?.toString().contains('a-P0gY-w90M') == true);
 
-    if (count > 0 && !hasSyntheticUrls) {
+    if (count > 0 && !hasInvalidUrls) {
       return;
     }
 
     try {
-      if (hasSyntheticUrls) {
+      if (hasInvalidUrls) {
         await db.delete('chapter_video_resources', where: 'grade = ?', whereArgs: <Object?>[grade]);
       }
 
