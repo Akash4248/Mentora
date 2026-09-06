@@ -31,17 +31,25 @@ class ReasoningOutputFilter {
   static String stripComplete(String text) {
     var output = text.replaceAll('\r', '');
 
-    // Strip ChatML stop tokens and everything after them (Gemma / llama.cpp)
+    // Strip ChatML stop tokens and everything after them
     for (final stopToken in const <String>[
       '<|im_start|>',
       '<|im_end|>',
       '<|endoftext|>',
+      '<end_of_turn>',
+      '</s>',
+      '[END]',
+      '<|im_end',
+      '<|im_start',
     ]) {
       final idx = output.indexOf(stopToken);
       if (idx >= 0) {
         output = output.substring(0, idx);
       }
     }
+
+    // Strip any lingering stop tag literal occurrences
+    output = output.replaceAll(RegExp(r'<\|im_(start|end)\|>'), '');
 
     // Strip <think>/<reasoning>/<analysis> blocks
     for (final tag in const <String>['think', 'reasoning', 'analysis']) {
@@ -51,7 +59,7 @@ class ReasoningOutputFilter {
       );
     }
     output = _stripPromptEcho(output);
-    return output;
+    return output.trim();
   }
 
   static String _stripPromptEcho(String text) {

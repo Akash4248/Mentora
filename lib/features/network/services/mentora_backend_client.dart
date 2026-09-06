@@ -636,35 +636,39 @@ class MentoraBackendClient {
       final tClean = topic.trim().isEmpty ? 'Science & Mathematics' : topic.trim();
       final prompt = '''<|im_start|>system
 You are an expert NCERT school AI tutor for Class $grade $tClean.
-Answer the student's question directly and clearly using Markdown formatting, bullet points, and formulas.
-Start your response with: ### $tClean Explained
+Answer the student's question directly and clearly using Markdown formatting, bullet points, and key formulas.
 Do not output internal monologues or planning steps.
 <|im_end|>
 <|im_start|>user
 $question
 <|im_end|>
 <|im_start|>assistant
-### $tClean Explained
 ''';
 
       final filter = ReasoningOutputFilter();
-      final buffer = StringBuffer('### $tClean Explained\n\n');
+      final rawBuffer = StringBuffer();
 
       await for (final chunk in gateway.streamResponse(prompt: prompt)) {
         final pushed = filter.push(chunk);
         if (pushed.isNotEmpty) {
-          buffer.write(pushed);
+          rawBuffer.write(pushed);
         }
       }
       final flushed = filter.flush();
       if (flushed.isNotEmpty) {
-        buffer.write(flushed);
+        rawBuffer.write(flushed);
       }
 
-      final fullAnswer = buffer.toString().trim();
+      var fullAnswer = ReasoningOutputFilter.stripComplete(rawBuffer.toString());
+      fullAnswer = _deduplicateTopicHeaders(fullAnswer, tClean);
+
       if (fullAnswer.isNotEmpty) {
+        final formattedAnswer = fullAnswer.startsWith('###')
+            ? fullAnswer
+            : '### $tClean Explained\n\n$fullAnswer';
+
         return {
-          'answer': '📱 **[On-Device Local AI Tutor]**\n\n$fullAnswer',
+          'answer': '📱 **[On-Device Local AI Tutor]**\n\n$formattedAnswer',
           'hasAudio': false,
           'source': 'on_device_local_llm',
         };
@@ -673,6 +677,44 @@ $question
       // Ignore and fallback to network error message
     }
     return null;
+  }
+
+  String _deduplicateTopicHeaders(String text, String topic) {
+    var out = text.trim();
+    for (final stop in const [
+      '<|im_end|>',
+      '<|im_start|>',
+      '<|endoftext|>',
+      '</s>',
+      '<end_of_turn>',
+      '<|im_end',
+    ]) {
+      final idx = out.indexOf(stop);
+      if (idx >= 0) {
+        out = out.substring(0, idx);
+      }
+    }
+
+    final headerStr = '### $topic Explained';
+    final lines = out.split('\n');
+    final kept = <String>[];
+    var seenHeader = false;
+
+    for (final line in lines) {
+      final trimmed = line.trim();
+      final lowerNorm = trimmed.replaceAll(' ', '').toLowerCase();
+      final targetNorm = '###${topic.replaceAll(' ', '').toLowerCase()}explained';
+
+      if (trimmed.toLowerCase() == headerStr.toLowerCase() || lowerNorm == targetNorm) {
+        if (seenHeader) {
+          continue;
+        }
+        seenHeader = true;
+      }
+      kept.add(line);
+    }
+
+    return kept.join('\n').replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
   }
 
   // 8. Authenticate User with Gateway
