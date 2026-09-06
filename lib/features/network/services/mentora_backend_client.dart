@@ -28,6 +28,8 @@ class DiscoveryProgress {
 class MentoraBackendClient {
   static List<String> getCandidateGatewayUrls() {
     final list = <String>[
+      'http://10.35.98.193:8000',
+      'http://10.0.2.2:8000',
       'http://akash-Ubuntu.local:8000',
       'http://akash-Ubuntu:8000',
       'http://akash-Ubuntu.local',
@@ -43,15 +45,16 @@ class MentoraBackendClient {
       }
     } catch (_) {}
     list.addAll([
-      'http://127.0.0.1:8000',
+      'http://10.35.98.193:8000',
       'http://10.0.2.2:8000',
+      'http://127.0.0.1:8000',
       'http://pihub.local:8000',
       'http://pihub.local',
     ]);
     return list.toSet().toList();
   }
 
-  static String _activeBaseUrl = 'http://127.0.0.1:8000';
+  static String _activeBaseUrl = 'http://10.35.98.193:8000';
   String get baseUrl => _activeBaseUrl;
   final http.Client _client;
 
@@ -64,30 +67,10 @@ class MentoraBackendClient {
     }
   }
 
-  // Subnet Auto-Discovery: Probe candidate local IPs & Laptop hostname only when PiHub mode is ON
+  // Subnet Auto-Discovery: Probe candidate local IPs & Laptop hostname
   Future<String> autoDiscoverGatewayUrl({
     void Function(DiscoveryProgress progress)? onProgress,
   }) async {
-    final keyService = await UserApiKeyService.getInstance();
-
-    // If PiHub toggle is OFF, connect directly to cloud/internet URL without local subnet probing
-    if (!keyService.isPiHubModeEnabled) {
-      _activeBaseUrl = keyService.customServerUrl.isNotEmpty
-          ? keyService.customServerUrl
-          : 'http://127.0.0.1:8000';
-      onProgress?.call(DiscoveryProgress(
-        currentCandidate: _activeBaseUrl,
-        step: 1,
-        totalSteps: 1,
-        progress: 1.0,
-        isFinished: true,
-        isSuccess: true,
-        connectedUrl: _activeBaseUrl,
-        connectedDeviceName: 'Cloud / Internet Gateway ($_activeBaseUrl)',
-      ));
-      return _activeBaseUrl;
-    }
-
     final candidates = getCandidateGatewayUrls();
     for (int i = 0; i < candidates.length; i++) {
       final candidate = candidates[i];
@@ -107,6 +90,7 @@ class MentoraBackendClient {
             .timeout(const Duration(seconds: 2));
         if (res.statusCode == 200) {
           _activeBaseUrl = candidate;
+          RuntimeBackendUrl().updateUrl(candidate);
           String deviceName = 'Local Subnet Gateway ($candidate)';
           try {
             final hName = Platform.localHostname;
@@ -445,29 +429,35 @@ class OfflineSocraticEngine {
       };
     }
 
-    final words = qClean.split(' ').where((w) => w.length > 2).toList();
+    String cleanQuery = qClean;
+    final wrapperMatch = RegExp(r'^Explain\s*"(.*?)"\s*for\s*.*$', caseSensitive: false).firstMatch(qClean);
+    if (wrapperMatch != null && wrapperMatch.group(1) != null) {
+      cleanQuery = wrapperMatch.group(1)!;
+    }
+
+    final words = cleanQuery.split(' ').where((w) => w.length > 2 && !w.contains('"')).toList();
     final keyConcept = words.isNotEmpty ? words.first[0].toUpperCase() + words.first.substring(1) : "Concept";
-    final queryContext = words.isNotEmpty ? words.take(5).join(' ') : qClean;
+    final queryContext = words.isNotEmpty ? words.take(5).join(' ') : cleanQuery;
 
     final answer = '''### NCERT Class $grade Socratic Explanation
 
 **Topic**: $tClean
-**Question**: *"$qClean"*
+**Question**: *"$cleanQuery"*
 
 #### Core Conceptual Analysis:
-When investigating **"$qClean"** in NCERT Grade $grade **$tClean**, we analyze how *$queryContext* operates based on fundamental principles.
+When investigating **"$cleanQuery"** in NCERT Grade $grade **$tClean**, we analyze how *$queryContext* operates based on fundamental principles.
 
 1. **Core Definition & Principles**:
-   - **$keyConcept**: Refers to the fundamental property and behavior of $qClean within the context of $tClean.
+   - **$keyConcept**: Refers to the fundamental property and behavior of $cleanQuery within the context of $tClean.
    - In the Class $grade curriculum, students study how these parameters interact under standard physical, chemical, or mathematical conditions.
 
 2. **Methodological Step-by-Step Breakdown**:
-   - **Step 1 (Identify Parameters)**: Extract given values, boundary conditions, and standard SI units relevant to $qClean.
+   - **Step 1 (Identify Parameters)**: Extract given values, boundary conditions, and standard SI units relevant to $cleanQuery.
    - **Step 2 (Apply Governing Laws)**: Use core equations and theoretical frameworks for $tClean to formulate an analytical solution.
    - **Step 3 (Synthesize & Validate)**: Confirm dimensional consistency, state boundary assumptions, and relate findings to real-world NCERT applications.
 
 3. **Key Takeaway for Exams**:
-   Clear mastery of **"$qClean"** ensures a solid foundation for NCERT Grade $grade assessments, practical lab experiments, and advanced problem solving.''';
+   Clear mastery of **"$cleanQuery"** ensures a solid foundation for NCERT Grade $grade assessments, practical lab experiments, and advanced problem solving.''';
 
     return {
       'answer': answer,
