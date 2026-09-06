@@ -77,37 +77,42 @@ class VideoResourceRepository {
 
   final AppDatabase _database;
 
-  Future<void> ensureSeedVideos() async {
+  /// Ensures video resources for the specified [grade] are loaded into local SQLite storage.
+  Future<void> ensureSeedVideosForGrade(int grade) async {
     final db = await _database.database;
     final count = Sqflite.firstIntValue(
-          await db.rawQuery('SELECT COUNT(*) FROM chapter_video_resources'),
+          await db.rawQuery('SELECT COUNT(*) FROM chapter_video_resources WHERE grade = ?', <Object?>[grade]),
         ) ??
         0;
 
-    final sample = await db.rawQuery('SELECT video_url FROM chapter_video_resources LIMIT 1');
+    final sample = await db.rawQuery('SELECT video_url FROM chapter_video_resources WHERE grade = ? LIMIT 1', <Object?>[grade]);
     final bool hasSyntheticUrls = sample.isNotEmpty && sample.first['video_url']?.toString().contains('MAG_BR') == true;
 
-    if (count >= 768 && !hasSyntheticUrls) {
+    if (count > 0 && !hasSyntheticUrls) {
       return;
     }
 
     try {
       if (hasSyntheticUrls) {
-        await db.delete('chapter_video_resources');
+        await db.delete('chapter_video_resources', where: 'grade = ?', whereArgs: <Object?>[grade]);
       }
 
       final jsonString = await rootBundle.loadString(
         'assets/chapter_video_resources.json',
       );
       final List<dynamic> list = jsonDecode(jsonString);
+
+      // Filter entries matching the requested grade only
+      final gradeEntries = list.where((item) => item is Map<String, dynamic> && item['grade'] == grade).toList();
+
       final batch = db.batch();
-      for (final item in list) {
+      for (final item in gradeEntries) {
         if (item is Map<String, dynamic>) {
           batch.insert(
             'chapter_video_resources',
             <String, dynamic>{
               'chapter_id': item['chapter_id'],
-              'grade': item['grade'],
+              'grade': grade,
               'subject': item['subject'],
               'chapter_title': item['chapter_title'],
               'channel_name': item['channel_name'],
@@ -125,20 +130,54 @@ class VideoResourceRepository {
         }
       }
       await batch.commit(noResult: true);
+      // ignore: avoid_print
+      print('[VideoResourceRepository] Loaded and stored ${gradeEntries.length} video resources for Grade $grade in SQLite.');
     } catch (e) {
       // ignore: avoid_print
-      print('[VideoResourceRepository] Seed error: $e');
+      print('[VideoResourceRepository] Seed error for Grade $grade: $e');
     }
   }
 
-  Future<List<ChapterVideoResource>> getVideosForChapter(String chapterId) async {
-    await ensureSeedVideos();
+  /// Store downloaded grade pack videos into local SQLite storage
+  Future<void> saveGradeVideos(int grade, List<Map<String, dynamic>> videos) async {
+    final db = await _database.database;
+    await db.delete('chapter_video_resources', where: 'grade = ?', whereArgs: <Object?>[grade]);
+
+    final batch = db.batch();
+    for (final v in videos) {
+      batch.insert(
+        'chapter_video_resources',
+        <String, dynamic>{
+          'chapter_id': v['chapter_id'] ?? v['chapter'] ?? '',
+          'grade': grade,
+          'subject': v['subject'] ?? '',
+          'chapter_title': v['chapter_title'] ?? v['title'] ?? '',
+          'channel_name': v['channel_name'] ?? v['channel'] ?? 'NCERT',
+          'video_title': v['video_title'] ?? v['title'] ?? '',
+          'video_url': v['video_url'] ?? v['videoUrl'] ?? '',
+          'video_id': v['video_id'] ?? v['id'] ?? '',
+          'rank': v['rank'] ?? 1,
+          'duration_seconds': v['duration_seconds'] ?? 600,
+          'language': v['language'] ?? 'en',
+          'description': v['description'] ?? '',
+          'created_at': DateTime.now().millisecondsSinceEpoch,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+    await batch.commit(noResult: true);
+    // ignore: avoid_print
+    print('[VideoResourceRepository] Saved ${videos.length} video URLs to SQLite for Grade $grade.');
+  }
+
+  Future<List<ChapterVideoResource>> getVideosForChapter(String chapterId, {int grade = 9}) async {
+    await ensureSeedVideosForGrade(grade);
     final db = await _database.database;
 
     var rows = await db.query(
       'chapter_video_resources',
-      where: 'chapter_id = ?',
-      whereArgs: <Object?>[chapterId],
+      where: 'grade = ? AND chapter_id = ?',
+      whereArgs: <Object?>[grade, chapterId],
       orderBy: 'rank ASC',
     );
 
@@ -146,8 +185,17 @@ class VideoResourceRepository {
       final sanitized = chapterId.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '%');
       rows = await db.query(
         'chapter_video_resources',
-        where: 'chapter_id LIKE ?',
-        whereArgs: <Object?>['%$sanitized%'],
+        where: 'grade = ? AND (chapter_id LIKE ? OR chapter_title LIKE ?)',
+        whereArgs: <Object?>[grade, '%$sanitized%', '%$sanitized%'],
+        orderBy: 'rank ASC',
+      );
+    }
+
+    if (rows.isEmpty) {
+      rows = await db.query(
+        'chapter_video_resources',
+        where: 'grade = ?',
+        whereArgs: <Object?>[grade],
         orderBy: 'rank ASC',
       );
     }

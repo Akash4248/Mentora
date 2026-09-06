@@ -47,7 +47,7 @@ class _ChapterDashboardScreenState extends State<ChapterDashboardScreen> {
   Future<void> _loadAnalytics() async {
     final insights = await LearningInsightsService.create();
     final analytics = await insights.getChapterAnalytics(widget.chapter.packId);
-    final videos = await _videoRepo.getVideosForChapter(widget.chapter.packId);
+    final videos = await _videoRepo.getVideosForChapter(widget.chapter.packId, grade: widget.chapter.grade);
     if (mounted) {
       setState(() {
         _analytics = analytics;

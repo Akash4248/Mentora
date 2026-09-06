@@ -98,7 +98,7 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
     List<Map<String, dynamic>> playlistItems = [];
     try {
       final localRepo = VideoResourceRepository();
-      final localVideos = await localRepo.getVideosForChapter(_activeChapterTitle);
+      final localVideos = await localRepo.getVideosForChapter(_activeChapterTitle, grade: _activeGrade);
       print('[VIDEO_DEBUG] Workspace: Found ${localVideos.length} local SQLite videos for "$_activeChapterTitle"');
       if (localVideos.isNotEmpty) {
         playlistItems = localVideos.map((v) => {

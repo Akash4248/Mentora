@@ -35,7 +35,8 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   bool get _isYouTube =>
       widget.videoUrl.contains('youtube.com') ||
-      widget.videoUrl.contains('youtu.be');
+      widget.videoUrl.contains('youtu.be') ||
+      RegExp(r'^[a-zA-Z0-9_-]{11}$').hasMatch(widget.videoUrl.trim());
 
   String get _youtubeEmbedUrl {
     final uri = Uri.tryParse(widget.videoUrl);
@@ -50,9 +51,16 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       }
     }
 
+    if (videoId == null || videoId.isEmpty) {
+      final trimmed = widget.videoUrl.trim();
+      if (RegExp(r'^[a-zA-Z0-9_-]{11}$').hasMatch(trimmed)) {
+        videoId = trimmed;
+      }
+    }
+
     if (videoId != null && videoId.isNotEmpty) {
       final String embedUrl = 'https://www.youtube.com/embed/$videoId?autoplay=1&playsinline=1&rel=0&modestbranding=1&enablejsapi=1&origin=https://www.youtube.com';
-      print('[VIDEO_DEBUG] Raw URL: "${widget.videoUrl}" -> Formatted YouTube Embed URL: "$embedUrl"');
+      print('[VIDEO_DEBUG] Raw URL/ID: "${widget.videoUrl}" -> Formatted YouTube Embed URL: "$embedUrl"');
       return embedUrl;
     }
 
@@ -269,7 +277,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
         child: Container(
-          color: IDPColors.surface.withOpacity(0.8),
           padding: EdgeInsets.only(
             top: MediaQuery.of(context).padding.top + IDPSpacing.md,
             bottom: IDPSpacing.md,
@@ -277,10 +284,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             right: IDPSpacing.containerMargin,
           ),
           decoration: BoxDecoration(
-            border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
+            color: IDPColors.surface.withValues(alpha: 0.8),
+            border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.1))),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 blurRadius: 4,
                 offset: const Offset(0, 1),
               ),
