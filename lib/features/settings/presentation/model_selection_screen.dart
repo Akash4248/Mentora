@@ -312,11 +312,13 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
 
     try {
       final uri = Uri.parse(url);
-      final request = http.Request('GET', uri);
-      final response = await http.Client().send(request).timeout(const Duration(minutes: 15));
+      final request = http.Request('GET', uri)
+        ..followRedirects = true
+        ..maxRedirects = 10;
+      final response = await http.Client().send(request).timeout(const Duration(minutes: 20));
 
-      if (response.statusCode != 200 && response.statusCode != 302) {
-        throw Exception('Server returned HTTP ${response.statusCode}');
+      if (response.statusCode != 200) {
+        throw Exception('HuggingFace returned HTTP ${response.statusCode}');
       }
 
       final appDir = await getApplicationDocumentsDirectory();
