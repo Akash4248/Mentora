@@ -10,6 +10,7 @@ import '../../settings/services/user_api_key_service.dart';
 import '../../chat/application/reasoning_output_filter.dart';
 import '../../chat/data/local/linux_llm_config_service.dart';
 import '../../chat/data/platform_tutor_inference_gateway.dart';
+import '../../chat/data/llm_admin_channel_service.dart';
 
 class DiscoveryProgress {
   final String currentCandidate;
@@ -610,13 +611,25 @@ class MentoraBackendClient {
     int grade,
   ) async {
     try {
-      final config = await LinuxLlmConfigService().load();
-      if (!config.isReady || config.modelPath.trim().isEmpty) {
-        return null;
-      }
-      final modelFile = File(config.modelPath.trim());
-      if (!await modelFile.exists()) {
-        return null;
+      if (Platform.isLinux) {
+        final config = await LinuxLlmConfigService().load();
+        if (!config.isReady || config.modelPath.trim().isEmpty) {
+          return null;
+        }
+        final modelFile = File(config.modelPath.trim());
+        if (!await modelFile.exists()) {
+          return null;
+        }
+      } else {
+        try {
+          final adminService = LlmAdminChannelService();
+          final status = await adminService.getEngineStatus();
+          if (!status.loaded && status.modelPath.trim().isEmpty) {
+            return null;
+          }
+        } catch (_) {
+          return null;
+        }
       }
 
       final gateway = PlatformTutorInferenceGateway();
