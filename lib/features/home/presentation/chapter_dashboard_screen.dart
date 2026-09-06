@@ -6,6 +6,8 @@ import '../../chat/presentation/chapter_chat_screen.dart';
 import 'pdf_chapter_reader_screen.dart';
 import 'quiz_player_screen.dart';
 import 'chapter_summary_screen.dart';
+import 'video_player_screen.dart';
+import '../data/local/video_resource_repository.dart';
 import 'widgets/chapter_experiments_section.dart';
 
 import '../../analytics/domain/learning_profile_models.dart';
@@ -32,6 +34,8 @@ class ChapterDashboardScreen extends StatefulWidget {
 
 class _ChapterDashboardScreenState extends State<ChapterDashboardScreen> {
   ChapterAnalytics? _analytics;
+  List<ChapterVideoResource> _videos = [];
+  final VideoResourceRepository _videoRepo = VideoResourceRepository();
   bool _loading = true;
 
   @override
@@ -43,9 +47,11 @@ class _ChapterDashboardScreenState extends State<ChapterDashboardScreen> {
   Future<void> _loadAnalytics() async {
     final insights = await LearningInsightsService.create();
     final analytics = await insights.getChapterAnalytics(widget.chapter.packId);
+    final videos = await _videoRepo.getVideosForChapter(widget.chapter.packId);
     if (mounted) {
       setState(() {
         _analytics = analytics;
+        _videos = videos;
         _loading = false;
       });
     }
@@ -230,6 +236,8 @@ class _ChapterDashboardScreenState extends State<ChapterDashboardScreen> {
               chapter: widget.chapter,
               subject: widget.subject,
             ),
+            const SizedBox(height: 24),
+            _buildVideoSectionCard(context),
           ],
         ),
       ),
@@ -390,4 +398,199 @@ class _ChapterDashboardScreenState extends State<ChapterDashboardScreen> {
       ),
     );
   }
+
+  Widget _buildVideoSectionCard(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Top Ranked Video Lectures',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1E293B),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF6366F1).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '${_videos.length} Channels',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF6366F1),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (_videos.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.video_library_outlined, color: Color(0xFF94A3B8)),
+                SizedBox(width: 12),
+                Text(
+                  'No video links available for this chapter.',
+                  style: TextStyle(color: Color(0xFF64748B)),
+                ),
+              ],
+            ),
+          )
+        else
+          ..._videos.map(
+            (video) => Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.03),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(16),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () {
+                    print('[VIDEO_DEBUG] ChapterDashboardScreen: Opening VideoPlayerScreen for "${video.videoTitle}", URL: "${video.videoUrl}"');
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => VideoPlayerScreen(
+                          videoUrl: video.videoUrl,
+                          title: video.videoTitle,
+                          subtitle: video.channelName,
+                          description: video.description,
+                        ),
+                      ),
+                    );
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 54,
+                          height: 54,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEEF2FF),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              const Icon(
+                                Icons.play_circle_fill_rounded,
+                                color: Color(0xFF6366F1),
+                                size: 36,
+                              ),
+                              Positioned(
+                                bottom: 2,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF4F46E5),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    '#${video.rank}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFE0E7FF),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      video.channelName,
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF4338CA),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                video.videoTitle,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF1E293B),
+                                  height: 1.3,
+                                ),
+                              ),
+                              if (video.description.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  video.description,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const Icon(
+                          Icons.play_arrow_rounded,
+                          color: Color(0xFF6366F1),
+                          size: 24,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
 }
+

@@ -72,6 +72,8 @@ flutter:
     - assets/asset_registry.json
     - assets/experiment_blueprints/
     - assets/seed_data_math_science.json
+    - assets/chapter_video_resources.json
+    - assets/curriculum_256_chapters.json
     - assets/phet/catalog.json
     - assets/phet/simulations/
 

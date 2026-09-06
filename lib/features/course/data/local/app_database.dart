@@ -17,7 +17,7 @@ class AppDatabase {
 
     _database = await openDatabase(
       fullPath,
-      version: 18,
+      version: 19,
       onCreate: (db, version) async {
         await _createBaseTables(db);
         await _createRagTables(db);
@@ -36,8 +36,12 @@ class AppDatabase {
         await _createContentPackTables(db);
         await _createTranslationCacheTables(db);
         await _createPendingSyncQueueTable(db);
+        await _createChapterVideoResourcesTable(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 19) {
+          await _createChapterVideoResourcesTable(db);
+        }
         if (oldVersion < 18) {
           await _createPendingSyncQueueTable(db);
         }
@@ -522,6 +526,32 @@ class AppDatabase {
     await db.execute('''
       CREATE INDEX IF NOT EXISTS idx_pending_sync_queue_status
       ON pending_sync_queue(status, created_at);
+    ''');
+  }
+
+  Future<void> _createChapterVideoResourcesTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS chapter_video_resources (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        chapter_id TEXT NOT NULL,
+        grade INTEGER NOT NULL,
+        subject TEXT NOT NULL,
+        chapter_title TEXT NOT NULL,
+        channel_name TEXT NOT NULL,
+        video_title TEXT NOT NULL,
+        video_url TEXT NOT NULL,
+        video_id TEXT NOT NULL,
+        rank INTEGER NOT NULL,
+        duration_seconds INTEGER DEFAULT 0,
+        language TEXT DEFAULT 'en',
+        description TEXT DEFAULT '',
+        created_at INTEGER DEFAULT 0
+      );
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_chapter_video_chapter_id
+      ON chapter_video_resources(chapter_id);
     ''');
   }
 }

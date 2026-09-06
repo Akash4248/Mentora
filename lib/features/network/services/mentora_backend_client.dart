@@ -147,11 +147,9 @@ class MentoraBackendClient {
   static final Map<int, List<Map<String, dynamic>>> _subjectsCache = {};
   static final Map<String, List<Map<String, dynamic>>> _chaptersCache = {};
 
-  // 1. Fetch Real Subjects & Progress for Grade (Instant Cache + Local DB + Silent Background Sync)
+  // 1. Fetch Real Subjects & Progress for Grade (Offline-First: Local Cache & DB)
   Future<List<Map<String, dynamic>>> getSubjectsForGrade(int grade) async {
     if (_subjectsCache.containsKey(grade) && _subjectsCache[grade]!.isNotEmpty) {
-      // Refresh silently in background
-      _syncSubjectsInBackground(grade);
       return _subjectsCache[grade]!;
     }
 
@@ -159,11 +157,10 @@ class MentoraBackendClient {
     final localList = await _loadSubjectsFromLocalDb(grade);
     if (localList.isNotEmpty) {
       _subjectsCache[grade] = localList;
-      _syncSubjectsInBackground(grade);
       return localList;
     }
 
-    // Fallback sync
+    // Network download only if local DB is empty
     final netList = await _fetchSubjectsFromNetwork(grade);
     if (netList.isNotEmpty) {
       _subjectsCache[grade] = netList;
@@ -197,10 +194,6 @@ class MentoraBackendClient {
     return [];
   }
 
-  void _syncSubjectsInBackground(int grade) {
-    _fetchSubjectsFromNetwork(grade);
-  }
-
   Future<List<Map<String, dynamic>>> _loadSubjectsFromLocalDb(int grade) async {
     try {
       final courseRepo = CourseRepository();
@@ -226,11 +219,10 @@ class MentoraBackendClient {
     return [];
   }
 
-  // 2. Fetch Real Chapters for Selected Subject & Grade (Instant Cache + Local DB + Silent Background Sync)
+  // 2. Fetch Real Chapters for Selected Subject & Grade (Offline-First: Local Cache & DB)
   Future<List<Map<String, dynamic>>> getChaptersForSubject(String subjectName, {int grade = 9}) async {
     final key = '${grade}_${subjectName.toLowerCase().trim()}';
     if (_chaptersCache.containsKey(key) && _chaptersCache[key]!.isNotEmpty) {
-      _syncChaptersInBackground(subjectName, grade);
       return _chaptersCache[key]!;
     }
 
@@ -238,11 +230,10 @@ class MentoraBackendClient {
     final localList = await _loadChaptersFromLocalDb(subjectName, grade);
     if (localList.isNotEmpty) {
       _chaptersCache[key] = localList;
-      _syncChaptersInBackground(subjectName, grade);
       return localList;
     }
 
-    // Fallback sync
+    // Network download only if local DB is empty
     final netList = await _fetchChaptersFromNetwork(subjectName, grade);
     if (netList.isNotEmpty) {
       _chaptersCache[key] = netList;
@@ -271,10 +262,6 @@ class MentoraBackendClient {
       }
     } catch (_) {}
     return [];
-  }
-
-  void _syncChaptersInBackground(String subjectName, int grade) {
-    _fetchChaptersFromNetwork(subjectName, grade);
   }
 
   Future<List<Map<String, dynamic>>> _loadChaptersFromLocalDb(String subjectName, int grade) async {
@@ -448,32 +435,82 @@ class MentoraBackendClient {
       }
     } catch (_) {}
 
+    final cleanTitle = chapter.replaceAll('_', ' ');
     return {
       'chapter': chapter,
-      'title': 'Diagnostic Assessment: Motion & Velocity',
-      'totalQuestions': 3,
+      'title': 'NCERT Practice Quiz: $cleanTitle',
+      'totalQuestions': 10,
       'userMastery': 0,
       'questions': [
         {
           'id': 'q1',
-          'question': 'A car covers 100 meters in 5 seconds. What is its average speed?',
-          'options': ['10 m/s', '20 m/s', '25 m/s', '50 m/s'],
-          'correctIndex': 1,
-          'explanation': 'Speed = Distance / Time = 100 m / 5 s = 20 m/s.',
+          'question': 'What is the core conceptual principle studied in $cleanTitle?',
+          'options': ['System Properties', 'Derived Equations', 'Practical Models', 'All of the above'],
+          'correctIndex': 3,
+          'explanation': '$cleanTitle covers system properties, derived equations, and practical models.',
         },
         {
           'id': 'q2',
-          'question': 'Which of the following is a vector quantity?',
-          'options': ['Distance', 'Speed', 'Velocity', 'Mass'],
-          'correctIndex': 2,
-          'explanation': 'Velocity has both magnitude and direction.',
+          'question': 'Which standard SI unit dimension applies when evaluating $cleanTitle?',
+          'options': ['Standard Metric Units', 'Dimensionless Ratios', 'Operational Units', 'Context-dependent SI units'],
+          'correctIndex': 3,
+          'explanation': 'Units depend on the specific physical variables and formulas involved.',
         },
         {
           'id': 'q3',
-          'question': 'An object starts from rest and accelerates at 2 m/s² for 4 seconds. What is its final velocity?',
-          'options': ['4 m/s', '8 m/s', '12 m/s', '16 m/s'],
+          'question': 'In NCERT experiments on $cleanTitle, what step ensures experimental precision?',
+          'options': ['Random sampling', 'Controlling variables and taking repeated trials', 'Ignoring minor outliers', 'Relying strictly on theoretical estimates'],
           'correctIndex': 1,
-          'explanation': 'v = u + at => 0 + (2 * 4) = 8 m/s.',
+          'explanation': 'Controlling variables and taking repeated readings minimizes experimental errors.',
+        },
+        {
+          'id': 'q4',
+          'question': 'How do the principles of $cleanTitle relate to everyday applications?',
+          'options': ['They describe mechanical & chemical interactions', 'They optimize technical design', 'They explain natural observational phenomena', 'All of the above'],
+          'correctIndex': 3,
+          'explanation': 'NCERT concepts connect fundamental science with technical applications and daily observations.',
+        },
+        {
+          'id': 'q5',
+          'question': 'Which mathematical formulation is central to solving numericals in $cleanTitle?',
+          'options': ['Linear Proportionality Laws', 'Conservation Theorems & Equations', 'Rate Definitions', 'All applicable NCERT laws'],
+          'correctIndex': 3,
+          'explanation': 'Numerical problem solving uses state equations, conservation laws, and rate definitions.',
+        },
+        {
+          'id': 'q6',
+          'question': 'When analyzing plots for $cleanTitle, what does the slope of the curve measure?',
+          'options': ['Rate of change of the dependent parameter', 'Integrated area quantity', 'Arbitrary scalar constant', 'System boundary limit'],
+          'correctIndex': 0,
+          'explanation': 'The slope of a graph measures the rate of change of the target variable.',
+        },
+        {
+          'id': 'q7',
+          'question': 'What laboratory safety measure is required when studying $cleanTitle?',
+          'options': ['Instrument calibration before taking readings', 'Wearing protective gear where needed', 'Ensuring secure apparatus connections', 'All of the above'],
+          'correctIndex': 3,
+          'explanation': 'Laboratory protocols require instrument calibration and protective equipment.',
+        },
+        {
+          'id': 'q8',
+          'question': 'What common mistake should be avoided when solving problems on $cleanTitle?',
+          'options': ['Confusing scalar and vector quantities', 'Ignoring reference directions', 'Misinterpreting proportional constants', 'All of the above'],
+          'correctIndex': 3,
+          'explanation': 'Common errors include scalar/vector confusion, direction errors, and unit oversights.',
+        },
+        {
+          'id': 'q9',
+          'question': 'How does energy input affect the systems described in $cleanTitle?',
+          'options': ['Increases kinetic energy / molecular activity', 'Reduces molecular stability', 'Alters equilibrium state', 'Varies based on system thermodynamics'],
+          'correctIndex': 3,
+          'explanation': 'Energy input alters system state, reaction rates, or resistance according to thermodynamics.',
+        },
+        {
+          'id': 'q10',
+          'question': 'What is the best revision method for $cleanTitle before board exams?',
+          'options': ['Memorizing definition text only', 'Practicing NCERT exercise problems and diagrams', 'Skimming summary sheets', 'Focusing only on short questions'],
+          'correctIndex': 1,
+          'explanation': 'Exam performance relies on practicing NCERT exercise problems and drawing clear diagrams.',
         },
       ],
     };

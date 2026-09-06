@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:flutter/services.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../../../content_packs/data/local/content_pack_repository.dart';
@@ -22,184 +24,84 @@ class CourseRepository {
 
   Future<void> ensureSeedData() async {
     final db = await _database.database;
+    final count = Sqflite.firstIntValue(
+          await db.rawQuery('SELECT COUNT(*) FROM chapters'),
+        ) ??
+        0;
+
+    if (count >= 256) {
+      return;
+    }
 
     final batch = db.batch();
 
-    const courses = <Map<String, String>>[
-      {'id': 'course_6', 'name': 'Class 6'},
-      {'id': 'course_7', 'name': 'Class 7'},
-      {'id': 'course_8', 'name': 'Class 8'},
-      {'id': 'course_9', 'name': 'Class 9'},
-      {'id': 'course_10', 'name': 'Class 10'},
-    ];
-
-    final subjects = <Map<String, String>>[
-      {'id': 'sub_math_10', 'course_id': 'course_10', 'name': 'Mathematics'},
-      {'id': 'sub_sci_10', 'course_id': 'course_10', 'name': 'Science'},
-      {'id': 'sub_soc_10', 'course_id': 'course_10', 'name': 'Social Science'},
-      {'id': 'sub_eng_10', 'course_id': 'course_10', 'name': 'English'},
-      {'id': 'sub_kan_10', 'course_id': 'course_10', 'name': 'Kannada'},
-      {
-        'id': 'sub_comp_10',
-        'course_id': 'course_10',
-        'name': 'Computer (Optional)',
-      },
-    ];
-
-    for (var grade = 6; grade <= 9; grade += 1) {
-      final gradeSubjects = _upperSubjects;
-      for (final name in gradeSubjects) {
-        final idName = name
-            .toLowerCase()
-            .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
-            .replaceAll(RegExp(r'_+'), '_')
-            .replaceAll(RegExp(r'^_|_$'), '');
-        subjects.add(<String, String>{
-          'id': 'sub_${idName}_$grade',
-          'course_id': 'course_$grade',
-          'name': name,
-        });
-      }
-    }
-
-    final chapters = <Map<String, String>>[
-      {
-        'id': 'chap_linear_eq',
-        'subject_id': 'sub_math_10',
-        'title': 'Linear Equations',
-        'summary':
-            'Solve one-variable equations and word problems using balancing steps.',
-      },
-      {
-        'id': 'chap_quad_eq_10',
-        'subject_id': 'sub_math_10',
-        'title': 'Quadratic Equations',
-        'summary':
-            'Factorization and formula-based methods for solving quadratic equations.',
-      },
-      {
-        'id': 'chap_trigonometry_10',
-        'subject_id': 'sub_math_10',
-        'title': 'Introduction to Trigonometry',
-        'summary':
-            'Understand sine, cosine, tangent and apply identities to simple problems.',
-      },
-      {
-        'id': 'chap_chemical_rxn',
-        'subject_id': 'sub_sci_10',
-        'title': 'Chemical Reactions',
-        'summary':
-            'Understand reaction types, balancing equations, and real-world examples.',
-      },
-      {
-        'id': 'chap_life_processes_10',
-        'subject_id': 'sub_sci_10',
-        'title': 'Life Processes',
-        'summary':
-            'Study nutrition, respiration, transport and excretion in living organisms.',
-      },
-      {
-        'id': 'chap_light_10',
-        'subject_id': 'sub_sci_10',
-        'title': 'Light Reflection and Refraction',
-        'summary':
-            'Learn image formation with mirrors and lenses using ray diagrams.',
-      },
-      {
-        'id': 'chap_nationalism_10',
-        'subject_id': 'sub_soc_10',
-        'title': 'Rise of Nationalism in Europe',
-        'summary':
-            'Understand key events and ideas that shaped nationalism in Europe.',
-      },
-      {
-        'id': 'chap_resources_10',
-        'subject_id': 'sub_soc_10',
-        'title': 'Resources and Development',
-        'summary':
-            'Explore different types of resources, their use and conservation.',
-      },
-      {
-        'id': 'chap_prose_10',
-        'subject_id': 'sub_eng_10',
-        'title': 'Reading Comprehension and Prose',
-        'summary':
-            'Build understanding, vocabulary and analytical reading skills.',
-      },
-      {
-        'id': 'chap_grammar_10',
-        'subject_id': 'sub_eng_10',
-        'title': 'Grammar and Writing Skills',
-        'summary':
-            'Practice sentence structure, tenses, and short-form writing.',
-      },
-    ];
-
-    for (var grade = 6; grade <= 9; grade += 1) {
-      final gradeSubjects = _upperSubjects;
-      for (final name in gradeSubjects) {
-        final idName = name
-            .toLowerCase()
-            .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
-            .replaceAll(RegExp(r'_+'), '_')
-            .replaceAll(RegExp(r'^_|_$'), '');
-        final subjectId = 'sub_${idName}_$grade';
-
-        chapters.add(<String, String>{
-          'id': 'chap_${idName}_foundations_$grade',
-          'subject_id': subjectId,
-          'title': '$name Foundations',
-          'summary':
-              'Core $name concepts and examples for Class $grade learners.',
-        });
-      }
-    }
-
-    chapters.addAll(<Map<String, String>>[
-      {
-        'id': 'chap_kannada_10',
-        'subject_id': 'sub_kan_10',
-        'title': 'Kannada Language Skills',
-        'summary':
-            'Reading comprehension, grammar, and writing practice in Kannada.',
-      },
-      {
-        'id': 'chap_computer_10',
-        'subject_id': 'sub_comp_10',
-        'title': 'Computer Fundamentals',
-        'summary':
-            'Basic computer operations, internet safety, and productivity skills.',
-      },
-    ]);
-
-    for (final course in courses) {
+    for (var grade = 6; grade <= 12; grade++) {
       batch.insert(
         'courses',
-        course,
-        conflictAlgorithm: ConflictAlgorithm.ignore,
+        <String, String>{
+          'id': 'course_$grade',
+          'name': 'Class $grade',
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
       );
     }
 
-    for (final subject in subjects) {
-      batch.insert(
-        'subjects',
-        subject,
-        conflictAlgorithm: ConflictAlgorithm.ignore,
+    try {
+      final jsonString = await rootBundle.loadString(
+        'assets/curriculum_256_chapters.json',
       );
-    }
+      final List<dynamic> list = jsonDecode(jsonString);
+      final seenSubjects = <String>{};
 
-    for (final chapter in chapters) {
-      batch.insert(
-        'chapters',
-        chapter,
-        conflictAlgorithm: ConflictAlgorithm.ignore,
-      );
+      for (final item in list) {
+        if (item is Map<String, dynamic>) {
+          final chapterId = item['chapter_id'] as String;
+          final grade = item['grade'] as int;
+          final subjectName = item['subject'] as String;
+          final chapterTitle = item['chapter_title'] as String;
+          final description =
+              item['description'] as String? ?? 'Chapter on $chapterTitle';
+
+          final subjectSlug = _subjectKey(subjectName).replaceAll(
+            RegExp(r'[^a-z0-9]+'),
+            '_',
+          );
+          final subjectId = 'sub_${subjectSlug}_$grade';
+
+          if (seenSubjects.add(subjectId)) {
+            batch.insert(
+              'subjects',
+              <String, String>{
+                'id': subjectId,
+                'course_id': 'course_$grade',
+                'name': _displaySubjectName(subjectName),
+              },
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
+          }
+
+          batch.insert(
+            'chapters',
+            <String, String>{
+              'id': chapterId,
+              'subject_id': subjectId,
+              'title': chapterTitle,
+              'summary': description,
+            },
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
+      }
+    } catch (e) {
+      // ignore: avoid_print
+      print('[CourseRepository] Seed error: $e');
     }
 
     await batch.commit(noResult: true);
   }
 
   Future<List<Course>> getCourses({String languageCode = 'en'}) async {
+    await ensureSeedData();
     final db = await _database.database;
     final rows = await db.query('courses', orderBy: 'name ASC');
 
@@ -215,7 +117,7 @@ class CourseRepository {
         return false;
       }
       final grade = int.tryParse(match.group(1) ?? '');
-      return grade != null && grade >= 6 && grade <= 10;
+      return grade != null && grade >= 6 && grade <= 12;
     }).toList();
 
     filtered.sort((a, b) {

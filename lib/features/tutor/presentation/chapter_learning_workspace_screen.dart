@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../network/services/mentora_backend_client.dart';
 import '../../chat/presentation/formatted_text_widget.dart';
+import '../../home/presentation/video_player_screen.dart';
+import '../../home/data/local/video_resource_repository.dart';
 
 class ChapterLearningWorkspaceScreen extends StatefulWidget {
   final String chapterTitle;
@@ -88,15 +90,45 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
   }
 
   Future<void> _loadTabResources() async {
+    print('[VIDEO_DEBUG] Workspace: Loading resources for chapter: "$_activeChapterTitle" (Grade $_activeGrade $_activeSubjectName)');
     final sim = await _client.getSimulationForChapter(_activeChapterTitle);
     final video = await _client.getVideoLecturesForChapter(_activeChapterTitle);
     final quiz = await _client.getQuizForChapter(_activeChapterTitle);
 
+    List<Map<String, dynamic>> playlistItems = [];
+    try {
+      final localRepo = VideoResourceRepository();
+      final localVideos = await localRepo.getVideosForChapter(_activeChapterTitle);
+      print('[VIDEO_DEBUG] Workspace: Found ${localVideos.length} local SQLite videos for "$_activeChapterTitle"');
+      if (localVideos.isNotEmpty) {
+        playlistItems = localVideos.map((v) => {
+          'id': v.videoId,
+          'youtubeId': v.videoId,
+          'videoUrl': v.videoUrl,
+          'title': v.videoTitle,
+          'channel': v.channelName,
+          'duration': '${(v.durationSeconds / 60).round()}:00',
+          'description': v.description,
+        }).toList();
+      }
+    } catch (e) {
+      print('[VIDEO_DEBUG] Workspace: Error querying VideoResourceRepository: $e');
+    }
+
     if (mounted) {
       setState(() {
         _simData = sim;
-        _videoData = video;
         _quizData = quiz;
+        if (playlistItems.isNotEmpty) {
+          _videoData = {
+            'chapter': _activeChapterTitle,
+            'currentVideo': playlistItems.first,
+            'playlist': playlistItems,
+            'islAvailable': true,
+          };
+        } else {
+          _videoData = video;
+        }
       });
     }
   }
@@ -162,7 +194,17 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
       subtitle: Text(subtitle, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
       onTap: () {
         Navigator.pop(context);
-        _sendMessageWithTopic('Explain "$title" for $_activeChapterTitle');
+        String prompt = 'Please explain $_activeChapterTitle in clear detail.';
+        if (title.contains('Analogy')) {
+          prompt = 'Please explain $_activeChapterTitle using a practical real-world daily life example or analogy.';
+        } else if (title.contains('Simplify')) {
+          prompt = 'Please simplify the core concepts and equations of $_activeChapterTitle for a school student.';
+        } else if (title.contains('Step-by-Step')) {
+          prompt = 'Please show a clear, step-by-step mathematical breakdown and key formulas for $_activeChapterTitle.';
+        } else if (title.contains('Visual')) {
+          prompt = 'Please describe an interactive visual experiment or simulation to understand $_activeChapterTitle.';
+        }
+        _sendMessageWithTopic(prompt);
       },
     );
   }
@@ -487,49 +529,75 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
   Widget _buildWatchTab() {
     const primaryIndigo = Color(0xFF4F46E5);
     final playlist = List<Map<String, dynamic>>.from(_videoData?['playlist'] ?? []);
+    final currentVideo = _videoData?['currentVideo'] as Map<String, dynamic>?;
+
+    final heroTitle = currentVideo?['title']?.toString() ?? 'NCERT Class $_activeGrade $_activeSubjectName: $_activeChapterTitle';
+    final heroUrl = currentVideo?['videoUrl']?.toString() ?? currentVideo?['youtubeId']?.toString() ?? 'https://www.youtube.com/watch?v=tBmavvMwu68';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // EMBEDDED YOUTUBE VIDEO CARD
-          ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: Container(
-              height: 200,
-              width: double.infinity,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-              child: Stack(
-                children: [
-                  Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const CircleAvatar(
-                          radius: 28,
-                          backgroundColor: primaryIndigo,
-                          child: Icon(Icons.play_arrow, color: Colors.white, size: 36),
-                        ),
-                        const SizedBox(height: 10),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                          child: Text(
-                            'NCERT Class $_activeGrade $_activeSubjectName: $_activeChapterTitle',
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ],
-                    ),
+          // EMBEDDED YOUTUBE VIDEO CARD (CLICKABLE)
+          InkWell(
+            onTap: () {
+              print('[VIDEO_DEBUG] Tapped Workspace Hero Video Card. Launching VideoPlayerScreen with title "$heroTitle", URL "$heroUrl"');
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => VideoPlayerScreen(
+                    videoUrl: heroUrl,
+                    title: heroTitle,
+                    subtitle: 'NCERT Class $_activeGrade $_activeSubjectName • $_activeChapterTitle',
+                    description: currentVideo?['description']?.toString(),
                   ),
-                ],
+                ),
+              );
+            },
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                height: 200,
+                width: double.infinity,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: Stack(
+                  children: [
+                    Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const CircleAvatar(
+                            radius: 28,
+                            backgroundColor: primaryIndigo,
+                            child: Icon(Icons.play_arrow, color: Colors.white, size: 36),
+                          ),
+                          const SizedBox(height: 10),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                            child: Text(
+                              heroTitle,
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          const Text(
+                            '▶ Tap to launch full screen player',
+                            style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -560,14 +628,33 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
           const Text('📚 Playlist Chapters', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
           const SizedBox(height: 8),
           ...playlist.map((item) {
+            final itemTitle = item['title']?.toString() ?? 'Video Chapter';
+            final itemUrl = item['videoUrl']?.toString() ?? item['youtubeId']?.toString() ?? 'https://www.youtube.com/watch?v=tBmavvMwu68';
+            final itemDuration = item['duration']?.toString() ?? '10:00';
+            final itemChannel = item['channel']?.toString() ?? 'NCERT';
+
             return Card(
               margin: const EdgeInsets.only(bottom: 8),
               elevation: 0,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: const BorderSide(color: Color(0xFFE2E8F0))),
               child: ListTile(
+                onTap: () {
+                  print('[VIDEO_DEBUG] Tapped Workspace Playlist Item "$itemTitle". Launching VideoPlayerScreen with URL "$itemUrl"');
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => VideoPlayerScreen(
+                        videoUrl: itemUrl,
+                        title: itemTitle,
+                        subtitle: '$itemChannel • Grade $_activeGrade $_activeChapterTitle',
+                        description: item['description']?.toString(),
+                      ),
+                    ),
+                  );
+                },
                 leading: const CircleAvatar(backgroundColor: Color(0xFFEEF2FF), child: Icon(Icons.play_circle_fill, color: primaryIndigo, size: 20)),
-                title: Text(item['title'] as String, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                trailing: Text(item['duration'] as String, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                title: Text(itemTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                subtitle: Text(itemChannel, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                trailing: Text(itemDuration, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
               ),
             );
           }).toList(),
@@ -594,7 +681,7 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Question ${_currentQuestionIndex + 1} of ${questions.length}', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF64748B), fontSize: 13)),
+              Text('Question ${_currentQuestionIndex + 1} of ${questions.length} • Score: $_score', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF64748B), fontSize: 13)),
               Chip(
                 label: Text('${_quizData?['userMastery'] ?? 0}% Mastered', style: const TextStyle(color: Color(0xFF059669), fontWeight: FontWeight.bold, fontSize: 11)),
                 backgroundColor: const Color(0xFFECFDF5),

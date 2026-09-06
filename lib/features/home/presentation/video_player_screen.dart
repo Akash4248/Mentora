@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:ui'; // For ImageFilter
 
 import 'package:flutter/material.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:video_player/video_player.dart';
 import 'package:offline_tutor_app/core/theme/idp_theme.dart';
 import 'package:offline_tutor_app/core/theme/idp_colors.dart';
@@ -32,6 +33,33 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   double _playbackSpeed = 1.0;
   String? _initError;
 
+  bool get _isYouTube =>
+      widget.videoUrl.contains('youtube.com') ||
+      widget.videoUrl.contains('youtu.be');
+
+  String get _youtubeEmbedUrl {
+    final uri = Uri.tryParse(widget.videoUrl);
+    String? videoId;
+    if (uri != null) {
+      if (uri.queryParameters.containsKey('v')) {
+        videoId = uri.queryParameters['v'];
+      } else if (uri.host.contains('youtu.be') && uri.pathSegments.isNotEmpty) {
+        videoId = uri.pathSegments.first;
+      } else if (uri.pathSegments.contains('embed') && uri.pathSegments.isNotEmpty) {
+        videoId = uri.pathSegments.last;
+      }
+    }
+
+    if (videoId != null && videoId.isNotEmpty) {
+      final String embedUrl = 'https://www.youtube.com/embed/$videoId?autoplay=1&playsinline=1&rel=0&modestbranding=1&enablejsapi=1&origin=https://www.youtube.com';
+      print('[VIDEO_DEBUG] Raw URL: "${widget.videoUrl}" -> Formatted YouTube Embed URL: "$embedUrl"');
+      return embedUrl;
+    }
+
+    print('[VIDEO_DEBUG] Raw URL: "${widget.videoUrl}" -> Using direct URL');
+    return widget.videoUrl;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -39,18 +67,39 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   Future<void> _initializeVideo() async {
+    print('[VIDEO_DEBUG] Initializing VideoPlayerScreen for title: "${widget.title}", URL: "${widget.videoUrl}", isYouTube: $_isYouTube');
     try {
+      if (_isYouTube) {
+        print('[VIDEO_DEBUG] Configured YouTube embed target: $_youtubeEmbedUrl');
+        if (mounted) {
+          setState(() {
+            _isInitialized = true;
+          });
+        }
+        return;
+      }
+
       if (widget.videoUrl.startsWith('http')) {
         _controller = VideoPlayerController.networkUrl(
           Uri.parse(widget.videoUrl),
         );
       } else {
-        _controller = VideoPlayerController.file(
-          File(widget.videoUrl),
-        );
+        final file = File(widget.videoUrl);
+        if (!await file.exists()) {
+          print('[VIDEO_DEBUG] Local video file not found at ${widget.videoUrl}');
+          if (mounted) {
+            setState(() {
+              _initError =
+                  'Local video file not found at ${widget.videoUrl}. Please download or import the video file.';
+            });
+          }
+          return;
+        }
+        _controller = VideoPlayerController.file(file);
       }
 
       await _controller!.initialize();
+      print('[VIDEO_DEBUG] Non-YouTube VideoPlayerController initialized successfully.');
 
       if (mounted) {
         setState(() {
@@ -64,6 +113,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         }
       });
     } catch (e) {
+      print('[VIDEO_DEBUG] Exception initializing video player: $e');
       if (mounted) {
         setState(() {
           _initError = 'Error loading video: $e';
@@ -352,21 +402,62 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
-          _isInitialized && _controller != null
-              ? AspectRatio(
-                  aspectRatio: 16 / 9,
-                  child: _VideoPlayerWidget(controller: _controller!),
-                )
-              : AspectRatio(
-                  aspectRatio: 16 / 9,
-                  child: Container(
-                    color: IDPColors.backgroundDark,
-                    child: const Center(
-                      child: CircularProgressIndicator(color: IDPColors.primary),
-                    ),
-                  ),
+          if (_isYouTube)
+            AspectRatio(
+              aspectRatio: 16 / 9,
+              child: InAppWebView(
+                initialUrlRequest: URLRequest(
+                  url: WebUri(_youtubeEmbedUrl),
                 ),
-          if (_isInitialized && _controller != null)
+                initialSettings: InAppWebViewSettings(
+                  javaScriptEnabled: true,
+                  mediaPlaybackRequiresUserGesture: false,
+                  allowsInlineMediaPlayback: true,
+                  useWideViewPort: true,
+                  loadWithOverviewMode: true,
+                  supportZoom: false,
+                  transparentBackground: true,
+                  domStorageEnabled: true,
+                  databaseEnabled: true,
+                  mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
+                  userAgent: 'Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+                ),
+                onWebViewCreated: (controller) {
+                  print('[VIDEO_DEBUG] WebView created for URL: ${widget.videoUrl}');
+                },
+                onLoadStart: (controller, url) {
+                  print('[VIDEO_DEBUG] WebView load started: $url');
+                },
+                onLoadStop: (controller, url) {
+                  print('[VIDEO_DEBUG] WebView load stopped: $url');
+                },
+                onReceivedError: (controller, request, error) {
+                  print('[VIDEO_DEBUG] WebView error on ${request.url}: ${error.description} (code: ${error.type})');
+                },
+                onReceivedHttpError: (controller, request, errorResponse) {
+                  print('[VIDEO_DEBUG] WebView HTTP error on ${request.url}: statusCode=${errorResponse.statusCode}');
+                },
+                onConsoleMessage: (controller, consoleMessage) {
+                  print('[VIDEO_DEBUG] WebView JS Console [${consoleMessage.messageLevel}]: ${consoleMessage.message}');
+                },
+              ),
+            )
+          else if (_isInitialized && _controller != null)
+            AspectRatio(
+              aspectRatio: 16 / 9,
+              child: _VideoPlayerWidget(controller: _controller!),
+            )
+          else
+            AspectRatio(
+              aspectRatio: 16 / 9,
+              child: Container(
+                color: IDPColors.backgroundDark,
+                child: const Center(
+                  child: CircularProgressIndicator(color: IDPColors.primary),
+                ),
+              ),
+            ),
+          if (!_isYouTube && _isInitialized && _controller != null)
             Container(
               padding: const EdgeInsets.all(IDPSpacing.md),
               color: IDPColors.surfaceContainerHighest,

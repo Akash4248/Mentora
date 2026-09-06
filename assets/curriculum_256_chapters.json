@@ -1,0 +1,1794 @@
+[
+  {
+    "chapter_id": "6_mathematics_english_ch000",
+    "grade": 6,
+    "subject": "Mathematics",
+    "chapter_title": "Data Handling and Presentation",
+    "description": "Chapter on Data Handling and Presentation"
+  },
+  {
+    "chapter_id": "6_mathematics_english_ch001",
+    "grade": 6,
+    "subject": "Mathematics",
+    "chapter_title": "Perimeter and Area",
+    "description": "Chapter on Perimeter and Area"
+  },
+  {
+    "chapter_id": "6_mathematics_english_ch002",
+    "grade": 6,
+    "subject": "Mathematics",
+    "chapter_title": "The Other Side of Zero",
+    "description": "Chapter on The Other Side of Zero"
+  },
+  {
+    "chapter_id": "6_mathematics_english_ch003",
+    "grade": 6,
+    "subject": "Mathematics",
+    "chapter_title": "Lines and Angles",
+    "description": "Chapter on Lines and Angles"
+  },
+  {
+    "chapter_id": "6_mathematics_english_ch004",
+    "grade": 6,
+    "subject": "Mathematics",
+    "chapter_title": "Symmetry",
+    "description": "Chapter on Symmetry"
+  },
+  {
+    "chapter_id": "6_mathematics_english_ch005",
+    "grade": 6,
+    "subject": "Mathematics",
+    "chapter_title": "Patterns in Mathematics",
+    "description": "Chapter on Patterns in Mathematics"
+  },
+  {
+    "chapter_id": "6_mathematics_english_ch006",
+    "grade": 6,
+    "subject": "Mathematics",
+    "chapter_title": "Prime Time",
+    "description": "Chapter on Prime Time"
+  },
+  {
+    "chapter_id": "6_mathematics_english_ch007",
+    "grade": 6,
+    "subject": "Mathematics",
+    "chapter_title": "Fractions",
+    "description": "Chapter on Fractions"
+  },
+  {
+    "chapter_id": "6_mathematics_english_ch008",
+    "grade": 6,
+    "subject": "Mathematics",
+    "chapter_title": "Number Play",
+    "description": "Chapter on Number Play"
+  },
+  {
+    "chapter_id": "6_mathematics_english_ch009",
+    "grade": 6,
+    "subject": "Mathematics",
+    "chapter_title": "Playing with Constructions",
+    "description": "Chapter on Playing with Constructions"
+  },
+  {
+    "chapter_id": "6_science_english_ch000",
+    "grade": 6,
+    "subject": "Science",
+    "chapter_title": "Chapter 1 Locating Places on the Earth",
+    "description": "Chapter on Chapter 1 Locating Places on the Earth"
+  },
+  {
+    "chapter_id": "6_science_english_ch001",
+    "grade": 6,
+    "subject": "Science",
+    "chapter_title": "Glossary",
+    "description": "Chapter on Glossary"
+  },
+  {
+    "chapter_id": "6_science_english_ch002",
+    "grade": 6,
+    "subject": "Science",
+    "chapter_title": "Chapter 8 Unity in Diversity or Many in the One",
+    "description": "Chapter on Chapter 8 Unity in Diversity or Many in the One"
+  },
+  {
+    "chapter_id": "6_science_english_ch003",
+    "grade": 6,
+    "subject": "Science",
+    "chapter_title": "Chapter 14 Economic Activities Around Us",
+    "description": "Chapter on Chapter 14 Economic Activities Around Us"
+  },
+  {
+    "chapter_id": "6_science_english_ch004",
+    "grade": 6,
+    "subject": "Science",
+    "chapter_title": "Chapter 5 India That Is Bharat",
+    "description": "Chapter on Chapter 5 India That Is Bharat"
+  },
+  {
+    "chapter_id": "6_science_english_ch005",
+    "grade": 6,
+    "subject": "Science",
+    "chapter_title": "Chapter 12 Grassroots Democracy Part 3 Local Government in Urban Areas",
+    "description": "Chapter on Chapter 12 Grassroots Democracy Part 3 Local Government in Urban Areas"
+  },
+  {
+    "chapter_id": "6_science_english_ch006",
+    "grade": 6,
+    "subject": "Science",
+    "chapter_title": "Chapter 9 Family and Community",
+    "description": "Chapter on Chapter 9 Family and Community"
+  },
+  {
+    "chapter_id": "6_science_english_ch007",
+    "grade": 6,
+    "subject": "Science",
+    "chapter_title": "Chapter 11 Grassroots Democracy Part 2 Local Government in Rural Areas",
+    "description": "Chapter on Chapter 11 Grassroots Democracy Part 2 Local Government in Rural Areas"
+  },
+  {
+    "chapter_id": "6_science_english_ch008",
+    "grade": 6,
+    "subject": "Science",
+    "chapter_title": "Chapter 3 Landforms and Life",
+    "description": "Chapter on Chapter 3 Landforms and Life"
+  },
+  {
+    "chapter_id": "6_science_english_ch009",
+    "grade": 6,
+    "subject": "Science",
+    "chapter_title": "Chapter 2 Oceans and Continents",
+    "description": "Chapter on Chapter 2 Oceans and Continents"
+  },
+  {
+    "chapter_id": "6_science_english_ch010",
+    "grade": 6,
+    "subject": "Science",
+    "chapter_title": "Chapter 7 Indias Cultural Roots",
+    "description": "Chapter on Chapter 7 Indias Cultural Roots"
+  },
+  {
+    "chapter_id": "6_science_english_ch011",
+    "grade": 6,
+    "subject": "Science",
+    "chapter_title": "Chapter 4 Timeline and Sources of History",
+    "description": "Chapter on Chapter 4 Timeline and Sources of History"
+  },
+  {
+    "chapter_id": "6_science_english_ch012",
+    "grade": 6,
+    "subject": "Science",
+    "chapter_title": "Chapter 13 The Value of Work",
+    "description": "Chapter on Chapter 13 The Value of Work"
+  },
+  {
+    "chapter_id": "6_science_english_ch013",
+    "grade": 6,
+    "subject": "Science",
+    "chapter_title": "Chapter 6 The Beginnings of Indian Civilisation",
+    "description": "Chapter on Chapter 6 The Beginnings of Indian Civilisation"
+  },
+  {
+    "chapter_id": "6_science_english_ch014",
+    "grade": 6,
+    "subject": "Science",
+    "chapter_title": "Chapter 10 Grassroots Democracy Part 1 Governance",
+    "description": "Chapter on Chapter 10 Grassroots Democracy Part 1 Governance"
+  },
+  {
+    "chapter_id": "6_science_english_ch015",
+    "grade": 6,
+    "subject": "Science",
+    "chapter_title": "Contents",
+    "description": "Chapter on Contents"
+  },
+  {
+    "chapter_id": "6_science_english_ch016",
+    "grade": 6,
+    "subject": "Science",
+    "chapter_title": "Chapter 5 Measurement of Length and Motion",
+    "description": "Chapter on Chapter 5 Measurement of Length and Motion"
+  },
+  {
+    "chapter_id": "6_science_english_ch017",
+    "grade": 6,
+    "subject": "Science",
+    "chapter_title": "Chapter 12 Beyond Earth",
+    "description": "Chapter on Chapter 12 Beyond Earth"
+  },
+  {
+    "chapter_id": "6_science_english_ch018",
+    "grade": 6,
+    "subject": "Science",
+    "chapter_title": "Chapter 4 Exploring Magnets",
+    "description": "Chapter on Chapter 4 Exploring Magnets"
+  },
+  {
+    "chapter_id": "6_science_english_ch019",
+    "grade": 6,
+    "subject": "Science",
+    "chapter_title": "Chapter 10 Living Creatures Exploring their Characteristics",
+    "description": "Chapter on Chapter 10 Living Creatures Exploring their Characteristics"
+  },
+  {
+    "chapter_id": "6_science_english_ch020",
+    "grade": 6,
+    "subject": "Science",
+    "chapter_title": "Chapter 9 Methods of Separation in Everyday Life",
+    "description": "Chapter on Chapter 9 Methods of Separation in Everyday Life"
+  },
+  {
+    "chapter_id": "6_science_english_ch021",
+    "grade": 6,
+    "subject": "Science",
+    "chapter_title": "Class 6 Science textbook",
+    "description": "Chapter on Class 6 Science textbook"
+  },
+  {
+    "chapter_id": "6_science_english_ch022",
+    "grade": 6,
+    "subject": "Science",
+    "chapter_title": "Chapter 6 Materials Around Us",
+    "description": "Chapter on Chapter 6 Materials Around Us"
+  },
+  {
+    "chapter_id": "6_science_english_ch023",
+    "grade": 6,
+    "subject": "Science",
+    "chapter_title": "Chapter 11 Natures Treasures",
+    "description": "Chapter on Chapter 11 Natures Treasures"
+  },
+  {
+    "chapter_id": "6_science_english_ch024",
+    "grade": 6,
+    "subject": "Science",
+    "chapter_title": "Chapter 8 A Journey through States of Water",
+    "description": "Chapter on Chapter 8 A Journey through States of Water"
+  },
+  {
+    "chapter_id": "6_science_english_ch025",
+    "grade": 6,
+    "subject": "Science",
+    "chapter_title": "Chapter 3 Mindful Eating A Path to a Healthy Body",
+    "description": "Chapter on Chapter 3 Mindful Eating A Path to a Healthy Body"
+  },
+  {
+    "chapter_id": "6_science_english_ch026",
+    "grade": 6,
+    "subject": "Science",
+    "chapter_title": "Chapter 2 Diversity in the Living World",
+    "description": "Chapter on Chapter 2 Diversity in the Living World"
+  },
+  {
+    "chapter_id": "6_science_english_ch027",
+    "grade": 6,
+    "subject": "Science",
+    "chapter_title": "Chapter 1 The Wonderful World of Science",
+    "description": "Chapter on Chapter 1 The Wonderful World of Science"
+  },
+  {
+    "chapter_id": "6_science_english_ch028",
+    "grade": 6,
+    "subject": "Science",
+    "chapter_title": "Chapter 7 Temperature and its Measurement",
+    "description": "Chapter on Chapter 7 Temperature and its Measurement"
+  },
+  {
+    "chapter_id": "7_mathematics_english_ch000",
+    "grade": 7,
+    "subject": "Mathematics",
+    "chapter_title": "Geometric Twins",
+    "description": "Chapter on Geometric Twins"
+  },
+  {
+    "chapter_id": "7_mathematics_english_ch001",
+    "grade": 7,
+    "subject": "Mathematics",
+    "chapter_title": "Another Peek Beyond the Point",
+    "description": "Chapter on Another Peek Beyond the Point"
+  },
+  {
+    "chapter_id": "7_mathematics_english_ch002",
+    "grade": 7,
+    "subject": "Mathematics",
+    "chapter_title": "Operations with Integers",
+    "description": "Chapter on Operations with Integers"
+  },
+  {
+    "chapter_id": "7_mathematics_english_ch003",
+    "grade": 7,
+    "subject": "Mathematics",
+    "chapter_title": "Finding the Unknown",
+    "description": "Chapter on Finding the Unknown"
+  },
+  {
+    "chapter_id": "7_mathematics_english_ch004",
+    "grade": 7,
+    "subject": "Mathematics",
+    "chapter_title": "introduction",
+    "description": "Chapter on introduction"
+  },
+  {
+    "chapter_id": "7_mathematics_english_ch005",
+    "grade": 7,
+    "subject": "Mathematics",
+    "chapter_title": "Connecting the Dots...",
+    "description": "Chapter on Connecting the Dots..."
+  },
+  {
+    "chapter_id": "7_mathematics_english_ch006",
+    "grade": 7,
+    "subject": "Mathematics",
+    "chapter_title": "Constructions and Tilings",
+    "description": "Chapter on Constructions and Tilings"
+  },
+  {
+    "chapter_id": "7_mathematics_english_ch007",
+    "grade": 7,
+    "subject": "Mathematics",
+    "chapter_title": "Finding Common Ground",
+    "description": "Chapter on Finding Common Ground"
+  },
+  {
+    "chapter_id": "7_mathematics_english_ch008",
+    "grade": 7,
+    "subject": "Mathematics",
+    "chapter_title": "Number Play",
+    "description": "Chapter on Number Play"
+  },
+  {
+    "chapter_id": "7_science_english_ch000",
+    "grade": 7,
+    "subject": "Science",
+    "chapter_title": "Chapter 10 The Constitution of India An Introduction",
+    "description": "Chapter on Chapter 10 The Constitution of India An Introduction"
+  },
+  {
+    "chapter_id": "7_science_english_ch001",
+    "grade": 7,
+    "subject": "Science",
+    "chapter_title": "Chapter 9 From the Rulers to the Ruled Types of Governments",
+    "description": "Chapter on Chapter 9 From the Rulers to the Ruled Types of Governments"
+  },
+  {
+    "chapter_id": "7_science_english_ch002",
+    "grade": 7,
+    "subject": "Science",
+    "chapter_title": "Chapter 6 The Age of Reorganisation",
+    "description": "Chapter on Chapter 6 The Age of Reorganisation"
+  },
+  {
+    "chapter_id": "7_science_english_ch003",
+    "grade": 7,
+    "subject": "Science",
+    "chapter_title": "Chapter 12 Understanding Markets",
+    "description": "Chapter on Chapter 12 Understanding Markets"
+  },
+  {
+    "chapter_id": "7_science_english_ch004",
+    "grade": 7,
+    "subject": "Science",
+    "chapter_title": "Chapter 11 From Barter to Money",
+    "description": "Chapter on Chapter 11 From Barter to Money"
+  },
+  {
+    "chapter_id": "7_science_english_ch005",
+    "grade": 7,
+    "subject": "Science",
+    "chapter_title": "Chapter 7 The Gupta Era An Age of Tireless Creativity",
+    "description": "Chapter on Chapter 7 The Gupta Era An Age of Tireless Creativity"
+  },
+  {
+    "chapter_id": "7_science_english_ch006",
+    "grade": 7,
+    "subject": "Science",
+    "chapter_title": "Social Science textbook for  class 7 part 1",
+    "description": "Chapter on Social Science textbook for  class 7 part 1"
+  },
+  {
+    "chapter_id": "7_science_english_ch007",
+    "grade": 7,
+    "subject": "Science",
+    "chapter_title": "Chapter 3 Climates of India",
+    "description": "Chapter on Chapter 3 Climates of India"
+  },
+  {
+    "chapter_id": "7_science_english_ch008",
+    "grade": 7,
+    "subject": "Science",
+    "chapter_title": "Chapter 1 Geographical Diversity of India",
+    "description": "Chapter on Chapter 1 Geographical Diversity of India"
+  },
+  {
+    "chapter_id": "7_science_english_ch009",
+    "grade": 7,
+    "subject": "Science",
+    "chapter_title": "Chapter 2 Understanding the Weather",
+    "description": "Chapter on Chapter 2 Understanding the Weather"
+  },
+  {
+    "chapter_id": "7_science_english_ch010",
+    "grade": 7,
+    "subject": "Science",
+    "chapter_title": "Chapter 8 How the Land Becomes Sacred",
+    "description": "Chapter on Chapter 8 How the Land Becomes Sacred"
+  },
+  {
+    "chapter_id": "7_science_english_ch011",
+    "grade": 7,
+    "subject": "Science",
+    "chapter_title": "Chapter 5 The Rise of Empires",
+    "description": "Chapter on Chapter 5 The Rise of Empires"
+  },
+  {
+    "chapter_id": "7_science_english_ch012",
+    "grade": 7,
+    "subject": "Science",
+    "chapter_title": "Chapter 4 New Beginnings Cities and States",
+    "description": "Chapter on Chapter 4 New Beginnings Cities and States"
+  },
+  {
+    "chapter_id": "8_mathematics_english_ch000",
+    "grade": 8,
+    "subject": "Mathematics",
+    "chapter_title": "Proportional Reasoning",
+    "description": "Chapter on Proportional Reasoning"
+  },
+  {
+    "chapter_id": "8_mathematics_english_ch001",
+    "grade": 8,
+    "subject": "Mathematics",
+    "chapter_title": "A Square and A Cube",
+    "description": "Chapter on A Square and A Cube"
+  },
+  {
+    "chapter_id": "8_mathematics_english_ch002",
+    "grade": 8,
+    "subject": "Mathematics",
+    "chapter_title": "Quadrilaterals",
+    "description": "Chapter on Quadrilaterals"
+  },
+  {
+    "chapter_id": "8_mathematics_english_ch003",
+    "grade": 8,
+    "subject": "Mathematics",
+    "chapter_title": "introduction",
+    "description": "Chapter on introduction"
+  },
+  {
+    "chapter_id": "8_mathematics_english_ch004",
+    "grade": 8,
+    "subject": "Mathematics",
+    "chapter_title": "Power Play",
+    "description": "Chapter on Power Play"
+  },
+  {
+    "chapter_id": "8_mathematics_english_ch005",
+    "grade": 8,
+    "subject": "Mathematics",
+    "chapter_title": "Number Play",
+    "description": "Chapter on Number Play"
+  },
+  {
+    "chapter_id": "8_mathematics_english_ch006",
+    "grade": 8,
+    "subject": "Mathematics",
+    "chapter_title": "A Story of Numbers",
+    "description": "Chapter on A Story of Numbers"
+  },
+  {
+    "chapter_id": "8_mathematics_english_ch007",
+    "grade": 8,
+    "subject": "Mathematics",
+    "chapter_title": "We Distribute, Yet Things Multiply",
+    "description": "Chapter on We Distribute, Yet Things Multiply"
+  },
+  {
+    "chapter_id": "8_science_english_ch000",
+    "grade": 8,
+    "subject": "Science",
+    "chapter_title": "Chapter 7 Factors of Production",
+    "description": "Chapter on Chapter 7 Factors of Production"
+  },
+  {
+    "chapter_id": "8_science_english_ch001",
+    "grade": 8,
+    "subject": "Science",
+    "chapter_title": "Chapter 4 The Colonial Era in India",
+    "description": "Chapter on Chapter 4 The Colonial Era in India"
+  },
+  {
+    "chapter_id": "8_science_english_ch002",
+    "grade": 8,
+    "subject": "Science",
+    "chapter_title": "Glossary",
+    "description": "Chapter on Glossary"
+  },
+  {
+    "chapter_id": "8_science_english_ch003",
+    "grade": 8,
+    "subject": "Science",
+    "chapter_title": "Chapter 2 Reshaping Indias Political Map",
+    "description": "Chapter on Chapter 2 Reshaping Indias Political Map"
+  },
+  {
+    "chapter_id": "8_science_english_ch004",
+    "grade": 8,
+    "subject": "Science",
+    "chapter_title": "Chapter 5 Universal Franchise and Indias Electoral System",
+    "description": "Chapter on Chapter 5 Universal Franchise and Indias Electoral System"
+  },
+  {
+    "chapter_id": "8_science_english_ch005",
+    "grade": 8,
+    "subject": "Science",
+    "chapter_title": "Chapter 6 The Parliamentary System Legislature and Executive",
+    "description": "Chapter on Chapter 6 The Parliamentary System Legislature and Executive"
+  },
+  {
+    "chapter_id": "8_science_english_ch006",
+    "grade": 8,
+    "subject": "Science",
+    "chapter_title": "Chapter 3 The Rise of the Marathas",
+    "description": "Chapter on Chapter 3 The Rise of the Marathas"
+  },
+  {
+    "chapter_id": "8_science_english_ch007",
+    "grade": 8,
+    "subject": "Science",
+    "chapter_title": "Social Science Textbook for class 8",
+    "description": "Chapter on Social Science Textbook for class 8"
+  },
+  {
+    "chapter_id": "8_science_english_ch008",
+    "grade": 8,
+    "subject": "Science",
+    "chapter_title": "Chapter 1 Natural Resources and Their Use",
+    "description": "Chapter on Chapter 1 Natural Resources and Their Use"
+  },
+  {
+    "chapter_id": "8_science_english_ch009",
+    "grade": 8,
+    "subject": "Science",
+    "chapter_title": "Chapter 11 Keeping Time with the Skies",
+    "description": "Chapter on Chapter 11 Keeping Time with the Skies"
+  },
+  {
+    "chapter_id": "8_science_english_ch010",
+    "grade": 8,
+    "subject": "Science",
+    "chapter_title": "Chapter 9 The Amazing World of Solutes, Solvents, and Solutions",
+    "description": "Chapter on Chapter 9 The Amazing World of Solutes, Solvents, and Solutions"
+  },
+  {
+    "chapter_id": "8_science_english_ch011",
+    "grade": 8,
+    "subject": "Science",
+    "chapter_title": "Curiosity",
+    "description": "Chapter on Curiosity"
+  },
+  {
+    "chapter_id": "8_science_english_ch012",
+    "grade": 8,
+    "subject": "Science",
+    "chapter_title": "Chapter 7 Particulate Nature of Matter",
+    "description": "Chapter on Chapter 7 Particulate Nature of Matter"
+  },
+  {
+    "chapter_id": "8_science_english_ch013",
+    "grade": 8,
+    "subject": "Science",
+    "chapter_title": "Chapter 12 How Nature Works in Harmony",
+    "description": "Chapter on Chapter 12 How Nature Works in Harmony"
+  },
+  {
+    "chapter_id": "8_science_english_ch014",
+    "grade": 8,
+    "subject": "Science",
+    "chapter_title": "Chapter 3 Health The Ultimate Treasure",
+    "description": "Chapter on Chapter 3 Health The Ultimate Treasure"
+  },
+  {
+    "chapter_id": "8_science_english_ch015",
+    "grade": 8,
+    "subject": "Science",
+    "chapter_title": "Chapter 2 The Invisible Living World Beyond Our Naked Eye",
+    "description": "Chapter on Chapter 2 The Invisible Living World Beyond Our Naked Eye"
+  },
+  {
+    "chapter_id": "8_science_english_ch016",
+    "grade": 8,
+    "subject": "Science",
+    "chapter_title": "Chapter 1 Exploring the Investigative World of Science",
+    "description": "Chapter on Chapter 1 Exploring the Investigative World of Science"
+  },
+  {
+    "chapter_id": "8_science_english_ch017",
+    "grade": 8,
+    "subject": "Science",
+    "chapter_title": "introduction",
+    "description": "Chapter on introduction"
+  },
+  {
+    "chapter_id": "8_science_english_ch018",
+    "grade": 8,
+    "subject": "Science",
+    "chapter_title": "Chapter 6 Pressure, Winds, Storms, and Cyclones",
+    "description": "Chapter on Chapter 6 Pressure, Winds, Storms, and Cyclones"
+  },
+  {
+    "chapter_id": "8_science_english_ch019",
+    "grade": 8,
+    "subject": "Science",
+    "chapter_title": "Chapter 13 Our Home Earth, a Unique Life-Sustaining Planet",
+    "description": "Chapter on Chapter 13 Our Home Earth, a Unique Life-Sustaining Planet"
+  },
+  {
+    "chapter_id": "8_science_english_ch020",
+    "grade": 8,
+    "subject": "Science",
+    "chapter_title": "Chapter 8 Nature of Matter Elements, Compounds, and Mixtures",
+    "description": "Chapter on Chapter 8 Nature of Matter Elements, Compounds, and Mixtures"
+  },
+  {
+    "chapter_id": "8_science_english_ch021",
+    "grade": 8,
+    "subject": "Science",
+    "chapter_title": "Chapter 5 Exploring Forces",
+    "description": "Chapter on Chapter 5 Exploring Forces"
+  },
+  {
+    "chapter_id": "8_science_english_ch022",
+    "grade": 8,
+    "subject": "Science",
+    "chapter_title": "Chapter 10 Light Mirrors and Lenses",
+    "description": "Chapter on Chapter 10 Light Mirrors and Lenses"
+  },
+  {
+    "chapter_id": "8_science_english_ch023",
+    "grade": 8,
+    "subject": "Science",
+    "chapter_title": "Chapter 4 Electricity Magnetic and Heating Effects",
+    "description": "Chapter on Chapter 4 Electricity Magnetic and Heating Effects"
+  },
+  {
+    "chapter_id": "9_mathematics_english_ch000",
+    "grade": 9,
+    "subject": "Mathematics",
+    "chapter_title": "Quadrilaterals",
+    "description": "Chapter on Quadrilaterals"
+  },
+  {
+    "chapter_id": "9_mathematics_english_ch001",
+    "grade": 9,
+    "subject": "Mathematics",
+    "chapter_title": "Introduction to Euclid\u2019s Geometry",
+    "description": "Chapter on Introduction to Euclid\u2019s Geometry"
+  },
+  {
+    "chapter_id": "9_mathematics_english_ch002",
+    "grade": 9,
+    "subject": "Mathematics",
+    "chapter_title": "Polynomials",
+    "description": "Chapter on Polynomials"
+  },
+  {
+    "chapter_id": "9_mathematics_english_ch003",
+    "grade": 9,
+    "subject": "Mathematics",
+    "chapter_title": "Circles",
+    "description": "Chapter on Circles"
+  },
+  {
+    "chapter_id": "9_mathematics_english_ch004",
+    "grade": 9,
+    "subject": "Mathematics",
+    "chapter_title": "Heron\u2019s Formula",
+    "description": "Chapter on Heron\u2019s Formula"
+  },
+  {
+    "chapter_id": "9_mathematics_english_ch005",
+    "grade": 9,
+    "subject": "Mathematics",
+    "chapter_title": "Linear Equations in Two Variables",
+    "description": "Chapter on Linear Equations in Two Variables"
+  },
+  {
+    "chapter_id": "9_mathematics_english_ch006",
+    "grade": 9,
+    "subject": "Mathematics",
+    "chapter_title": "Coordinate Geometry",
+    "description": "Chapter on Coordinate Geometry"
+  },
+  {
+    "chapter_id": "9_mathematics_english_ch007",
+    "grade": 9,
+    "subject": "Mathematics",
+    "chapter_title": "Lines and Angles",
+    "description": "Chapter on Lines and Angles"
+  },
+  {
+    "chapter_id": "9_mathematics_english_ch008",
+    "grade": 9,
+    "subject": "Mathematics",
+    "chapter_title": "introduction",
+    "description": "Chapter on introduction"
+  },
+  {
+    "chapter_id": "9_mathematics_english_ch009",
+    "grade": 9,
+    "subject": "Mathematics",
+    "chapter_title": "Surface Areas and Volumes",
+    "description": "Chapter on Surface Areas and Volumes"
+  },
+  {
+    "chapter_id": "9_mathematics_english_ch010",
+    "grade": 9,
+    "subject": "Mathematics",
+    "chapter_title": "Number Systems",
+    "description": "Chapter on Number Systems"
+  },
+  {
+    "chapter_id": "9_mathematics_english_ch011",
+    "grade": 9,
+    "subject": "Mathematics",
+    "chapter_title": "Triangles",
+    "description": "Chapter on Triangles"
+  },
+  {
+    "chapter_id": "9_mathematics_english_ch012",
+    "grade": 9,
+    "subject": "Mathematics",
+    "chapter_title": "Statistics",
+    "description": "Chapter on Statistics"
+  },
+  {
+    "chapter_id": "9_science_english_ch000",
+    "grade": 9,
+    "subject": "Science",
+    "chapter_title": "Chapter 3 Poverty as a Challenge",
+    "description": "Chapter on Chapter 3 Poverty as a Challenge"
+  },
+  {
+    "chapter_id": "9_science_english_ch001",
+    "grade": 9,
+    "subject": "Science",
+    "chapter_title": "Chapter 1 The Story of Village Palampur",
+    "description": "Chapter on Chapter 1 The Story of Village Palampur"
+  },
+  {
+    "chapter_id": "9_science_english_ch002",
+    "grade": 9,
+    "subject": "Science",
+    "chapter_title": "ECONOMICS",
+    "description": "Chapter on ECONOMICS"
+  },
+  {
+    "chapter_id": "9_science_english_ch003",
+    "grade": 9,
+    "subject": "Science",
+    "chapter_title": "Chapter 4 Food Security in India",
+    "description": "Chapter on Chapter 4 Food Security in India"
+  },
+  {
+    "chapter_id": "9_science_english_ch004",
+    "grade": 9,
+    "subject": "Science",
+    "chapter_title": "Chapter 2 People as Resource",
+    "description": "Chapter on Chapter 2 People as Resource"
+  },
+  {
+    "chapter_id": "9_science_english_ch005",
+    "grade": 9,
+    "subject": "Science",
+    "chapter_title": "Chapter 4 Climate",
+    "description": "Chapter on Chapter 4 Climate"
+  },
+  {
+    "chapter_id": "9_science_english_ch006",
+    "grade": 9,
+    "subject": "Science",
+    "chapter_title": "Chapter 1 India Size and Location",
+    "description": "Chapter on Chapter 1 India Size and Location"
+  },
+  {
+    "chapter_id": "9_science_english_ch007",
+    "grade": 9,
+    "subject": "Science",
+    "chapter_title": "Chapter 9 GRAVITATION",
+    "description": "Chapter on Chapter 9 GRAVITATION"
+  },
+  {
+    "chapter_id": "9_science_english_ch008",
+    "grade": 9,
+    "subject": "Science",
+    "chapter_title": "Chapter 4 Structure of the Atom",
+    "description": "Chapter on Chapter 4 Structure of the Atom"
+  },
+  {
+    "chapter_id": "9_science_english_ch009",
+    "grade": 9,
+    "subject": "Science",
+    "chapter_title": "Chapter 10 WORK  AND ENERGY",
+    "description": "Chapter on Chapter 10 WORK  AND ENERGY"
+  },
+  {
+    "chapter_id": "9_science_english_ch010",
+    "grade": 9,
+    "subject": "Science",
+    "chapter_title": "Chapter 7 Motion",
+    "description": "Chapter on Chapter 7 Motion"
+  },
+  {
+    "chapter_id": "9_science_english_ch011",
+    "grade": 9,
+    "subject": "Science",
+    "chapter_title": "Chapter 11 SOUND",
+    "description": "Chapter on Chapter 11 SOUND"
+  },
+  {
+    "chapter_id": "9_science_english_ch012",
+    "grade": 9,
+    "subject": "Science",
+    "chapter_title": "Chapter 8 Force and Laws of Motion",
+    "description": "Chapter on Chapter 8 Force and Laws of Motion"
+  },
+  {
+    "chapter_id": "9_science_english_ch013",
+    "grade": 9,
+    "subject": "Science",
+    "chapter_title": "Chapter 12 IMPROVEMENT IN FOOD RESOURCES",
+    "description": "Chapter on Chapter 12 IMPROVEMENT IN FOOD RESOURCES"
+  },
+  {
+    "chapter_id": "10_mathematics_english_ch000",
+    "grade": 10,
+    "subject": "Mathematics",
+    "chapter_title": "Quadratic Equations",
+    "description": "Chapter on Quadratic Equations"
+  },
+  {
+    "chapter_id": "10_mathematics_english_ch001",
+    "grade": 10,
+    "subject": "Mathematics",
+    "chapter_title": "Probability",
+    "description": "Chapter on Probability"
+  },
+  {
+    "chapter_id": "10_mathematics_english_ch002",
+    "grade": 10,
+    "subject": "Mathematics",
+    "chapter_title": "Real Numbers",
+    "description": "Chapter on Real Numbers"
+  },
+  {
+    "chapter_id": "10_mathematics_english_ch003",
+    "grade": 10,
+    "subject": "Mathematics",
+    "chapter_title": "Polynomials",
+    "description": "Chapter on Polynomials"
+  },
+  {
+    "chapter_id": "10_mathematics_english_ch004",
+    "grade": 10,
+    "subject": "Mathematics",
+    "chapter_title": "Circles",
+    "description": "Chapter on Circles"
+  },
+  {
+    "chapter_id": "10_mathematics_english_ch005",
+    "grade": 10,
+    "subject": "Mathematics",
+    "chapter_title": "Coordinate Geometry",
+    "description": "Chapter on Coordinate Geometry"
+  },
+  {
+    "chapter_id": "10_mathematics_english_ch006",
+    "grade": 10,
+    "subject": "Mathematics",
+    "chapter_title": "Some Applications of Trigonometry",
+    "description": "Chapter on Some Applications of Trigonometry"
+  },
+  {
+    "chapter_id": "10_mathematics_english_ch007",
+    "grade": 10,
+    "subject": "Mathematics",
+    "chapter_title": "Pair of Linear Equations in Two Variables",
+    "description": "Chapter on Pair of Linear Equations in Two Variables"
+  },
+  {
+    "chapter_id": "10_mathematics_english_ch008",
+    "grade": 10,
+    "subject": "Mathematics",
+    "chapter_title": "Introduction to Trigonometry",
+    "description": "Chapter on Introduction to Trigonometry"
+  },
+  {
+    "chapter_id": "10_mathematics_english_ch009",
+    "grade": 10,
+    "subject": "Mathematics",
+    "chapter_title": "introduction",
+    "description": "Chapter on introduction"
+  },
+  {
+    "chapter_id": "10_mathematics_english_ch010",
+    "grade": 10,
+    "subject": "Mathematics",
+    "chapter_title": "Areas Related to Circles",
+    "description": "Chapter on Areas Related to Circles"
+  },
+  {
+    "chapter_id": "10_mathematics_english_ch011",
+    "grade": 10,
+    "subject": "Mathematics",
+    "chapter_title": "Arithmetic Progressions",
+    "description": "Chapter on Arithmetic Progressions"
+  },
+  {
+    "chapter_id": "10_mathematics_english_ch012",
+    "grade": 10,
+    "subject": "Mathematics",
+    "chapter_title": "Surface Areas and Volumes",
+    "description": "Chapter on Surface Areas and Volumes"
+  },
+  {
+    "chapter_id": "10_mathematics_english_ch013",
+    "grade": 10,
+    "subject": "Mathematics",
+    "chapter_title": "Triangles",
+    "description": "Chapter on Triangles"
+  },
+  {
+    "chapter_id": "10_mathematics_english_ch014",
+    "grade": 10,
+    "subject": "Mathematics",
+    "chapter_title": "Statistics",
+    "description": "Chapter on Statistics"
+  },
+  {
+    "chapter_id": "10_science_english_ch000",
+    "grade": 10,
+    "subject": "Science",
+    "chapter_title": "Chapter 5 Outcomes of Democracy",
+    "description": "Chapter on Chapter 5 Outcomes of Democracy"
+  },
+  {
+    "chapter_id": "10_science_english_ch001",
+    "grade": 10,
+    "subject": "Science",
+    "chapter_title": "Chapter 3 Gender Religion and Caste",
+    "description": "Chapter on Chapter 3 Gender Religion and Caste"
+  },
+  {
+    "chapter_id": "10_science_english_ch002",
+    "grade": 10,
+    "subject": "Science",
+    "chapter_title": "Democratic Politics-ii",
+    "description": "Chapter on Democratic Politics-ii"
+  },
+  {
+    "chapter_id": "10_science_english_ch003",
+    "grade": 10,
+    "subject": "Science",
+    "chapter_title": "Chapter 4 Political Parties",
+    "description": "Chapter on Chapter 4 Political Parties"
+  },
+  {
+    "chapter_id": "10_science_english_ch004",
+    "grade": 10,
+    "subject": "Science",
+    "chapter_title": "Chapter 2 Federalism",
+    "description": "Chapter on Chapter 2 Federalism"
+  },
+  {
+    "chapter_id": "10_science_english_ch005",
+    "grade": 10,
+    "subject": "Science",
+    "chapter_title": "Chapter 1 Power Sharing",
+    "description": "Chapter on Chapter 1 Power Sharing"
+  },
+  {
+    "chapter_id": "10_science_english_ch006",
+    "grade": 10,
+    "subject": "Science",
+    "chapter_title": "Contemporary india 2",
+    "description": "Chapter on Contemporary india 2"
+  },
+  {
+    "chapter_id": "10_science_english_ch007",
+    "grade": 10,
+    "subject": "Science",
+    "chapter_title": "Chapter 1 Resources and Development",
+    "description": "Chapter on Chapter 1 Resources and Development"
+  },
+  {
+    "chapter_id": "10_science_english_ch008",
+    "grade": 10,
+    "subject": "Science",
+    "chapter_title": "Acids, Bases and Salts",
+    "description": "Chapter on Acids, Bases and Salts"
+  },
+  {
+    "chapter_id": "10_science_english_ch009",
+    "grade": 10,
+    "subject": "Science",
+    "chapter_title": "introduction",
+    "description": "Chapter on introduction"
+  },
+  {
+    "chapter_id": "10_science_english_ch010",
+    "grade": 10,
+    "subject": "Science",
+    "chapter_title": "Answers",
+    "description": "Chapter on Answers"
+  },
+  {
+    "chapter_id": "10_science_english_ch011",
+    "grade": 10,
+    "subject": "Science",
+    "chapter_title": "Electricity",
+    "description": "Chapter on Electricity"
+  },
+  {
+    "chapter_id": "10_science_english_ch012",
+    "grade": 10,
+    "subject": "Science",
+    "chapter_title": "Our Environment",
+    "description": "Chapter on Our Environment"
+  },
+  {
+    "chapter_id": "10_science_english_ch013",
+    "grade": 10,
+    "subject": "Science",
+    "chapter_title": "Carbon and its Compounds",
+    "description": "Chapter on Carbon and its Compounds"
+  },
+  {
+    "chapter_id": "10_science_english_ch014",
+    "grade": 10,
+    "subject": "Science",
+    "chapter_title": "Control and Coordination",
+    "description": "Chapter on Control and Coordination"
+  },
+  {
+    "chapter_id": "11_bio_ch01",
+    "grade": 11,
+    "subject": "Biology",
+    "chapter_title": "The Living World",
+    "description": "Chapter on The Living World"
+  },
+  {
+    "chapter_id": "11_bio_ch02",
+    "grade": 11,
+    "subject": "Biology",
+    "chapter_title": "Biological Classification",
+    "description": "Chapter on Biological Classification"
+  },
+  {
+    "chapter_id": "11_bio_ch03",
+    "grade": 11,
+    "subject": "Biology",
+    "chapter_title": "Plant Kingdom",
+    "description": "Chapter on Plant Kingdom"
+  },
+  {
+    "chapter_id": "11_bio_ch04",
+    "grade": 11,
+    "subject": "Biology",
+    "chapter_title": "Animal Kingdom",
+    "description": "Chapter on Animal Kingdom"
+  },
+  {
+    "chapter_id": "11_bio_ch05",
+    "grade": 11,
+    "subject": "Biology",
+    "chapter_title": "Morphology of Flowering Plants",
+    "description": "Chapter on Morphology of Flowering Plants"
+  },
+  {
+    "chapter_id": "11_bio_ch06",
+    "grade": 11,
+    "subject": "Biology",
+    "chapter_title": "Anatomy of Flowering Plants",
+    "description": "Chapter on Anatomy of Flowering Plants"
+  },
+  {
+    "chapter_id": "11_bio_ch07",
+    "grade": 11,
+    "subject": "Biology",
+    "chapter_title": "Structural Organisation in Animals",
+    "description": "Chapter on Structural Organisation in Animals"
+  },
+  {
+    "chapter_id": "11_bio_ch08",
+    "grade": 11,
+    "subject": "Biology",
+    "chapter_title": "Cell: The Unit of Life",
+    "description": "Chapter on Cell: The Unit of Life"
+  },
+  {
+    "chapter_id": "11_bio_ch09",
+    "grade": 11,
+    "subject": "Biology",
+    "chapter_title": "Biomolecules",
+    "description": "Chapter on Biomolecules"
+  },
+  {
+    "chapter_id": "11_bio_ch10",
+    "grade": 11,
+    "subject": "Biology",
+    "chapter_title": "Cell Cycle and Cell Division",
+    "description": "Chapter on Cell Cycle and Cell Division"
+  },
+  {
+    "chapter_id": "11_bio_ch11",
+    "grade": 11,
+    "subject": "Biology",
+    "chapter_title": "Photosynthesis in Higher Plants",
+    "description": "Chapter on Photosynthesis in Higher Plants"
+  },
+  {
+    "chapter_id": "11_bio_ch12",
+    "grade": 11,
+    "subject": "Biology",
+    "chapter_title": "Respiration in Plants",
+    "description": "Chapter on Respiration in Plants"
+  },
+  {
+    "chapter_id": "11_bio_ch13",
+    "grade": 11,
+    "subject": "Biology",
+    "chapter_title": "Plant Growth and Development",
+    "description": "Chapter on Plant Growth and Development"
+  },
+  {
+    "chapter_id": "11_bio_ch14",
+    "grade": 11,
+    "subject": "Biology",
+    "chapter_title": "Breathing and Exchange of Gases",
+    "description": "Chapter on Breathing and Exchange of Gases"
+  },
+  {
+    "chapter_id": "11_bio_ch15",
+    "grade": 11,
+    "subject": "Biology",
+    "chapter_title": "Body Fluids and Circulation",
+    "description": "Chapter on Body Fluids and Circulation"
+  },
+  {
+    "chapter_id": "11_bio_ch16",
+    "grade": 11,
+    "subject": "Biology",
+    "chapter_title": "Excretory Products and their Elimination",
+    "description": "Chapter on Excretory Products and their Elimination"
+  },
+  {
+    "chapter_id": "11_bio_ch17",
+    "grade": 11,
+    "subject": "Biology",
+    "chapter_title": "Locomotion and Movement",
+    "description": "Chapter on Locomotion and Movement"
+  },
+  {
+    "chapter_id": "11_bio_ch18",
+    "grade": 11,
+    "subject": "Biology",
+    "chapter_title": "Neural Control and Coordination",
+    "description": "Chapter on Neural Control and Coordination"
+  },
+  {
+    "chapter_id": "11_bio_ch19",
+    "grade": 11,
+    "subject": "Biology",
+    "chapter_title": "Chemical Coordination and Integration",
+    "description": "Chapter on Chemical Coordination and Integration"
+  },
+  {
+    "chapter_id": "11_chem_ch01",
+    "grade": 11,
+    "subject": "Chemistry",
+    "chapter_title": "Some Basic Concepts of Chemistry",
+    "description": "Chapter on Some Basic Concepts of Chemistry"
+  },
+  {
+    "chapter_id": "11_chem_ch02",
+    "grade": 11,
+    "subject": "Chemistry",
+    "chapter_title": "Structure of Atom",
+    "description": "Chapter on Structure of Atom"
+  },
+  {
+    "chapter_id": "11_chem_ch03",
+    "grade": 11,
+    "subject": "Chemistry",
+    "chapter_title": "Classification of Elements and Periodicity",
+    "description": "Chapter on Classification of Elements and Periodicity"
+  },
+  {
+    "chapter_id": "11_chem_ch04",
+    "grade": 11,
+    "subject": "Chemistry",
+    "chapter_title": "Chemical Bonding and Molecular Structure",
+    "description": "Chapter on Chemical Bonding and Molecular Structure"
+  },
+  {
+    "chapter_id": "11_chem_ch05",
+    "grade": 11,
+    "subject": "Chemistry",
+    "chapter_title": "Chemical Thermodynamics",
+    "description": "Chapter on Chemical Thermodynamics"
+  },
+  {
+    "chapter_id": "11_chem_ch06",
+    "grade": 11,
+    "subject": "Chemistry",
+    "chapter_title": "Equilibrium",
+    "description": "Chapter on Equilibrium"
+  },
+  {
+    "chapter_id": "11_chem_ch07",
+    "grade": 11,
+    "subject": "Chemistry",
+    "chapter_title": "Redox Reactions",
+    "description": "Chapter on Redox Reactions"
+  },
+  {
+    "chapter_id": "11_chem_ch08",
+    "grade": 11,
+    "subject": "Chemistry",
+    "chapter_title": "Organic Chemistry - Basic Principles and Techniques",
+    "description": "Chapter on Organic Chemistry - Basic Principles and Techniques"
+  },
+  {
+    "chapter_id": "11_chem_ch09",
+    "grade": 11,
+    "subject": "Chemistry",
+    "chapter_title": "Hydrocarbons",
+    "description": "Chapter on Hydrocarbons"
+  },
+  {
+    "chapter_id": "11_math_ch01",
+    "grade": 11,
+    "subject": "Mathematics",
+    "chapter_title": "Sets",
+    "description": "Chapter on Sets"
+  },
+  {
+    "chapter_id": "11_math_ch02",
+    "grade": 11,
+    "subject": "Mathematics",
+    "chapter_title": "Relations and Functions",
+    "description": "Chapter on Relations and Functions"
+  },
+  {
+    "chapter_id": "11_math_ch03",
+    "grade": 11,
+    "subject": "Mathematics",
+    "chapter_title": "Trigonometric Functions",
+    "description": "Chapter on Trigonometric Functions"
+  },
+  {
+    "chapter_id": "11_math_ch04",
+    "grade": 11,
+    "subject": "Mathematics",
+    "chapter_title": "Complex Numbers and Quadratic Equations",
+    "description": "Chapter on Complex Numbers and Quadratic Equations"
+  },
+  {
+    "chapter_id": "11_math_ch05",
+    "grade": 11,
+    "subject": "Mathematics",
+    "chapter_title": "Linear Inequalities",
+    "description": "Chapter on Linear Inequalities"
+  },
+  {
+    "chapter_id": "11_math_ch06",
+    "grade": 11,
+    "subject": "Mathematics",
+    "chapter_title": "Permutations and Combinations",
+    "description": "Chapter on Permutations and Combinations"
+  },
+  {
+    "chapter_id": "11_math_ch07",
+    "grade": 11,
+    "subject": "Mathematics",
+    "chapter_title": "Binomial Theorem",
+    "description": "Chapter on Binomial Theorem"
+  },
+  {
+    "chapter_id": "11_math_ch08",
+    "grade": 11,
+    "subject": "Mathematics",
+    "chapter_title": "Sequences and Series",
+    "description": "Chapter on Sequences and Series"
+  },
+  {
+    "chapter_id": "11_math_ch09",
+    "grade": 11,
+    "subject": "Mathematics",
+    "chapter_title": "Straight Lines",
+    "description": "Chapter on Straight Lines"
+  },
+  {
+    "chapter_id": "11_math_ch10",
+    "grade": 11,
+    "subject": "Mathematics",
+    "chapter_title": "Conic Sections",
+    "description": "Chapter on Conic Sections"
+  },
+  {
+    "chapter_id": "11_math_ch11",
+    "grade": 11,
+    "subject": "Mathematics",
+    "chapter_title": "Introduction to Three Dimensional Geometry",
+    "description": "Chapter on Introduction to Three Dimensional Geometry"
+  },
+  {
+    "chapter_id": "11_math_ch12",
+    "grade": 11,
+    "subject": "Mathematics",
+    "chapter_title": "Limits and Derivatives",
+    "description": "Chapter on Limits and Derivatives"
+  },
+  {
+    "chapter_id": "11_math_ch13",
+    "grade": 11,
+    "subject": "Mathematics",
+    "chapter_title": "Statistics",
+    "description": "Chapter on Statistics"
+  },
+  {
+    "chapter_id": "11_math_ch14",
+    "grade": 11,
+    "subject": "Mathematics",
+    "chapter_title": "Probability",
+    "description": "Chapter on Probability"
+  },
+  {
+    "chapter_id": "11_phys_ch01",
+    "grade": 11,
+    "subject": "Physics",
+    "chapter_title": "Units and Measurements",
+    "description": "Chapter on Units and Measurements"
+  },
+  {
+    "chapter_id": "11_phys_ch02",
+    "grade": 11,
+    "subject": "Physics",
+    "chapter_title": "Motion in a Straight Line",
+    "description": "Chapter on Motion in a Straight Line"
+  },
+  {
+    "chapter_id": "11_phys_ch03",
+    "grade": 11,
+    "subject": "Physics",
+    "chapter_title": "Motion in a Plane",
+    "description": "Chapter on Motion in a Plane"
+  },
+  {
+    "chapter_id": "11_phys_ch04",
+    "grade": 11,
+    "subject": "Physics",
+    "chapter_title": "Laws of Motion",
+    "description": "Chapter on Laws of Motion"
+  },
+  {
+    "chapter_id": "11_phys_ch05",
+    "grade": 11,
+    "subject": "Physics",
+    "chapter_title": "Work, Energy and Power",
+    "description": "Chapter on Work, Energy and Power"
+  },
+  {
+    "chapter_id": "11_phys_ch06",
+    "grade": 11,
+    "subject": "Physics",
+    "chapter_title": "System of Particles and Rotational Motion",
+    "description": "Chapter on System of Particles and Rotational Motion"
+  },
+  {
+    "chapter_id": "11_phys_ch07",
+    "grade": 11,
+    "subject": "Physics",
+    "chapter_title": "Gravitation",
+    "description": "Chapter on Gravitation"
+  },
+  {
+    "chapter_id": "11_phys_ch08",
+    "grade": 11,
+    "subject": "Physics",
+    "chapter_title": "Mechanical Properties of Solids",
+    "description": "Chapter on Mechanical Properties of Solids"
+  },
+  {
+    "chapter_id": "11_phys_ch09",
+    "grade": 11,
+    "subject": "Physics",
+    "chapter_title": "Mechanical Properties of Fluids",
+    "description": "Chapter on Mechanical Properties of Fluids"
+  },
+  {
+    "chapter_id": "11_phys_ch10",
+    "grade": 11,
+    "subject": "Physics",
+    "chapter_title": "Thermal Properties of Matter",
+    "description": "Chapter on Thermal Properties of Matter"
+  },
+  {
+    "chapter_id": "11_phys_ch11",
+    "grade": 11,
+    "subject": "Physics",
+    "chapter_title": "Thermodynamics",
+    "description": "Chapter on Thermodynamics"
+  },
+  {
+    "chapter_id": "11_phys_ch12",
+    "grade": 11,
+    "subject": "Physics",
+    "chapter_title": "Kinetic Theory",
+    "description": "Chapter on Kinetic Theory"
+  },
+  {
+    "chapter_id": "11_phys_ch13",
+    "grade": 11,
+    "subject": "Physics",
+    "chapter_title": "Oscillations",
+    "description": "Chapter on Oscillations"
+  },
+  {
+    "chapter_id": "11_phys_ch14",
+    "grade": 11,
+    "subject": "Physics",
+    "chapter_title": "Waves",
+    "description": "Chapter on Waves"
+  },
+  {
+    "chapter_id": "12_bio_ch01",
+    "grade": 12,
+    "subject": "Biology",
+    "chapter_title": "Sexual Reproduction in Flowering Plants",
+    "description": "Chapter on Sexual Reproduction in Flowering Plants"
+  },
+  {
+    "chapter_id": "12_bio_ch02",
+    "grade": 12,
+    "subject": "Biology",
+    "chapter_title": "Human Reproduction",
+    "description": "Chapter on Human Reproduction"
+  },
+  {
+    "chapter_id": "12_bio_ch03",
+    "grade": 12,
+    "subject": "Biology",
+    "chapter_title": "Reproductive Health",
+    "description": "Chapter on Reproductive Health"
+  },
+  {
+    "chapter_id": "12_bio_ch04",
+    "grade": 12,
+    "subject": "Biology",
+    "chapter_title": "Principles of Inheritance and Variation",
+    "description": "Chapter on Principles of Inheritance and Variation"
+  },
+  {
+    "chapter_id": "12_bio_ch05",
+    "grade": 12,
+    "subject": "Biology",
+    "chapter_title": "Molecular Basis of Inheritance",
+    "description": "Chapter on Molecular Basis of Inheritance"
+  },
+  {
+    "chapter_id": "12_bio_ch06",
+    "grade": 12,
+    "subject": "Biology",
+    "chapter_title": "Evolution",
+    "description": "Chapter on Evolution"
+  },
+  {
+    "chapter_id": "12_bio_ch07",
+    "grade": 12,
+    "subject": "Biology",
+    "chapter_title": "Human Health and Disease",
+    "description": "Chapter on Human Health and Disease"
+  },
+  {
+    "chapter_id": "12_bio_ch08",
+    "grade": 12,
+    "subject": "Biology",
+    "chapter_title": "Microbes in Human Welfare",
+    "description": "Chapter on Microbes in Human Welfare"
+  },
+  {
+    "chapter_id": "12_bio_ch09",
+    "grade": 12,
+    "subject": "Biology",
+    "chapter_title": "Biotechnology: Principles and Processes",
+    "description": "Chapter on Biotechnology: Principles and Processes"
+  },
+  {
+    "chapter_id": "12_bio_ch10",
+    "grade": 12,
+    "subject": "Biology",
+    "chapter_title": "Biotechnology and its Applications",
+    "description": "Chapter on Biotechnology and its Applications"
+  },
+  {
+    "chapter_id": "12_bio_ch11",
+    "grade": 12,
+    "subject": "Biology",
+    "chapter_title": "Organisms and Populations",
+    "description": "Chapter on Organisms and Populations"
+  },
+  {
+    "chapter_id": "12_bio_ch12",
+    "grade": 12,
+    "subject": "Biology",
+    "chapter_title": "Ecosystem",
+    "description": "Chapter on Ecosystem"
+  },
+  {
+    "chapter_id": "12_bio_ch13",
+    "grade": 12,
+    "subject": "Biology",
+    "chapter_title": "Biodiversity and Conservation",
+    "description": "Chapter on Biodiversity and Conservation"
+  },
+  {
+    "chapter_id": "12_chem_ch01",
+    "grade": 12,
+    "subject": "Chemistry",
+    "chapter_title": "Solutions",
+    "description": "Chapter on Solutions"
+  },
+  {
+    "chapter_id": "12_chem_ch02",
+    "grade": 12,
+    "subject": "Chemistry",
+    "chapter_title": "Electrochemistry",
+    "description": "Chapter on Electrochemistry"
+  },
+  {
+    "chapter_id": "12_chem_ch03",
+    "grade": 12,
+    "subject": "Chemistry",
+    "chapter_title": "Chemical Kinetics",
+    "description": "Chapter on Chemical Kinetics"
+  },
+  {
+    "chapter_id": "12_chem_ch04",
+    "grade": 12,
+    "subject": "Chemistry",
+    "chapter_title": "The d- and f- Block Elements",
+    "description": "Chapter on The d- and f- Block Elements"
+  },
+  {
+    "chapter_id": "12_chem_ch05",
+    "grade": 12,
+    "subject": "Chemistry",
+    "chapter_title": "Coordination Compounds",
+    "description": "Chapter on Coordination Compounds"
+  },
+  {
+    "chapter_id": "12_chem_ch06",
+    "grade": 12,
+    "subject": "Chemistry",
+    "chapter_title": "Haloalkanes and Haloarenes",
+    "description": "Chapter on Haloalkanes and Haloarenes"
+  },
+  {
+    "chapter_id": "12_chem_ch07",
+    "grade": 12,
+    "subject": "Chemistry",
+    "chapter_title": "Alcohols, Phenols and Ethers",
+    "description": "Chapter on Alcohols, Phenols and Ethers"
+  },
+  {
+    "chapter_id": "12_chem_ch08",
+    "grade": 12,
+    "subject": "Chemistry",
+    "chapter_title": "Aldehydes, Ketones and Carboxylic Acids",
+    "description": "Chapter on Aldehydes, Ketones and Carboxylic Acids"
+  },
+  {
+    "chapter_id": "12_chem_ch09",
+    "grade": 12,
+    "subject": "Chemistry",
+    "chapter_title": "Amines",
+    "description": "Chapter on Amines"
+  },
+  {
+    "chapter_id": "12_chem_ch10",
+    "grade": 12,
+    "subject": "Chemistry",
+    "chapter_title": "Biomolecules",
+    "description": "Chapter on Biomolecules"
+  },
+  {
+    "chapter_id": "12_math_ch01",
+    "grade": 12,
+    "subject": "Mathematics",
+    "chapter_title": "Relations and Functions",
+    "description": "Chapter on Relations and Functions"
+  },
+  {
+    "chapter_id": "12_math_ch02",
+    "grade": 12,
+    "subject": "Mathematics",
+    "chapter_title": "Inverse Trigonometric Functions",
+    "description": "Chapter on Inverse Trigonometric Functions"
+  },
+  {
+    "chapter_id": "12_math_ch03",
+    "grade": 12,
+    "subject": "Mathematics",
+    "chapter_title": "Matrices",
+    "description": "Chapter on Matrices"
+  },
+  {
+    "chapter_id": "12_math_ch04",
+    "grade": 12,
+    "subject": "Mathematics",
+    "chapter_title": "Determinants",
+    "description": "Chapter on Determinants"
+  },
+  {
+    "chapter_id": "12_math_ch05",
+    "grade": 12,
+    "subject": "Mathematics",
+    "chapter_title": "Continuity and Differentiability",
+    "description": "Chapter on Continuity and Differentiability"
+  },
+  {
+    "chapter_id": "12_math_ch06",
+    "grade": 12,
+    "subject": "Mathematics",
+    "chapter_title": "Application of Derivatives",
+    "description": "Chapter on Application of Derivatives"
+  },
+  {
+    "chapter_id": "12_math_ch07",
+    "grade": 12,
+    "subject": "Mathematics",
+    "chapter_title": "Integrals",
+    "description": "Chapter on Integrals"
+  },
+  {
+    "chapter_id": "12_math_ch08",
+    "grade": 12,
+    "subject": "Mathematics",
+    "chapter_title": "Application of Integrals",
+    "description": "Chapter on Application of Integrals"
+  },
+  {
+    "chapter_id": "12_math_ch09",
+    "grade": 12,
+    "subject": "Mathematics",
+    "chapter_title": "Differential Equations",
+    "description": "Chapter on Differential Equations"
+  },
+  {
+    "chapter_id": "12_math_ch10",
+    "grade": 12,
+    "subject": "Mathematics",
+    "chapter_title": "Vector Algebra",
+    "description": "Chapter on Vector Algebra"
+  },
+  {
+    "chapter_id": "12_math_ch11",
+    "grade": 12,
+    "subject": "Mathematics",
+    "chapter_title": "Three Dimensional Geometry",
+    "description": "Chapter on Three Dimensional Geometry"
+  },
+  {
+    "chapter_id": "12_math_ch12",
+    "grade": 12,
+    "subject": "Mathematics",
+    "chapter_title": "Linear Programming",
+    "description": "Chapter on Linear Programming"
+  },
+  {
+    "chapter_id": "12_math_ch13",
+    "grade": 12,
+    "subject": "Mathematics",
+    "chapter_title": "Probability",
+    "description": "Chapter on Probability"
+  },
+  {
+    "chapter_id": "12_phys_ch01",
+    "grade": 12,
+    "subject": "Physics",
+    "chapter_title": "Electric Charges and Fields",
+    "description": "Chapter on Electric Charges and Fields"
+  },
+  {
+    "chapter_id": "12_phys_ch02",
+    "grade": 12,
+    "subject": "Physics",
+    "chapter_title": "Electrostatic Potential and Capacitance",
+    "description": "Chapter on Electrostatic Potential and Capacitance"
+  },
+  {
+    "chapter_id": "12_phys_ch03",
+    "grade": 12,
+    "subject": "Physics",
+    "chapter_title": "Current Electricity",
+    "description": "Chapter on Current Electricity"
+  },
+  {
+    "chapter_id": "12_phys_ch04",
+    "grade": 12,
+    "subject": "Physics",
+    "chapter_title": "Moving Charges and Magnetism",
+    "description": "Chapter on Moving Charges and Magnetism"
+  },
+  {
+    "chapter_id": "12_phys_ch05",
+    "grade": 12,
+    "subject": "Physics",
+    "chapter_title": "Magnetism and Matter",
+    "description": "Chapter on Magnetism and Matter"
+  },
+  {
+    "chapter_id": "12_phys_ch06",
+    "grade": 12,
+    "subject": "Physics",
+    "chapter_title": "Electromagnetic Induction",
+    "description": "Chapter on Electromagnetic Induction"
+  },
+  {
+    "chapter_id": "12_phys_ch07",
+    "grade": 12,
+    "subject": "Physics",
+    "chapter_title": "Alternating Current",
+    "description": "Chapter on Alternating Current"
+  },
+  {
+    "chapter_id": "12_phys_ch08",
+    "grade": 12,
+    "subject": "Physics",
+    "chapter_title": "Electromagnetic Waves",
+    "description": "Chapter on Electromagnetic Waves"
+  },
+  {
+    "chapter_id": "12_phys_ch09",
+    "grade": 12,
+    "subject": "Physics",
+    "chapter_title": "Ray Optics and Optical Instruments",
+    "description": "Chapter on Ray Optics and Optical Instruments"
+  },
+  {
+    "chapter_id": "12_phys_ch10",
+    "grade": 12,
+    "subject": "Physics",
+    "chapter_title": "Wave Optics",
+    "description": "Chapter on Wave Optics"
+  },
+  {
+    "chapter_id": "12_phys_ch11",
+    "grade": 12,
+    "subject": "Physics",
+    "chapter_title": "Dual Nature of Radiation and Matter",
+    "description": "Chapter on Dual Nature of Radiation and Matter"
+  },
+  {
+    "chapter_id": "12_phys_ch12",
+    "grade": 12,
+    "subject": "Physics",
+    "chapter_title": "Atoms",
+    "description": "Chapter on Atoms"
+  },
+  {
+    "chapter_id": "12_phys_ch13",
+    "grade": 12,
+    "subject": "Physics",
+    "chapter_title": "Nuclei",
+    "description": "Chapter on Nuclei"
+  },
+  {
+    "chapter_id": "12_phys_ch14",
+    "grade": 12,
+    "subject": "Physics",
+    "chapter_title": "Semiconductor Electronics",
+    "description": "Chapter on Semiconductor Electronics"
+  }
+]

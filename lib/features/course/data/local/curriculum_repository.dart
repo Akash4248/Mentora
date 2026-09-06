@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../content_packs/data/local/content_pack_repository.dart';
 import '../../domain/curriculum_models.dart';
+import 'course_repository.dart';
 
 class CurriculumRepository {
   CurriculumRepository({ContentPackRepository? packRepository})
@@ -90,11 +91,59 @@ class CurriculumRepository {
     });
 
     curriculum.sort((a, b) => a.grade.compareTo(b.grade));
-    // NOTE: Curriculum chapter/subject names (e.g. "Mathematics", "Real Numbers")
-    // are proper nouns and technical terms that should remain in English.
-    // LLM-based translation is NOT done here — it previously caused 100+ parallel
-    // inference threads to load the 1.7 GB model on every startup, causing an
-    // 8-second freeze. UI labels are localized via the l10n system instead.
+
+    if (curriculum.isEmpty) {
+      final courseRepo = CourseRepository();
+      final courses = await courseRepo.getCourses(languageCode: languageCode);
+
+      for (final course in courses) {
+        final match = RegExp(r'\d+').firstMatch(course.id);
+        if (match == null) continue;
+        final grade = int.parse(match.group(0)!);
+
+        final subjects = await courseRepo.getSubjects(
+          course.id,
+          languageCode: languageCode,
+        );
+        final currSubjects = <CurriculumSubject>[];
+
+        for (final subject in subjects) {
+          final chapters = await courseRepo.getChapters(
+            subject.id,
+            languageCode: languageCode,
+          );
+          final currChapters = chapters
+              .map(
+                (ch) => CurriculumChapter(
+                  packId: ch.id,
+                  title: ch.title,
+                  subject: subject.name,
+                  grade: grade,
+                  rootPath: '',
+                  summary: ch.summary,
+                  language: 'en',
+                ),
+              )
+              .toList();
+
+          currSubjects.add(
+            CurriculumSubject(
+              name: subject.name,
+              grade: grade,
+              chapters: currChapters,
+            ),
+          );
+        }
+
+        curriculum.add(
+          CurriculumGrade(
+            grade: grade,
+            subjects: currSubjects,
+          ),
+        );
+      }
+    }
+
     return curriculum;
   }
 
