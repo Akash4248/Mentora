@@ -7,6 +7,9 @@ import '../../course/data/local/course_repository.dart';
 import '../../course/domain/course_tree.dart';
 import '../domain/runtime_backend_url.dart';
 import '../../settings/services/user_api_key_service.dart';
+import '../../chat/application/reasoning_output_filter.dart';
+import '../../chat/data/local/linux_llm_config_service.dart';
+import '../../chat/data/platform_tutor_inference_gateway.dart';
 
 class DiscoveryProgress {
   final String currentCandidate;
@@ -61,6 +64,9 @@ class MentoraBackendClient {
 
   static String _activeBaseUrl = 'http://10.35.98.193:8000';
   String get baseUrl => _activeBaseUrl;
+  void setBaseUrl(String url) {
+    _activeBaseUrl = url;
+  }
   final http.Client _client;
 
   MentoraBackendClient({
@@ -576,6 +582,13 @@ class MentoraBackendClient {
         };
       }
     } catch (e) {
+      try {
+        final localResult = await _tryLocalLlmFallback(question, topic, grade);
+        if (localResult != null) {
+          return localResult;
+        }
+      } catch (_) {}
+
       autoDiscoverGatewayUrl();
       return {
         'answer': '⚠️ **Backend Network Connection Error**: Could not connect to backend at $_activeBaseUrl. Please check your Wi-Fi or load an offline model (.gguf) in Settings.',
@@ -589,6 +602,53 @@ class MentoraBackendClient {
       'hasAudio': false,
       'source': 'unexpected_response_error',
     };
+  }
+
+  Future<Map<String, dynamic>?> _tryLocalLlmFallback(
+    String question,
+    String topic,
+    int grade,
+  ) async {
+    try {
+      final config = await LinuxLlmConfigService().load();
+      if (!config.isReady || config.modelPath.trim().isEmpty) {
+        return null;
+      }
+      final modelFile = File(config.modelPath.trim());
+      if (!await modelFile.exists()) {
+        return null;
+      }
+
+      final gateway = PlatformTutorInferenceGateway();
+      final prompt =
+          'Grade $grade student studying $topic asks: $question\nProvide a clear and helpful explanation:';
+
+      final filter = ReasoningOutputFilter();
+      final buffer = StringBuffer();
+
+      await for (final chunk in gateway.streamResponse(prompt: prompt)) {
+        final pushed = filter.push(chunk);
+        if (pushed.isNotEmpty) {
+          buffer.write(pushed);
+        }
+      }
+      final flushed = filter.flush();
+      if (flushed.isNotEmpty) {
+        buffer.write(flushed);
+      }
+
+      final fullAnswer = buffer.toString().trim();
+      if (fullAnswer.isNotEmpty) {
+        return {
+          'answer': '📱 **[On-Device Local AI Tutor]**\n\n$fullAnswer',
+          'hasAudio': false,
+          'source': 'on_device_local_llm',
+        };
+      }
+    } catch (_) {
+      // Ignore and fallback to network error message
+    }
+    return null;
   }
 
   // 8. Authenticate User with Gateway

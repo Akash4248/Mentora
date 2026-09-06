@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:offline_tutor_app/features/chat/application/reasoning_output_filter.dart';
 import 'package:offline_tutor_app/features/chat/data/linux_tutor_inference_gateway.dart';
 import 'package:offline_tutor_app/features/chat/data/local/linux_llm_config_service.dart';
+import 'package:offline_tutor_app/features/network/services/mentora_backend_client.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -88,6 +89,40 @@ void main() {
 
       expect(fullOutput.trim(), isNotEmpty);
       expect(tokenCount, greaterThan(0));
+    });
+
+    test('MentoraBackendClient automatically falls back to Local LLM when backend is offline', () async {
+      const modelPath =
+          '/home/akash/Desktop/PIHUB/backend/inference-service/models/phi-2.Q4_K_M.gguf';
+
+      final configService = LinuxLlmConfigService();
+      final executable = await configService.autoDetectExecutable();
+      expect(executable, isNotNull);
+
+      await configService.save(
+        LinuxLlmConfig(
+          modelPath: modelPath,
+          executablePath: executable!,
+          maxTokens: 32,
+        ),
+      );
+
+      final client = MentoraBackendClient();
+      client.setBaseUrl('http://127.0.0.1:9999'); // Unreachable backend port
+
+      final reply = await client.queryAiTutor(
+        question: 'What is acceleration?',
+        topic: 'Motion',
+        grade: 9,
+      );
+
+      print('\n=== OFFLINE FALLBACK REPLY ===');
+      print('Source: ${reply['source']}');
+      print('Answer: ${reply['answer']}');
+      print('===============================\n');
+
+      expect(reply['source'], 'on_device_local_llm');
+      expect(reply['answer'], contains('On-Device Local AI Tutor'));
     });
   });
 }
