@@ -202,8 +202,13 @@ class LinuxLlmConfigService {
   }
 
   Future<File> _configFile() async {
-    final dir = await getApplicationSupportDirectory();
-    return File('${dir.path}/linux_llm_config.json');
+    try {
+      final dir = await getApplicationSupportDirectory();
+      return File('${dir.path}/linux_llm_config.json');
+    } catch (_) {
+      final home = Platform.environment['HOME'] ?? '.';
+      return File('$home/.config/mentora/linux_llm_config.json');
+    }
   }
 }
 
