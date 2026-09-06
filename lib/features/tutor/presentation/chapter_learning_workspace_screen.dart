@@ -23,6 +23,7 @@ class ChapterLearningWorkspaceScreen extends StatefulWidget {
 class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspaceScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _chatController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   final MentoraBackendClient _client = MentoraBackendClient();
 
   String _activeChapterTitle = 'Motion';
@@ -33,6 +34,43 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
   // Tab 1 state
   bool _isSending = false;
   final List<Map<String, dynamic>> _messages = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 4, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _chatController.dispose();
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToBottom({bool animated = true, bool force = false}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      final maxExtent = _scrollController.position.maxScrollExtent;
+      final currentOffset = _scrollController.offset;
+      final distanceToBottom = maxExtent - currentOffset;
+
+      if (!force && distanceToBottom > 160) {
+        return;
+      }
+
+      if (animated) {
+        _scrollController.animateTo(
+          maxExtent,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
+      } else {
+        _scrollController.jumpTo(maxExtent);
+      }
+    });
+  }
 
   // Tab 2 Simulation state
   Map<String, dynamic>? _simData;
@@ -142,6 +180,7 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
       _chatController.clear();
       _isSending = true;
     });
+    _scrollToBottom(force: true);
 
     final reply = await _client.queryAiTutor(
       question: text,
@@ -159,6 +198,7 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
           'hasAudio': true,
         });
       });
+      _scrollToBottom(force: false);
     }
   }
 
@@ -214,6 +254,7 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
       _messages.add({'isUser': true, 'text': text});
       _isSending = true;
     });
+    _scrollToBottom(force: true);
 
     final reply = await _client.queryAiTutor(
       question: text,
@@ -231,6 +272,7 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
           'hasAudio': true,
         });
       });
+      _scrollToBottom(force: false);
     }
   }
 
@@ -275,6 +317,7 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
             children: [
               Expanded(
                 child: ListView.builder(
+                  controller: _scrollController,
                   padding: const EdgeInsets.all(16),
                   itemCount: _messages.length,
                   itemBuilder: (context, index) {

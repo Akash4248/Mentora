@@ -2104,6 +2104,13 @@ class _ChapterChatScreenState extends State<ChapterChatScreen> {
       }
 
       final maxExtent = _scrollController.position.maxScrollExtent;
+      final currentOffset = _scrollController.offset;
+      final distanceToBottom = maxExtent - currentOffset;
+
+      if (!force && distanceToBottom > 160) {
+        return;
+      }
+
       if (animated) {
         _scrollController.animateTo(
           maxExtent,
