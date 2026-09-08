@@ -32,7 +32,7 @@ class OnDeviceEmbeddingEngine {
         // Hash combination for feature projection across 384 dimensions
         final seed = (tokenHash ^ (d * 0x9e3779b9)) & 0xFFFFFFFF;
         final val = ((seed % 1000) / 500.0) - 1.0;
-        vector[d] += (val * positionWeight).single;
+        vector[d] += (val * positionWeight);
       }
 
       // Add character n-gram subword features
@@ -55,7 +55,7 @@ class OnDeviceEmbeddingEngine {
     if (sumSq > 0) {
       final norm = sqrt(sumSq);
       for (int d = 0; d < embeddingDimension; d++) {
-        vector[d] = (vector[d] / norm).single;
+        vector[d] = (vector[d] / norm);
       }
     }
 

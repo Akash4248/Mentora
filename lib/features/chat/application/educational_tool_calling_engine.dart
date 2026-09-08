@@ -72,7 +72,10 @@ class EducationalToolCallingEngine {
     var processed = text;
 
     // Pattern 1: [TOOL: calculate("...")] or [TOOL: calculate('...')] or calculate("...")
-    final calcRegExp = RegExp(r'\[TOOL:\s*calculate\((?:"|\')([^"\']+)(?:"|\')\)\s*\]|calculate\((?:"|\')([^"\']+)(?:"|\')\)', caseSensitive: false);
+    final calcRegExp = RegExp(
+      r"""\[TOOL:\s*calculate\((?:"|')([^"']+)(?:"|')\)\s*\]|calculate\((?:"|')([^"']+)(?:"|')\)""",
+      caseSensitive: false,
+    );
     
     processed = processed.replaceAllMapped(calcRegExp, (match) {
       final expr = match.group(1) ?? match.group(2) ?? '';
