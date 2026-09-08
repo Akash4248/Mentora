@@ -203,11 +203,12 @@ class LlamaEngine(private val context: Context) {
         if (modelPath != internalPath) {
             close()
             modelPath = internalPath
-            prefs.edit()
-                .putString(modelPathKey, internalPath)
-                .putLong(lastSelectedAtKey, System.currentTimeMillis())
-                .apply()
         }
+
+        prefs.edit()
+            .putString(modelPathKey, internalPath)
+            .putLong(lastSelectedAtKey, System.currentTimeMillis())
+            .apply()
 
         return true
     }

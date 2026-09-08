@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import '../../network/services/mentora_backend_client.dart';
 import '../../chat/presentation/formatted_text_widget.dart';
 import '../../home/presentation/video_player_screen.dart';
@@ -562,6 +563,30 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
     );
   }
 
+  String _extractYouTubeId(String rawUrl) {
+    final uri = Uri.tryParse(rawUrl);
+    String? id;
+    if (uri != null) {
+      if (uri.queryParameters.containsKey('v')) {
+        id = uri.queryParameters['v'];
+      } else if (uri.host.contains('youtu.be') && uri.pathSegments.isNotEmpty) {
+        id = uri.pathSegments.first;
+      } else if (uri.pathSegments.contains('embed') && uri.pathSegments.isNotEmpty) {
+        id = uri.pathSegments.last;
+      }
+    }
+    if (id == null || id.isEmpty) {
+      final trimmed = rawUrl.trim();
+      if (RegExp(r'^[a-zA-Z0-9_-]{11}$').hasMatch(trimmed)) {
+        id = trimmed;
+      }
+    }
+    if (id == null || id.isEmpty || !RegExp(r'^[a-zA-Z0-9_-]{11}$').hasMatch(id)) {
+      return 'M7lc1UVf-VE';
+    }
+    return id;
+  }
+
   // STITCH TAB 3: YOUTUBE VIDEO LECTURE WATCH SCREEN
   Widget _buildWatchTab() {
     const primaryIndigo = Color(0xFF4F46E5);
@@ -569,72 +594,138 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
     final currentVideo = _videoData?['currentVideo'] as Map<String, dynamic>?;
 
     final heroTitle = currentVideo?['title']?.toString() ?? 'NCERT Class $_activeGrade $_activeSubjectName: $_activeChapterTitle';
-    final heroUrl = currentVideo?['videoUrl']?.toString() ?? currentVideo?['youtubeId']?.toString() ?? 'https://www.youtube.com/watch?v=tBmavvMwu68';
+    final heroUrl = currentVideo?['videoUrl']?.toString() ?? currentVideo?['youtubeId']?.toString() ?? 'https://www.youtube.com/watch?v=M7lc1UVf-VE';
+    final videoId = _extractYouTubeId(heroUrl);
+
+    final htmlContent = '''
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; background-color: #000000; overflow: hidden; }
+    #player { width: 100%; height: 100%; position: absolute; top: 0; left: 0; border: 0; }
+  </style>
+</head>
+<body>
+  <div id="player"></div>
+  <script src="https://www.youtube-nocookie.com/iframe_api"></script>
+  <script>
+    var player;
+    function onYouTubeIframeAPIReady() {
+      player = new YT.Player('player', {
+        height: '100%',
+        width: '100%',
+        videoId: '$videoId',
+        host: 'https://www.youtube-nocookie.com',
+        playerVars: {
+          'playsinline': 1,
+          'autoplay': 1,
+          'controls': 1,
+          'rel': 0,
+          'enablejsapi': 1,
+          'modestbranding': 1,
+          'origin': 'https://www.youtube-nocookie.com'
+        },
+        events: {
+          'onReady': function(event) {
+            try { event.target.playVideo(); } catch(e) {}
+          }
+        }
+      });
+    }
+  </script>
+</body>
+</html>
+''';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // EMBEDDED YOUTUBE VIDEO CARD (CLICKABLE)
-          InkWell(
-            onTap: () {
-              print('[VIDEO_DEBUG] Tapped Workspace Hero Video Card. Launching VideoPlayerScreen with title "$heroTitle", URL "$heroUrl"');
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => VideoPlayerScreen(
-                    videoUrl: heroUrl,
-                    title: heroTitle,
-                    subtitle: 'NCERT Class $_activeGrade $_activeSubjectName • $_activeChapterTitle',
-                    description: currentVideo?['description']?.toString(),
-                  ),
-                ),
-              );
-            },
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
-                height: 200,
-                width: double.infinity,
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: Stack(
-                  children: [
-                    Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const CircleAvatar(
-                            radius: 28,
-                            backgroundColor: primaryIndigo,
-                            child: Icon(Icons.play_arrow, color: Colors.white, size: 36),
-                          ),
-                          const SizedBox(height: 10),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                            child: Text(
-                              heroTitle,
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
-                              textAlign: TextAlign.center,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          const Text(
-                            '▶ Tap to launch full screen player',
-                            style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontWeight: FontWeight.bold),
-                          ),
-                        ],
+          // EMBEDDED YOUTUBE VIDEO PLAYER INLINE WIDGET
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.black,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Column(
+                children: [
+                  AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: InAppWebView(
+                      initialData: InAppWebViewInitialData(
+                        data: htmlContent,
+                        baseUrl: WebUri('https://www.youtube-nocookie.com'),
+                        mimeType: 'text/html',
+                        encoding: 'utf-8',
                       ),
+                      initialSettings: InAppWebViewSettings(
+                        javaScriptEnabled: true,
+                        mediaPlaybackRequiresUserGesture: false,
+                        allowsInlineMediaPlayback: true,
+                        useWideViewPort: true,
+                        loadWithOverviewMode: true,
+                        supportZoom: false,
+                        transparentBackground: true,
+                        domStorageEnabled: true,
+                        databaseEnabled: true,
+                        mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
+                        allowFileAccessFromFileURLs: true,
+                        allowUniversalAccessFromFileURLs: true,
+                        userAgent: 'Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+                      ),
+                      onPermissionRequest: (controller, permissionRequest) async {
+                        return PermissionResponse(
+                          resources: permissionRequest.resources,
+                          action: PermissionResponseAction.GRANT,
+                        );
+                      },
+                      onWebViewCreated: (controller) {
+                        print('[VIDEO_DEBUG] Workspace Inline WebView created for videoId: "$videoId"');
+                      },
                     ),
-                  ],
-                ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    color: const Color(0xFF0F172A),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            heroTitle,
+                            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        TextButton.icon(
+                          onPressed: () {
+                            print('[VIDEO_DEBUG] Expanding full screen VideoPlayerScreen for "$heroTitle"');
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => VideoPlayerScreen(
+                                  videoUrl: heroUrl,
+                                  title: heroTitle,
+                                  subtitle: 'NCERT Class $_activeGrade $_activeSubjectName • $_activeChapterTitle',
+                                  description: currentVideo?['description']?.toString(),
+                                ),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.fullscreen, color: Colors.white, size: 18),
+                          label: const Text('Full Screen', style: TextStyle(color: Colors.white, fontSize: 11)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

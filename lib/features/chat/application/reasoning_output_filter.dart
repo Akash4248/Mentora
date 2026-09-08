@@ -1,31 +1,83 @@
 class ReasoningOutputFilter {
   final StringBuffer _buffer = StringBuffer();
 
+  String _emitted = '';
+
   String push(String chunk) {
     if (chunk.isEmpty) {
       return '';
     }
 
     _buffer.write(chunk);
-    final cleaned = stripComplete(_buffer.toString());
+    var text = _buffer.toString();
+    var cleaned = stripComplete(text);
 
     if (_hasOpenReasoningTag(cleaned)) {
       final openIndex = _firstOpenReasoningTag(cleaned);
-      final safe = cleaned.substring(0, openIndex);
-      _buffer
-        ..clear()
-        ..write(cleaned.substring(openIndex));
-      return safe;
+      cleaned = cleaned.substring(0, openIndex);
     }
 
-    _buffer.clear();
-    return cleaned;
+    // Withhold emission if it ends with a potential partial stop token
+    // For example, if it ends with "<", "<|", etc.
+    final partialStop = _endsWithPartialStopToken(cleaned);
+    if (partialStop > 0) {
+      cleaned = cleaned.substring(0, cleaned.length - partialStop);
+    }
+
+    if (cleaned.startsWith(_emitted)) {
+      final delta = cleaned.substring(_emitted.length);
+      _emitted = cleaned;
+      return delta;
+    } else {
+      // If stripComplete retroactively modified something we already emitted
+      // we just emit the new characters that are beyond the emitted length, or fallback.
+      // Because we can't un-emit, we'll try to find the longest common prefix.
+      int common = 0;
+      while (common < _emitted.length && common < cleaned.length && _emitted[common] == cleaned[common]) {
+        common++;
+      }
+      final delta = cleaned.substring(common);
+      _emitted = cleaned;
+      return delta;
+    }
   }
 
   String flush() {
-    final cleaned = stripComplete(_buffer.toString());
-    _buffer.clear();
-    return cleaned;
+    var cleaned = stripComplete(_buffer.toString());
+    if (_hasOpenReasoningTag(cleaned)) {
+      final openIndex = _firstOpenReasoningTag(cleaned);
+      cleaned = cleaned.substring(0, openIndex);
+    }
+    
+    if (cleaned.startsWith(_emitted)) {
+      final delta = cleaned.substring(_emitted.length);
+      _emitted = cleaned;
+      return delta;
+    } else {
+      int common = 0;
+      while (common < _emitted.length && common < cleaned.length && _emitted[common] == cleaned[common]) {
+        common++;
+      }
+      final delta = cleaned.substring(common);
+      _emitted = cleaned;
+      return delta;
+    }
+  }
+
+  int _endsWithPartialStopToken(String text) {
+    final stopTokens = const <String>[
+      '<|im_start|>', '<|im_end|>', '<_im_end_>', '<|endoftext|>', '<end_of_turn>', '</s>', '[END]', '<think>', '<reasoning>', '<analysis>'
+    ];
+    for (int i = 1; i <= text.length; i++) {
+      final suffix = text.substring(text.length - i);
+      if (!suffix.startsWith('<') && !suffix.startsWith('[')) {
+        continue;
+      }
+      for (final st in stopTokens) {
+        if (st == suffix || st.startsWith(suffix)) return i;
+      }
+    }
+    return 0;
   }
 
   static String stripComplete(String text) {
@@ -35,6 +87,7 @@ class ReasoningOutputFilter {
     for (final stopToken in const <String>[
       '<|im_start|>',
       '<|im_end|>',
+      '<_im_end_>',
       '<|endoftext|>',
       '<end_of_turn>',
       '</s>',
@@ -77,7 +130,7 @@ class ReasoningOutputFilter {
       }
 
       final lower = trimmed.toLowerCase();
-      if (_isPromptScaffoldLine(lower)) {
+      if (!startedAnswer && _isPromptScaffoldLine(lower)) {
         continue;
       }
 
@@ -93,20 +146,22 @@ class ReasoningOutputFilter {
         continue;
       }
 
-      if (lower.startsWith('student question:') ||
-          lower.startsWith('question:') ||
-          lower.startsWith('user query:') ||
-          lower.startsWith('recent conversation:') ||
-          lower.startsWith('session summary:') ||
-          lower.startsWith('priority context:') ||
-          lower.startsWith('relevant notes:') ||
-          lower.startsWith('context:') ||
-          lower.startsWith('educational context:')) {
-        continue;
-      }
+      if (!startedAnswer) {
+        if (lower.startsWith('student question:') ||
+            lower.startsWith('question:') ||
+            lower.startsWith('user query:') ||
+            lower.startsWith('recent conversation:') ||
+            lower.startsWith('session summary:') ||
+            lower.startsWith('priority context:') ||
+            lower.startsWith('relevant notes:') ||
+            lower.startsWith('context:') ||
+            lower.startsWith('educational context:')) {
+          continue;
+        }
 
-      if (trimmed.startsWith('[') && lower.contains('source')) {
-        continue;
+        if (trimmed.startsWith('[') && lower.contains('source')) {
+          continue;
+        }
       }
 
       startedAnswer = true;

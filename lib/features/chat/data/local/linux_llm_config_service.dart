@@ -40,14 +40,14 @@ class LinuxLlmConfig {
     return LinuxLlmConfig(
       modelPath: (json['modelPath'] as String?) ?? '',
       executablePath: (json['executablePath'] as String?) ?? '',
-      maxTokens: (json['maxTokens'] as int?) ?? 192,
+      maxTokens: (json['maxTokens'] as int?) ?? 512,
     );
   }
 
   static const LinuxLlmConfig defaults = LinuxLlmConfig(
     modelPath: '',
     executablePath: '/home/akash/Desktop/IDP/llama.cpp/build/bin/llama-cli',
-    maxTokens: 192,
+    maxTokens: 512,
   );
 }
 

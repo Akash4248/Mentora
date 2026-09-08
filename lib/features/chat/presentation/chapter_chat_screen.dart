@@ -540,8 +540,8 @@ class _ChapterChatScreenState extends State<ChapterChatScreen> {
       sessionId,
     );
 
-    final shouldResetOnOpen =
-        policy.resetPolicy == SessionResetPolicy.chapterOpen;
+    // Preserve chat conversation history across sessions (only clear if explicit inactivity threshold reached or user manually clears)
+    final shouldResetOnOpen = false;
     final shouldResetOnInactivity =
         policy.resetPolicy == SessionResetPolicy.inactivity &&
         lastMessageAt != null &&
@@ -1017,7 +1017,7 @@ class _ChapterChatScreenState extends State<ChapterChatScreen> {
       );
     }
 
-    _scrollToBottom(animated: false);
+    _scrollToBottom(animated: true, force: true);
 
     final assistantIndex = _messages.length - 1;
     final responseBuffer = StringBuffer();

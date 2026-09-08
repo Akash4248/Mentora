@@ -394,39 +394,39 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <style>
-    * { box-sizing: border-box; }
-    html, body {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      background-color: #000000;
-      overflow: hidden;
-    }
-    .video-container {
-      position: relative;
-      width: 100%;
-      height: 100%;
-    }
-    iframe {
-      width: 100%;
-      height: 100%;
-      border: 0;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; background-color: #000000; overflow: hidden; }
+    #player { width: 100%; height: 100%; position: absolute; top: 0; left: 0; border: 0; }
   </style>
 </head>
 <body>
-  <div class="video-container">
-    <iframe
-      id="player"
-      src="https://www.youtube.com/embed/$videoId?autoplay=1&playsinline=1&enablejsapi=1&rel=0&origin=https://www.youtube.com"
-      title="YouTube video player"
-      frameborder="0"
-      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-      referrerpolicy="strict-origin-when-cross-origin"
-      allowfullscreen>
-    </iframe>
-  </div>
+  <div id="player"></div>
+  <script src="https://www.youtube-nocookie.com/iframe_api"></script>
+  <script>
+    var player;
+    function onYouTubeIframeAPIReady() {
+      player = new YT.Player('player', {
+        height: '100%',
+        width: '100%',
+        videoId: '$videoId',
+        host: 'https://www.youtube-nocookie.com',
+        playerVars: {
+          'playsinline': 1,
+          'autoplay': 1,
+          'controls': 1,
+          'rel': 0,
+          'enablejsapi': 1,
+          'modestbranding': 1,
+          'origin': 'https://www.youtube-nocookie.com'
+        },
+        events: {
+          'onReady': function(event) {
+            try { event.target.playVideo(); } catch(e) {}
+          }
+        }
+      });
+    }
+  </script>
 </body>
 </html>
 ''';
@@ -451,7 +451,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
               child: InAppWebView(
                 initialData: InAppWebViewInitialData(
                   data: htmlContent,
-                  baseUrl: WebUri('https://www.youtube.com'),
+                  baseUrl: WebUri('https://www.youtube-nocookie.com'),
                   mimeType: 'text/html',
                   encoding: 'utf-8',
                 ),
@@ -477,7 +477,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   );
                 },
                 onWebViewCreated: (controller) {
-                  print('[VIDEO_DEBUG] WebView created with iframe HTML for videoId: "$videoId"');
+                  print('[VIDEO_DEBUG] WebView created for YouTube embed HTML (videoId: "$videoId")');
                 },
                 onLoadStart: (controller, url) {
                   print('[VIDEO_DEBUG] WebView load started: $url');

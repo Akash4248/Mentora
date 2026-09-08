@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
@@ -568,7 +569,7 @@ class MentoraBackendClient {
 
       final response = await _client
           .post(Uri.parse('$_activeBaseUrl/ai/tutor'), headers: headers, body: payload)
-          .timeout(const Duration(seconds: 45));
+          .timeout(const Duration(seconds: 120));
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
@@ -577,9 +578,15 @@ class MentoraBackendClient {
         }
       } else if (response.statusCode == 504) {
         return {
-          'answer': '⚠️ **Backend LLM Timeout**: The local Ollama AI model took longer than 90 seconds to generate on CPU. Please retry or ask a shorter query.',
+          'answer': '⚠️ **Backend LLM Timeout (504)**: Backend generation took longer than 120 seconds on CPU. Please retry or ask a shorter question.',
           'hasAudio': false,
           'source': 'backend_timeout_error',
+        };
+      } else {
+        return {
+          'answer': '⚠️ **Backend Error (${response.statusCode})**: ${response.body.isNotEmpty ? response.body : "Service returned status ${response.statusCode}"}',
+          'hasAudio': false,
+          'source': 'backend_http_error_${response.statusCode}',
         };
       }
     } catch (e) {
@@ -591,8 +598,12 @@ class MentoraBackendClient {
       } catch (_) {}
 
       autoDiscoverGatewayUrl();
+      final errDetail = e is TimeoutException
+          ? 'Backend request timed out after 120s'
+          : e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
+
       return {
-        'answer': '⚠️ **Backend Network Connection Error**: Could not connect to backend at $_activeBaseUrl. Please check your Wi-Fi or load an offline model (.gguf) in Settings.',
+        'answer': '⚠️ **Backend Failure**: $errDetail.\n\n*Note: On-device local LLM is not loaded. Select or load a GGUF model in Settings to enable offline fallback.*',
         'hasAudio': false,
         'source': 'backend_connection_error',
       };
