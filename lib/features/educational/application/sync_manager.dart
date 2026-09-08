@@ -121,33 +121,61 @@ class SyncManager {
           }
         }
 
-        print('[SYNC] PACK_COUNT_RECEIVED=${validPacksById.length}');
-        return validPacksById.values.toList()..sort((a, b) {
-          final gradeA = a.grade ?? 0;
-          final gradeB = b.grade ?? 0;
-          final gradeCompare = gradeA.compareTo(gradeB);
-          if (gradeCompare != 0) {
-            return gradeCompare;
-          }
-          final subjectCompare = (a.subject ?? '').toLowerCase().compareTo(
-            (b.subject ?? '').toLowerCase(),
-          );
-          if (subjectCompare != 0) {
-            return subjectCompare;
-          }
-          return a.packId.compareTo(b.packId);
-        });
-      } else {
-        AppEnvironment.log(
-          'SYNC',
-          '[SyncManager] Update check failed: ${response.statusCode}',
-        );
-        return [];
+        if (validPacksById.isNotEmpty) {
+          print('[SYNC] PACK_COUNT_RECEIVED=${validPacksById.length}');
+          return validPacksById.values.toList()..sort((a, b) {
+            final gradeA = a.grade ?? 0;
+            final gradeB = b.grade ?? 0;
+            final gradeCompare = gradeA.compareTo(gradeB);
+            if (gradeCompare != 0) {
+              return gradeCompare;
+            }
+            final subjectCompare = (a.subject ?? '').toLowerCase().compareTo(
+              (b.subject ?? '').toLowerCase(),
+            );
+            if (subjectCompare != 0) {
+              return subjectCompare;
+            }
+            return a.packId.compareTo(b.packId);
+          });
+        }
       }
+      return await _loadOfflineFallbackPacks(grade);
     } catch (e) {
       AppEnvironment.log('SYNC', '[SyncManager] Error checking updates: $e');
-      return [];
+      return await _loadOfflineFallbackPacks(grade);
     }
+  }
+
+  Future<List<PackSyncEntry>> _loadOfflineFallbackPacks(int? grade) async {
+    try {
+      final targetGrade = grade ?? 9;
+      final db = await _contentPackRepository.db;
+      final rows = await db.rawQuery(
+        'SELECT chapter_id, title, subject, grade FROM chapters WHERE grade = ?',
+        [targetGrade],
+      );
+
+      if (rows.isNotEmpty) {
+        return rows.map((row) {
+          final cId = row['chapter_id'] as String? ?? 'ch_unknown';
+          final title = row['title'] as String? ?? 'Chapter';
+          final subj = row['subject'] as String? ?? 'General';
+          return PackSyncEntry(
+            packId: cId,
+            title: title,
+            subject: subj,
+            grade: targetGrade,
+            version: 1,
+            sizeBytes: 1500000,
+            downloadUrl: 'offline://master_db/$cId',
+          );
+        }).toList();
+      }
+    } catch (e) {
+      AppEnvironment.log('SYNC', '[SyncManager] Offline fallback error: $e');
+    }
+    return [];
   }
 
   /// Process the pack updates and enqueue download operations.

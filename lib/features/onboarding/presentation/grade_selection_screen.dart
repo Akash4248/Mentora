@@ -119,7 +119,7 @@ class _GradeSelectionScreenState extends State<GradeSelectionScreen> {
                                 const SizedBox(height: 32),
 
                                 // Grades List
-                                ...List.generate(10, (index) {
+                                ...List.generate(12, (index) {
                                   final grade = index + 1;
                                   final isSelected = _selectedGrade == grade;
                                   
