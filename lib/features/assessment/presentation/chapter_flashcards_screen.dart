@@ -11,6 +11,7 @@ class ChapterFlashcardsScreen extends StatefulWidget {
   final String chapterTitle;
   final String subjectName;
   final int grade;
+  final bool showAppBar;
 
   const ChapterFlashcardsScreen({
     super.key,
@@ -18,6 +19,7 @@ class ChapterFlashcardsScreen extends StatefulWidget {
     required this.chapterTitle,
     required this.subjectName,
     required this.grade,
+    this.showAppBar = true,
   });
 
   @override
@@ -80,24 +82,26 @@ class _ChapterFlashcardsScreenState extends State<ChapterFlashcardsScreen> {
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '${widget.subjectName} • ${widget.chapterTitle}',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
-            ),
-            Text(
-              'Class ${widget.grade} NCERT Flashcards Deck',
-              style: const TextStyle(fontSize: 11, color: Colors.white70),
-            ),
-          ],
-        ),
-        backgroundColor: const Color(0xFF4F46E5),
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
+      appBar: widget.showAppBar
+          ? AppBar(
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${widget.subjectName} • ${widget.chapterTitle}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+                  ),
+                  Text(
+                    'Class ${widget.grade} NCERT Flashcards Deck',
+                    style: const TextStyle(fontSize: 11, color: Colors.white70),
+                  ),
+                ],
+              ),
+              backgroundColor: const Color(0xFF4F46E5),
+              foregroundColor: Colors.white,
+              elevation: 0,
+            )
+          : null,
       body: SafeArea(
         child: _isLoading
             ? const Center(child: CircularProgressIndicator(color: Color(0xFF4F46E5)))

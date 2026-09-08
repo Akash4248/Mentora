@@ -11,6 +11,7 @@ class TextbookViewerScreen extends StatefulWidget {
   final String chapterTitle;
   final String subjectName;
   final int grade;
+  final bool showAppBar;
 
   const TextbookViewerScreen({
     super.key,
@@ -18,6 +19,7 @@ class TextbookViewerScreen extends StatefulWidget {
     required this.chapterTitle,
     required this.subjectName,
     required this.grade,
+    this.showAppBar = true,
   });
 
   @override
@@ -38,43 +40,45 @@ class _TextbookViewerScreenState extends State<TextbookViewerScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '${widget.subjectName} • ${widget.chapterTitle}',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
-            ),
-            Text(
-              'NCERT Class ${widget.grade} Official Textbook PDF',
-              style: const TextStyle(fontSize: 11, color: Colors.white70),
-            ),
-          ],
-        ),
-        backgroundColor: const Color(0xFF4F46E5),
-        foregroundColor: Colors.white,
-        elevation: 0,
-        actions: [
-          if (_isReady && _totalPages > 0)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.only(right: 16.0),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12),
+      appBar: widget.showAppBar
+          ? AppBar(
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${widget.subjectName} • ${widget.chapterTitle}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
                   ),
-                  child: Text(
-                    'Page ${_currentPage + 1} / $_totalPages',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                  Text(
+                    'NCERT Class ${widget.grade} Official Textbook PDF',
+                    style: const TextStyle(fontSize: 11, color: Colors.white70),
                   ),
-                ),
+                ],
               ),
-            ),
-        ],
-      ),
+              backgroundColor: const Color(0xFF4F46E5),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              actions: [
+                if (_isReady && _totalPages > 0)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 16.0),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          'Page ${_currentPage + 1} / $_totalPages',
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            )
+          : null,
       body: SafeArea(
         child: !fileExists
             ? _buildFileNotFoundView()

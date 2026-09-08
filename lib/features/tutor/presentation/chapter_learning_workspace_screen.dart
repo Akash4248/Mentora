@@ -485,6 +485,7 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
             chapterTitle: _activeChapterTitle,
             subjectName: _activeSubjectName,
             grade: _activeGrade,
+            showAppBar: false,
           ),
 
           // TAB 3: CHAPTER FLASHCARDS DECK
@@ -493,6 +494,7 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
             chapterTitle: _activeChapterTitle,
             subjectName: _activeSubjectName,
             grade: _activeGrade,
+            showAppBar: false,
           ),
 
           // TAB 4: INTERACTIVE SIMULATION PLAYER
