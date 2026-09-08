@@ -23,28 +23,35 @@ class CourseRepository {
   ];
 
   Future<void> ensureSeedData() async {
+    for (var g = 6; g <= 12; g++) {
+      await ensureSeedDataForGrade(g);
+    }
+  }
+
+  Future<void> ensureSeedDataForGrade(int targetGrade) async {
     final db = await _database.database;
+    await db.insert(
+      'courses',
+      <String, String>{
+        'id': 'course_$targetGrade',
+        'name': 'Class $targetGrade',
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+
     final count = Sqflite.firstIntValue(
-          await db.rawQuery('SELECT COUNT(*) FROM chapters'),
+          await db.rawQuery(
+            'SELECT COUNT(*) FROM chapters WHERE subject_id LIKE ?',
+            ['%_$targetGrade'],
+          ),
         ) ??
         0;
 
-    if (count >= 256) {
+    if (count > 0) {
       return;
     }
 
     final batch = db.batch();
-
-    for (var grade = 6; grade <= 12; grade++) {
-      batch.insert(
-        'courses',
-        <String, String>{
-          'id': 'course_$grade',
-          'name': 'Class $grade',
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-    }
 
     try {
       final jsonString = await rootBundle.loadString(
@@ -55,8 +62,10 @@ class CourseRepository {
 
       for (final item in list) {
         if (item is Map<String, dynamic>) {
-          final chapterId = item['chapter_id'] as String;
           final grade = item['grade'] as int;
+          if (grade != targetGrade) continue;
+
+          final chapterId = item['chapter_id'] as String;
           final subjectName = item['subject'] as String;
           final chapterTitle = item['chapter_title'] as String;
           final description =
@@ -94,7 +103,7 @@ class CourseRepository {
       }
     } catch (e) {
       // ignore: avoid_print
-      print('[CourseRepository] Seed error: $e');
+      print('[CourseRepository] Seed error for Grade $targetGrade: $e');
     }
 
     await batch.commit(noResult: true);
@@ -133,6 +142,12 @@ class CourseRepository {
     String courseId, {
     String languageCode = 'en',
   }) async {
+    final gradeMatch = RegExp(r'^course_(\d+)$').firstMatch(courseId);
+    final grade = int.tryParse(gradeMatch?.group(1) ?? '');
+    if (grade != null) {
+      await ensureSeedDataForGrade(grade);
+    }
+
     final db = await _database.database;
     final rows = await db.query(
       'subjects',
@@ -151,8 +166,6 @@ class CourseRepository {
         )
         .toList();
 
-    final gradeMatch = RegExp(r'^course_(\d+)$').firstMatch(courseId);
-    final grade = int.tryParse(gradeMatch?.group(1) ?? '');
     if (grade == null) {
       return _localizeSubjects(all, languageCode);
     }

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 /// Structured logging tags for diagnostic output
@@ -37,14 +38,32 @@ class AppEnvironment {
 
   static bool _initialized = false;
 
-  /// Initialize environment from .env file
-  /// Must be called before accessing any configuration
+  /// Initialize environment configuration.
+  ///
+  /// Priority order for each config value:
+  ///   1. `--dart-define` compile-time variable (CI/CD, production builds)
+  ///   2. `.env` file (local development only, must be gitignored)
+  ///   3. Hardcoded fallback (safe defaults only — no secrets)
+  ///
+  /// To build with externalized config:
+  ///   flutter build apk \
+  ///     --dart-define=BACKEND_BASE_URL=http://pihub.local:8000 \
+  ///     --dart-define=BACKEND_API_KEY=your_key_here
   static Future<void> initialize() async {
     if (_initialized) return;
-    
-    await dotenv.load(fileName: '.env');
+
+    // In debug/local dev: load .env for developer convenience.
+    // In release: .env is NOT bundled (removed from pubspec assets),
+    // so --dart-define variables are the only source of truth.
+    if (kDebugMode) {
+      try {
+        await dotenv.load(fileName: '.env');
+      } catch (_) {
+        // .env missing or invalid in debug — use dart-define / defaults
+      }
+    }
+
     _initialized = true;
-    
     _logStartup();
   }
 
@@ -61,9 +80,15 @@ class AppEnvironment {
   // BACKEND CONFIGURATION
   // ========================================================================
 
+  /// Look up a config value.
+  /// Checks --dart-define compile-time variables first, then .env, then returns null.
   static String? _env(String key) {
-    if (!dotenv.isInitialized) return null;
-    return dotenv.env[key];
+    // 1. Check compile-time --dart-define (always available, even in release)
+    final dartDefine = String.fromEnvironment(key);
+    if (dartDefine.isNotEmpty) return dartDefine;
+    // 2. Fall back to .env (debug local dev only)
+    if (dotenv.isInitialized) return dotenv.env[key];
+    return null;
   }
 
   /// Primary backend gateway URL
@@ -80,9 +105,18 @@ class AppEnvironment {
   static int get backendTimeoutSeconds =>
       int.tryParse(_env('BACKEND_TIMEOUT_SECONDS') ?? '10') ?? 10;
 
-  /// API key for backend authentication
-  static String get backendApiKey =>
-      _env('BACKEND_API_KEY') ?? 'default-development-key';
+  /// API key for backend authentication.
+  /// Must be supplied via --dart-define=BACKEND_API_KEY=... in production.
+  /// An empty key means the backend is open (local dev only).
+  static String get backendApiKey {
+    final key = _env('BACKEND_API_KEY') ?? '';
+    assert(
+      !kReleaseMode || key.isNotEmpty,
+      'BACKEND_API_KEY is not set. '  
+      'Pass --dart-define=BACKEND_API_KEY=<key> to flutter build.',
+    );
+    return key;
+  }
 
   // ========================================================================
   // NGINX GATEWAY ROUTING

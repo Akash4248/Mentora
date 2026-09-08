@@ -103,7 +103,7 @@ class HybridRetrievalService {
         ..toList();
   }
 
-  /// BM25 keyword search using LIKE queries (FTS4 not available)
+  /// BM25 keyword search using FTS5 BM25 ranking or term-frequency weighted fallback
   Future<List<RetrievalResult>> _bm25Search({
     required String query,
     required String chapterId,
@@ -111,34 +111,74 @@ class HybridRetrievalService {
   }) async {
     final db = await _database.database;
 
-    // Split query into terms for OR-based LIKE search
-    final terms = query
+    final stopWords = {
+      'what', 'is', 'the', 'meaning', 'of', 'explain', 'describe', 'tell', 'me',
+      'about', 'how', 'does', 'work', 'can', 'you', 'give', 'an', 'example', 'a',
+      'to', 'in', 'for', 'on', 'with', 'by', 'as', 'at', 'solution'
+    };
+    final rawTerms = query
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^\w\s]'), '')
         .split(RegExp(r'\s+'))
-        .where((t) => t.isNotEmpty)
-        .map((t) => '%$t%')
+        .where((t) => t.isNotEmpty && !stopWords.contains(t))
         .toList();
 
-    if (terms.isEmpty) {
+    if (rawTerms.isEmpty) {
       return [];
     }
 
-    // Build LIKE clauses for OR matching
-    final whereClauses = terms.map((_) => 'content LIKE ?').join(' OR ');
+    // 1. Attempt FTS5 / FTS4 search with BM25 ranking via rag_chunks_fts
+    try {
+      final ftsMatch = rawTerms.map((t) => '$t*').join(' OR ');
+      final ftsResults = await db.rawQuery('''
+        SELECT c.*, -bm25(fts) AS fts_score
+        FROM rag_chunks_v2 c
+        INNER JOIN rag_chunks_fts fts ON fts.id = c.id
+        WHERE c.chapter_id = ? AND fts MATCH ?
+        ORDER BY fts_score DESC
+        LIMIT ?
+      ''', [chapterId, ftsMatch, limit]);
+
+      if (ftsResults.isNotEmpty) {
+        return ftsResults.map((row) {
+          final chunk = _rowToChunk(row);
+          final rawScore = (row['fts_score'] as num?)?.toDouble() ?? 1.0;
+          return RetrievalResult(
+            chunk: chunk,
+            score: rawScore.clamp(0.1, 10.0),
+            source: 'bm25',
+          );
+        }).toList();
+      }
+    } catch (_) {
+      // FTS module missing or query error — continue to term-weighted fallback
+    }
+
+    // 2. Term-frequency weighted fallback search
+    final likeTerms = rawTerms.map((t) => '%$t%').toList();
+    final whereClauses = likeTerms.map((_) => 'content LIKE ?').join(' OR ');
 
     final results = await db.query(
       'rag_chunks_v2',
       where: 'chapter_id = ? AND ($whereClauses)',
-      whereArgs: [chapterId, ...terms],
+      whereArgs: [chapterId, ...likeTerms],
       limit: limit,
     );
 
-    return results
-        .map((row) => RetrievalResult(
-              chunk: _rowToChunk(row),
-              score: 0.8, // BM25 implicit high score for matched terms
-              source: 'bm25',
-            ))
-        .toList();
+    return results.map((row) {
+      final chunk = _rowToChunk(row);
+      final contentLower = chunk.content.toLowerCase();
+      int matches = 0;
+      for (final term in rawTerms) {
+        if (contentLower.contains(term)) matches++;
+      }
+      final score = matches / rawTerms.length;
+      return RetrievalResult(
+        chunk: chunk,
+        score: score,
+        source: 'bm25',
+      );
+    }).toList();
   }
 
   /// Semantic search using TF-IDF embeddings

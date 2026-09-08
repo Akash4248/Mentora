@@ -1,11 +1,15 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
 import 'package:sqflite/sqflite.dart';
+import '../../../config/app_environment.dart';
+import 'mentora_dio_client.dart';
 import '../../course/data/local/app_database.dart';
 import '../../course/data/local/course_repository.dart';
 import '../../course/domain/course_tree.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../data/backend_availability_cache.dart';
 import '../domain/runtime_backend_url.dart';
 import '../../settings/services/user_api_key_service.dart';
 import '../../chat/application/reasoning_output_filter.dart';
@@ -36,121 +40,180 @@ class DiscoveryProgress {
 }
 
 class MentoraBackendClient {
+  /// Returns candidate gateway URLs for auto-discovery, in probe priority order.
+  ///
+  /// Sources (in order of reliability):
+  ///   1. AppEnvironment.backendBaseUrl (--dart-define or .env)
+  ///   2. mDNS standard Pi hostname (pihub.local)
+  ///   3. Current device hostname .local (for dev laptops running the server)
+  ///   4. Loopback (for emulator / local server)
+  ///
+  /// All hardcoded developer machine IPs (10.35.98.193, akash-Ubuntu) have been
+  /// removed. If you need to test against a specific IP, pass it via
+  /// --dart-define=BACKEND_BASE_URL=http://<ip>:8000.
   static List<String> getCandidateGatewayUrls() {
-    final list = <String>[
-      'http://10.35.98.193:8000',
-      'http://10.0.2.2:8000',
-      'http://akash-Ubuntu.local:8000',
-      'http://akash-Ubuntu:8000',
-      'http://akash-Ubuntu.local',
-      'http://akash-Ubuntu',
-    ];
+    final list = <String>[];
+
+    // 1. Explicitly configured URL (highest priority)
+    final configured = AppEnvironment.backendBaseUrl;
+    if (configured.isNotEmpty) list.add(configured);
+
+    // 2. Standard Pi gateway hostnames
+    list.addAll([
+      'http://pihub.local:8000',
+      'http://pihub.local',
+    ]);
+
+    // 3. Device hostname .local (developer running server on same laptop)
     try {
       final hostname = Platform.localHostname;
       if (hostname.isNotEmpty) {
         list.add('http://$hostname.local:8000');
-        list.add('http://$hostname:8000');
         list.add('http://$hostname.local');
-        list.add('http://$hostname');
+        list.add('http://$hostname:8000');
       }
     } catch (_) {}
+
+    // 4. Loopback (emulator or local dev server)
     list.addAll([
-      'http://10.35.98.193:8000',
-      'http://10.0.2.2:8000',
+      'http://10.0.2.2:8000', // Android emulator → host loopback
       'http://127.0.0.1:8000',
-      'http://pihub.local:8000',
-      'http://pihub.local',
     ]);
+
     return list.toSet().toList();
   }
 
-  static String _activeBaseUrl = 'http://10.35.98.193:8000';
+  /// Active gateway URL. Updated by [BackendDiscoveryService] on successful
+  /// connection. Default is driven by [AppEnvironment] (--dart-define or .env),
+  /// never a hardcoded developer IP.
+  static String _activeBaseUrl = AppEnvironment.backendBaseUrl;
   String get baseUrl => _activeBaseUrl;
   void setBaseUrl(String url) {
     _activeBaseUrl = url;
+    MentoraDioClient.updateBaseUrl(url);
   }
-  final http.Client _client;
 
-  MentoraBackendClient({
-    String? baseUrl,
-    http.Client? client,
-  }) : _client = client ?? http.Client() {
+  MentoraBackendClient({String? baseUrl}) {
     if (baseUrl != null) {
       _activeBaseUrl = baseUrl;
+      MentoraDioClient.updateBaseUrl(baseUrl);
     }
   }
 
-  // Subnet Auto-Discovery: Probe candidate local IPs & Laptop hostname
+  Dio get _client => MentoraDioClient.instance;
+
+  static const String _kCachedBackendUrl = 'backend_url';
+  static const String _kCachedBackendUrlTs = 'backend_url_ts';
+  static const int _urlCacheTtlMs = 5 * 60 * 1000; // 5 minutes
+
+  // Subnet Auto-Discovery: Parallel probe candidate gateway URLs
   Future<String> autoDiscoverGatewayUrl({
     void Function(DiscoveryProgress progress)? onProgress,
   }) async {
-    final candidates = getCandidateGatewayUrls();
-    for (int i = 0; i < candidates.length; i++) {
-      final candidate = candidates[i];
-      final double progressVal = (i + 1) / candidates.length;
+    // 1. In-memory cache hit (same process session)
+    final memCached = BackendAvailabilityCache().cachedUrl;
+    if (memCached != null) {
+      setBaseUrl(memCached);
+      RuntimeBackendUrl().updateUrl(memCached);
       onProgress?.call(DiscoveryProgress(
-        currentCandidate: candidate,
-        step: i + 1,
-        totalSteps: candidates.length,
-        progress: progressVal,
-        isFinished: false,
-        isSuccess: false,
+        currentCandidate: memCached,
+        step: 1,
+        totalSteps: 1,
+        progress: 1.0,
+        isFinished: true,
+        isSuccess: true,
+        connectedUrl: memCached,
       ));
-
-      try {
-        final res = await _client
-            .get(Uri.parse('$candidate/health'))
-            .timeout(const Duration(seconds: 2));
-        if (res.statusCode == 200) {
-          _activeBaseUrl = candidate;
-          RuntimeBackendUrl().updateUrl(candidate);
-          String deviceName = 'Local Subnet Gateway ($candidate)';
-          try {
-            final hName = Platform.localHostname;
-            if (hName.isNotEmpty && candidate.contains(hName)) {
-              deviceName = 'Laptop Gateway ($hName)';
-            } else if (candidate.contains('127.0.0.1') || candidate.contains('localhost')) {
-              deviceName = 'Laptop Localhost (127.0.0.1)';
-            } else if (candidate.contains('pihub')) {
-              deviceName = 'Raspberry Pi Gateway (PiHub)';
-            }
-          } catch (_) {}
-
-          onProgress?.call(DiscoveryProgress(
-            currentCandidate: candidate,
-            step: i + 1,
-            totalSteps: candidates.length,
-            progress: 1.0,
-            isFinished: true,
-            isSuccess: true,
-            connectedUrl: candidate,
-            connectedDeviceName: deviceName,
-          ));
-          return candidate;
-        }
-      } catch (_) {}
+      return memCached;
     }
 
-    onProgress?.call(DiscoveryProgress(
-      currentCandidate: _activeBaseUrl,
-      step: candidates.length,
-      totalSteps: candidates.length,
-      progress: 1.0,
-      isFinished: true,
-      isSuccess: false,
-    ));
-    return _activeBaseUrl;
+    // 2. SharedPreferences cache hit (survived cold launch)
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cachedUrl = prefs.getString(_kCachedBackendUrl);
+      final cachedTs = prefs.getInt(_kCachedBackendUrlTs) ?? 0;
+      final age = DateTime.now().millisecondsSinceEpoch - cachedTs;
+      if (cachedUrl != null && age < _urlCacheTtlMs) {
+        setBaseUrl(cachedUrl);
+        RuntimeBackendUrl().updateUrl(cachedUrl);
+        BackendAvailabilityCache().updateStatus(true, url: cachedUrl);
+        onProgress?.call(DiscoveryProgress(
+          currentCandidate: cachedUrl,
+          step: 1,
+          totalSteps: 1,
+          progress: 1.0,
+          isFinished: true,
+          isSuccess: true,
+          connectedUrl: cachedUrl,
+        ));
+        return cachedUrl;
+      }
+    } catch (_) {}
+
+    // 3. Parallel probe candidates simultaneously (first 200-OK wins, capped at 4s)
+    final candidates = getCandidateGatewayUrls();
+    try {
+      final winner = await Future.any(
+        candidates.map((url) => _probeCandidate(url)),
+      ).timeout(const Duration(seconds: 4));
+
+      setBaseUrl(winner);
+      RuntimeBackendUrl().updateUrl(winner);
+      BackendAvailabilityCache().updateStatus(true, url: winner);
+
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_kCachedBackendUrl, winner);
+        await prefs.setInt(_kCachedBackendUrlTs, DateTime.now().millisecondsSinceEpoch);
+      } catch (_) {}
+
+      String deviceName = 'Local Gateway ($winner)';
+      try {
+        final hName = Platform.localHostname;
+        if (hName.isNotEmpty && winner.contains(hName)) {
+          deviceName = 'Laptop Gateway ($hName)';
+        } else if (winner.contains('127.0.0.1') || winner.contains('localhost')) {
+          deviceName = 'Laptop Localhost (127.0.0.1)';
+        } else if (winner.contains('pihub')) {
+          deviceName = 'Raspberry Pi Gateway (PiHub)';
+        }
+      } catch (_) {}
+
+      onProgress?.call(DiscoveryProgress(
+        currentCandidate: winner,
+        step: candidates.length,
+        totalSteps: candidates.length,
+        progress: 1.0,
+        isFinished: true,
+        isSuccess: true,
+        connectedUrl: winner,
+        connectedDeviceName: deviceName,
+      ));
+      return winner;
+    } catch (_) {
+      BackendAvailabilityCache().updateStatus(false);
+      onProgress?.call(DiscoveryProgress(
+        currentCandidate: _activeBaseUrl,
+        step: candidates.length,
+        totalSteps: candidates.length,
+        progress: 1.0,
+        isFinished: true,
+        isSuccess: false,
+      ));
+      return _activeBaseUrl;
+    }
   }
 
-  Future<Map<String, String>> _buildHeaders() async {
-    final keyService = await UserApiKeyService.getInstance();
-    final headers = <String, String>{
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    };
-    headers.addAll(keyService.getAuthHeaders());
-    return headers;
+  Future<String> _probeCandidate(String url) async {
+    final res = await _client
+        .get('$url/health')
+        .timeout(const Duration(seconds: 3));
+    if (res.statusCode == 200) return url;
+    throw Exception('Candidate $url unhealthy (${res.statusCode})');
   }
+
+  // _buildHeaders() removed: auth headers are now injected automatically by
+  // MentoraDioClient's _AuthInterceptor for every request.
 
   static final Map<int, List<Map<String, dynamic>>> _subjectsCache = {};
   static final Map<String, List<Map<String, dynamic>>> _chaptersCache = {};
@@ -185,27 +248,26 @@ class MentoraBackendClient {
 
   Future<List<Map<String, dynamic>>> _fetchSubjectsFromNetwork(int grade) async {
     try {
-      final headers = await _buildHeaders();
       final response = await _client
-          .get(Uri.parse('$_activeBaseUrl/catalog/subjects?grade=$grade'), headers: headers)
-          .timeout(const Duration(seconds: 3));
-
+          .get('/catalog/subjects?grade=$grade');
       if (response.statusCode == 200) {
-        final List data = jsonDecode(response.body);
+        final List data = response.data is List
+            ? response.data
+            : (response.data is String ? jsonDecode(response.data) : []);
         if (data.isNotEmpty) {
           final list = List<Map<String, dynamic>>.from(data);
           _subjectsCache[grade] = list;
           return list;
         }
       }
-    } catch (_) {}
+    } on DioException catch (_) {}
     return [];
   }
 
   Future<List<Map<String, dynamic>>> _loadSubjectsFromLocalDb(int grade) async {
     try {
       final courseRepo = CourseRepository();
-      await courseRepo.ensureSeedData();
+      await courseRepo.ensureSeedDataForGrade(grade);
       final subjects = await courseRepo.getSubjects('course_$grade');
       if (subjects.isNotEmpty) {
         final result = <Map<String, dynamic>>[];
@@ -253,13 +315,12 @@ class MentoraBackendClient {
 
   Future<List<Map<String, dynamic>>> _fetchChaptersFromNetwork(String subjectName, int grade) async {
     try {
-      final headers = await _buildHeaders();
       final response = await _client
-          .get(Uri.parse('$_activeBaseUrl/catalog/chapters?subject=$subjectName&grade=$grade'), headers: headers)
-          .timeout(const Duration(seconds: 3));
-
+          .get('/catalog/chapters?subject=$subjectName&grade=$grade');
       if (response.statusCode == 200) {
-        final List data = jsonDecode(response.body);
+        final List data = response.data is List
+            ? response.data
+            : (response.data is String ? jsonDecode(response.data) : []);
         final list = List<Map<String, dynamic>>.from(data);
         if (list.isNotEmpty) {
           final key = '${grade}_${subjectName.toLowerCase().trim()}';
@@ -268,7 +329,7 @@ class MentoraBackendClient {
           return list;
         }
       }
-    } catch (_) {}
+    } on DioException catch (_) {}
     return [];
   }
 
@@ -373,15 +434,11 @@ class MentoraBackendClient {
   // 3. Fetch Interactive Simulation Config for Chapter
   Future<Map<String, dynamic>> getSimulationForChapter(String chapter) async {
     try {
-      final headers = await _buildHeaders();
-      final response = await _client
-          .get(Uri.parse('$_activeBaseUrl/api/v1/simulations/$chapter'), headers: headers)
-          .timeout(const Duration(seconds: 4));
-
+      final response = await _client.get('/api/v1/simulations/$chapter');
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        return response.data is Map ? Map<String, dynamic>.from(response.data) : jsonDecode(response.data);
       }
-    } catch (_) {}
+    } on DioException catch (_) {}
 
     return {
       'chapter': chapter,
@@ -398,15 +455,11 @@ class MentoraBackendClient {
   // 4. Fetch YouTube Video Lectures & ISL for Chapter
   Future<Map<String, dynamic>> getVideoLecturesForChapter(String chapter) async {
     try {
-      final headers = await _buildHeaders();
-      final response = await _client
-          .get(Uri.parse('$_activeBaseUrl/videos/$chapter'), headers: headers)
-          .timeout(const Duration(seconds: 4));
-
+      final response = await _client.get('/videos/$chapter');
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        return response.data is Map ? Map<String, dynamic>.from(response.data) : jsonDecode(response.data);
       }
-    } catch (_) {}
+    } on DioException catch (_) {}
 
     return {
       'chapter': chapter,
@@ -433,15 +486,11 @@ class MentoraBackendClient {
   // 5. Fetch Diagnostic Quiz for Chapter
   Future<Map<String, dynamic>> getQuizForChapter(String chapter) async {
     try {
-      final headers = await _buildHeaders();
-      final response = await _client
-          .get(Uri.parse('$_activeBaseUrl/quizzes/$chapter'), headers: headers)
-          .timeout(const Duration(seconds: 4));
-
+      final response = await _client.get('/quizzes/$chapter');
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        return response.data is Map ? Map<String, dynamic>.from(response.data) : jsonDecode(response.data);
       }
-    } catch (_) {}
+    } on DioException catch (_) {}
 
     final cleanTitle = chapter.replaceAll('_', ' ');
     return {
@@ -527,15 +576,11 @@ class MentoraBackendClient {
   // 6. Fetch User Profile & Streak
   Future<Map<String, dynamic>> getUserProfile() async {
     try {
-      final headers = await _buildHeaders();
-      final response = await _client
-          .get(Uri.parse('$_activeBaseUrl/api/user/profile'), headers: headers)
-          .timeout(const Duration(seconds: 4));
-
+      final response = await _client.get('/api/user/profile');
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        return response.data is Map ? Map<String, dynamic>.from(response.data) : jsonDecode(response.data);
       }
-    } catch (_) {}
+    } on DioException catch (_) {}
 
     return {
       'name': 'Student',
@@ -560,20 +605,15 @@ class MentoraBackendClient {
     }
 
     try {
-      final headers = await _buildHeaders();
-      final payload = jsonEncode({
-        'question': question,
-        'topic': topic,
-        'grade': grade,
-      });
-
-      final response = await _client
-          .post(Uri.parse('$_activeBaseUrl/ai/tutor'), headers: headers, body: payload)
-          .timeout(const Duration(seconds: 120));
+      final response = await _client.post(
+        '/ai/tutor',
+        data: {'question': question, 'topic': topic, 'grade': grade},
+        options: Options(sendTimeout: const Duration(seconds: 120), receiveTimeout: const Duration(seconds: 120)),
+      );
 
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
-        if (decoded is Map<String, dynamic> && decoded['answer'] != null) {
+        final decoded = response.data is Map ? Map<String, dynamic>.from(response.data) : jsonDecode(response.data);
+        if (decoded['answer'] != null) {
           return decoded;
         }
       } else if (response.statusCode == 504) {
@@ -584,12 +624,12 @@ class MentoraBackendClient {
         };
       } else {
         return {
-          'answer': '⚠️ **Backend Error (${response.statusCode})**: ${response.body.isNotEmpty ? response.body : "Service returned status ${response.statusCode}"}',
+          'answer': '⚠️ **Backend Error (${response.statusCode})**: Service returned status ${response.statusCode}',
           'hasAudio': false,
           'source': 'backend_http_error_${response.statusCode}',
         };
       }
-    } catch (e) {
+    } on DioException catch (e) {
       try {
         final localResult = await _tryLocalLlmFallback(question, topic, grade);
         if (localResult != null) {
@@ -730,13 +770,15 @@ $question
 
   // 8. Authenticate User with Gateway
   Future<Map<String, dynamic>> loginUser(String email, String password) async {
-    final headers = {'Content-Type': 'application/json'};
-    final response = await _client.post(
-      Uri.parse('$_activeBaseUrl/api/auth/login'),
-      headers: headers,
-      body: jsonEncode({'email': email, 'password': password}),
-    );
-    return jsonDecode(response.body);
+    try {
+      final response = await _client.post(
+        '/api/auth/login',
+        data: {'email': email, 'password': password},
+      );
+      return response.data is Map ? Map<String, dynamic>.from(response.data) : jsonDecode(response.data);
+    } on DioException catch (e) {
+      return {'error': e.message ?? 'Login failed'};
+    }
   }
 
   // 9. Check Gateway Connection Health
@@ -747,29 +789,26 @@ $question
     final stopwatch = Stopwatch()..start();
     try {
       final response = await _client
-          .get(Uri.parse('$activeUrl/health'))
-          .timeout(const Duration(seconds: 4));
+          .get('$activeUrl/health');
       stopwatch.stop();
-
       if (response.statusCode == 200) {
         return {
           'online': true,
           'activeUrl': activeUrl,
           'latencyMs': stopwatch.elapsedMilliseconds,
           'status': 'Connected',
-          'details': jsonDecode(response.body),
+          'details': response.data,
         };
       }
-    } catch (e) {
+    } on DioException catch (e) {
       stopwatch.stop();
       return {
         'online': false,
         'activeUrl': activeUrl,
         'latencyMs': stopwatch.elapsedMilliseconds,
-        'status': 'Error: $e',
+        'status': 'Error: ${e.message}',
       };
     }
-
     return {
       'online': false,
       'activeUrl': activeUrl,

@@ -8,11 +8,18 @@
     <uses-permission
         android:name="android.permission.NEARBY_WIFI_DEVICES"
         android:usesPermissionFlags="neverForLocation" />
+    <!-- Microphone for voice input -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Camera for future QR/scan features -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Body sensors for motion-based experiments -->
+    <uses-permission android:name="android.permission.BODY_SENSORS" />
 
     <application
-        android:label="OfflineLearn"
+        android:label="Mentora"
         android:name="${applicationName}"
-        android:usesCleartextTraffic="true"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:enableOnBackInvokedCallback="true"
         android:icon="@mipmap/launcher_icon">
         <activity
             android:name=".MainActivity"

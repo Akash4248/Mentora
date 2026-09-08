@@ -29,16 +29,23 @@ class DatabaseAutoRepairService {
         try {
           await db.execute('''
             CREATE VIRTUAL TABLE IF NOT EXISTS rag_chunks_fts 
-            USING fts4(id, chapter_id, content)
+            USING fts5(id UNINDEXED, chapter_id UNINDEXED, content, tokenize='unicode61')
           ''');
         } catch (e) {
           try {
             await db.execute('''
               CREATE VIRTUAL TABLE IF NOT EXISTS rag_chunks_fts 
-              USING fts3(id, chapter_id, content)
+              USING fts4(id, chapter_id, content)
             ''');
           } catch (e2) {
-            print('[DB] FTS not supported, skipping FTS repair');
+            try {
+              await db.execute('''
+                CREATE VIRTUAL TABLE IF NOT EXISTS rag_chunks_fts 
+                USING fts3(id, chapter_id, content)
+              ''');
+            } catch (e3) {
+              print('[DB] FTS not supported, skipping FTS repair');
+            }
           }
         }
         ftsCount = 0;

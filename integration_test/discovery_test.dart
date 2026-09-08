@@ -17,10 +17,10 @@ void main() {
   group('Discovery Validation Matrix', () {
     testWidgets('Test A: Env Enabled, Backend Online', (tester) async {
       print('\n--- START TEST A ---');
-      await dotenv.load(mergeWith: {
-        'DISCOVERY_IGNORE_ENV': 'false',
-        'BACKEND_BASE_URL': 'http://127.0.0.1:8080',
-      });
+      dotenv.loadFromString(envString: '''
+DISCOVERY_IGNORE_ENV=false
+BACKEND_BASE_URL=http://127.0.0.1:8080
+''');
 
       // Start a mock healthy backend on 8080
       final server = await HttpServer.bind('127.0.0.1', 8080);
@@ -47,9 +47,9 @@ void main() {
 
     testWidgets('Test B: Ignore Env, Backend Online (Mock LAN)', (tester) async {
       print('\n--- START TEST B ---');
-      await dotenv.load(mergeWith: {
-        'DISCOVERY_IGNORE_ENV': 'true',
-      });
+      dotenv.loadFromString(envString: '''
+DISCOVERY_IGNORE_ENV=true
+''');
 
       // We bind to 0.0.0.0:80 to mock a LAN backend if the app probes itself.
       // Or we can just let it scan the subnet. Since we don't have a real PiHub running on LAN,
@@ -86,9 +86,9 @@ void main() {
 
     testWidgets('Test C: Ignore Env, Backend Offline', (tester) async {
       print('\n--- START TEST C ---');
-      await dotenv.load(mergeWith: {
-        'DISCOVERY_IGNORE_ENV': 'true',
-      });
+      dotenv.loadFromString(envString: '''
+DISCOVERY_IGNORE_ENV=true
+''');
 
       final coordinator = PiHubDiscoveryCoordinator();
       final node = await coordinator.discover();
@@ -99,9 +99,9 @@ void main() {
 
     testWidgets('Test D: Cache Verification', (tester) async {
       print('\n--- START TEST D ---');
-      await dotenv.load(mergeWith: {
-        'DISCOVERY_IGNORE_ENV': 'false',
-      });
+      dotenv.loadFromString(envString: '''
+DISCOVERY_IGNORE_ENV=false
+''');
 
       // Start mock server
       final server = await HttpServer.bind('127.0.0.1', 8080);

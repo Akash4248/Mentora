@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../course/data/local/course_repository.dart';
 import '../data/local/progress_repository.dart';
+import '../../home/presentation/mentora_home_screen.dart';
 
 class MentoraMasteryScreen extends StatefulWidget {
   const MentoraMasteryScreen({Key? key}) : super(key: key);
@@ -122,6 +123,30 @@ class _MentoraMasteryScreenState extends State<MentoraMasteryScreen> {
           ],
         ),
         iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.home_rounded, color: primaryIndigo),
+            tooltip: 'Home Dashboard',
+            onPressed: () {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const MentoraHomeScreen(initialTabIndex: 0)),
+                (route) => false,
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings_rounded, color: Color(0xFF64748B)),
+            tooltip: 'Settings',
+            onPressed: () {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const MentoraHomeScreen(initialTabIndex: 4)),
+                (route) => false,
+              );
+            },
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(

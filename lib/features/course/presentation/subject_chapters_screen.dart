@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../network/services/mentora_backend_client.dart';
 import '../../home/presentation/mentora_home_screen.dart';
+import 'textbook_viewer_screen.dart';
+import '../../assessment/presentation/chapter_flashcards_screen.dart';
 
 class SubjectChaptersScreen extends StatefulWidget {
   final String subjectName;
@@ -220,6 +222,40 @@ class _SubjectChaptersScreenState extends State<SubjectChaptersScreen> {
                                     reverse: true,
                                     child: Row(
                                       children: [
+                                        InkWell(
+                                          onTap: () {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (_) => TextbookViewerScreen(
+                                                  pdfPath: '/storage/emulated/0/Android/data/org.mentora.app/files/packs/${ch['title']}/source.pdf',
+                                                  chapterTitle: ch['title'] as String,
+                                                  subjectName: _activeSubject,
+                                                  grade: _activeGrade,
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                          child: _buildActionPill('Textbook', Icons.menu_book_outlined, const Color(0xFF0284C7)),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        InkWell(
+                                          onTap: () {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (_) => ChapterFlashcardsScreen(
+                                                  chapterId: ch['number'] as int? ?? 1,
+                                                  chapterTitle: ch['title'] as String,
+                                                  subjectName: _activeSubject,
+                                                  grade: _activeGrade,
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                          child: _buildActionPill('Cards', Icons.style_outlined, const Color(0xFFD97706)),
+                                        ),
+                                        const SizedBox(width: 4),
                                         _buildActionPill('Chat', Icons.chat_bubble_outline, primaryIndigo),
                                         const SizedBox(width: 4),
                                         _buildActionPill('Sims', Icons.science_outlined, const Color(0xFF10B981)),

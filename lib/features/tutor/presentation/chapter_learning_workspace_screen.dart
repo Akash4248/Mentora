@@ -7,6 +7,8 @@ import '../../home/presentation/video_player_screen.dart';
 import '../../home/data/local/video_resource_repository.dart';
 import '../../experiment/phet/presentation/experiment_player_screen.dart';
 import '../../experiment/phet/models/experiment_descriptor.dart';
+import '../../course/presentation/textbook_viewer_screen.dart';
+import '../../assessment/presentation/chapter_flashcards_screen.dart';
 import '../../home/presentation/mentora_home_screen.dart';
 
 class ChapterLearningWorkspaceScreen extends StatefulWidget {
@@ -46,7 +48,7 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     _tabController.addListener(() {
       if (_tabController.indexIsChanging || _tabController.index != 2) {
         print('[VIDEO_DEBUG] Workspace Tab changed to ${_tabController.index}. Pausing YouTube player plugin.');
@@ -307,6 +309,40 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
         iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
         actions: [
           IconButton(
+            icon: const Icon(Icons.style_outlined, color: Color(0xFFD97706)),
+            tooltip: 'Chapter Flashcards',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ChapterFlashcardsScreen(
+                    chapterId: 1,
+                    chapterTitle: _activeChapterTitle,
+                    subjectName: _activeSubjectName,
+                    grade: _activeGrade,
+                  ),
+                ),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.menu_book_outlined, color: Color(0xFF0284C7)),
+            tooltip: 'Textbook PDF',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => TextbookViewerScreen(
+                    pdfPath: '/storage/emulated/0/Android/data/org.mentora.app/files/packs/$_activeChapterTitle/source.pdf',
+                    chapterTitle: _activeChapterTitle,
+                    subjectName: _activeSubjectName,
+                    grade: _activeGrade,
+                  ),
+                ),
+              );
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.home_rounded, color: primaryIndigo),
             tooltip: 'Home Dashboard',
             onPressed: () {
@@ -328,28 +364,19 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
               );
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.settings_rounded, color: Color(0xFF64748B)),
-            tooltip: 'Settings',
-            onPressed: () {
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (_) => const MentoraHomeScreen(initialTabIndex: 4)),
-                (route) => false,
-              );
-            },
-          ),
         ],
         bottom: TabBar(
           controller: _tabController,
           labelColor: primaryIndigo,
           unselectedLabelColor: const Color(0xFF64748B),
           indicatorColor: primaryIndigo,
+          isScrollable: true,
           tabs: const [
             Tab(text: '💬 Chat'),
             Tab(text: '🔬 Simulation'),
             Tab(text: '🎥 Watch'),
             Tab(text: '📝 Quiz'),
+            Tab(text: '🎴 Flashcards'),
           ],
         ),
       ),
@@ -487,6 +514,14 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
 
           // TAB 4: DIAGNOSTIC ASSESSMENT QUIZ (STITCH DESIGN)
           _buildQuizTab(),
+
+          // TAB 5: CHAPTER FLASHCARDS DECK
+          ChapterFlashcardsScreen(
+            chapterId: 1,
+            chapterTitle: _activeChapterTitle,
+            subjectName: _activeSubjectName,
+            grade: _activeGrade,
+          ),
         ],
       ),
     );

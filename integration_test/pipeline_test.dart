@@ -25,10 +25,10 @@ void main() {
   testWidgets('E2E Sync Pipeline Validation', (tester) async {
     print('\n--- START E2E SYNC VALIDATION ---');
     
-    await dotenv.load(mergeWith: {
-      'DISCOVERY_IGNORE_ENV': 'false',
-      'BACKEND_BASE_URL': 'http://10.28.73.193',
-    });
+    dotenv.loadFromString(envString: '''
+DISCOVERY_IGNORE_ENV=false
+BACKEND_BASE_URL=http://10.28.73.193
+''');
     AppEnvironment.initialize();
 
     final config = BackendConfig(baseUrl: 'http://10.28.73.193', apiKey: 'dummy');

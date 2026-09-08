@@ -80,7 +80,7 @@ class RemoteContentPack {
       subject: (map['subject'] as String? ?? 'All Subjects').trim(),
       chapter: map['chapter'] as String?,
       gradeMin: int.tryParse(map['grade']?.toString() ?? '') ?? map['gradeMin'] as int? ?? map['grade_min'] as int? ?? 1,
-      gradeMax: int.tryParse(map['grade']?.toString() ?? '') ?? map['gradeMax'] as int? ?? map['grade_max'] as int? ?? 10,
+      gradeMax: int.tryParse(map['grade']?.toString() ?? '') ?? map['gradeMax'] as int? ?? map['grade_max'] as int? ?? 12,
       version: parsedVersion,
       archiveUrl: archiveUri.hasScheme
           ? archiveUri

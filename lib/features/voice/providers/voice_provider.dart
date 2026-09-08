@@ -5,10 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/voice_state.dart';
 import '../models/voice_event.dart';
+import '../models/connection_status.dart';
 import '../services/audio_player_service.dart';
 import '../services/audio_recorder_service.dart';
 import '../services/voice_permission_service.dart';
 import '../services/voice_stream_player.dart';
+import '../services/offline_speech_service.dart';
 import 'voice_connection_provider.dart';
 
 // ─── State ──────────────────────────────────────────────────────────
@@ -108,7 +110,7 @@ class VoiceNotifier extends StateNotifier<VoiceProviderState> {
     }
   }
 
-  /// Stop recording, send to server, and wait for response.
+  /// Stop recording, send to server, or process fully offline.
   Future<void> stopRecording({Map<String, dynamic>? context}) async {
     _stopDurationTimer();
     try {
@@ -119,13 +121,33 @@ class VoiceNotifier extends StateNotifier<VoiceProviderState> {
       );
       
       if (path != null) {
-        final bytes = await File(path).readAsBytes();
         final conn = ref.read(voiceConnectionProvider.notifier);
-        conn.socket.sendAudioChunk(bytes, 1);
-        conn.socket.sendAudioComplete(
-          _languageCode,
-          context: context,
-        );
+        if (conn.socket.status == ConnectionStatus.connected) {
+          final bytes = await File(path).readAsBytes();
+          conn.socket.sendAudioChunk(bytes, 1);
+          conn.socket.sendAudioComplete(
+            _languageCode,
+            context: context,
+          );
+        } else {
+          // Offline Fallback: STT -> GGUF LLM -> TTS
+          final chapter = context?['chapter']?.toString() ?? 'Science';
+          final grade = (context?['grade'] as num?)?.toInt() ?? 9;
+
+          final answer = await OfflineSpeechService().processOfflineVoiceQuery(
+            wavPath: path,
+            chapterTitle: chapter,
+            grade: grade,
+            languageCode: _languageCode,
+          );
+
+          if (mounted) {
+            state = state.copyWith(
+              state: VoiceState.speaking,
+              isPlaying: true,
+            );
+          }
+        }
       }
     } catch (_) {
       state = state.copyWith(state: VoiceState.error);

@@ -431,7 +431,7 @@ class ContentPackArchiveService {
       medium: remotePackOverride?.medium ?? manifest['medium'] as String? ?? 'Mixed',
       subject: remotePackOverride?.subject ?? manifest['subject'] as String? ?? 'All Subjects',
       gradeMin: remotePackOverride?.gradeMin ?? _readGrade(manifest) ?? 1,
-      gradeMax: remotePackOverride?.gradeMax ?? _readGrade(manifest) ?? 10,
+      gradeMax: remotePackOverride?.gradeMax ?? _readGrade(manifest) ?? 12,
       version: incomingVersion,
       manifestPath: manifestFile.path,
       rootPath: contentDir.path,

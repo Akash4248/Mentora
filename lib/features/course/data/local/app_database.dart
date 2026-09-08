@@ -18,6 +18,15 @@ class AppDatabase {
     _database = await openDatabase(
       fullPath,
       version: 19,
+      singleInstance: true,
+      onConfigure: (db) async {
+        // Enable WAL for better concurrent read performance (write-heavy workloads)
+        await db.rawQuery('PRAGMA journal_mode=WAL');
+        // Enforce foreign key constraints (SQLite disables them by default)
+        await db.rawQuery('PRAGMA foreign_keys=ON');
+        // Wait up to 10 seconds on busy locks before throwing exception
+        await db.rawQuery('PRAGMA busy_timeout=10000');
+      },
       onCreate: (db, version) async {
         await _createBaseTables(db);
         await _createRagTables(db);
@@ -39,12 +48,9 @@ class AppDatabase {
         await _createChapterVideoResourcesTable(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
-        if (oldVersion < 19) {
-          await _createChapterVideoResourcesTable(db);
-        }
-        if (oldVersion < 18) {
-          await _createPendingSyncQueueTable(db);
-        }
+        // Migrations must run in ascending version order.
+        // Each block is guarded by oldVersion < N so that upgrading across
+        // multiple versions (e.g. v1→v19) runs every intermediate step.
         if (oldVersion < 2) {
           await _createRagTables(db);
         }
@@ -108,6 +114,12 @@ class AppDatabase {
           // via onCreate which previously omitted _createTranslationCacheTables.
           await _createTranslationCacheTables(db);
         }
+        if (oldVersion < 18) {
+          await _createPendingSyncQueueTable(db);
+        }
+        if (oldVersion < 19) {
+          await _createChapterVideoResourcesTable(db);
+        }
       },
     );
 
@@ -170,22 +182,30 @@ class AppDatabase {
   }
 
   Future<void> _createRagFtsArtifacts(Database db) async {
-    // Re-enabled FTS4 table for fast RAG lookups, fallback to FTS3, or ignore
+    // Re-enabled FTS5 table for fast RAG lookups with BM25 ranking, fallback to FTS4/FTS3
     try {
       await db.execute('''
         CREATE VIRTUAL TABLE IF NOT EXISTS rag_chunks_fts 
-        USING fts4(id, chapter_id, content)
+        USING fts5(id UNINDEXED, chapter_id UNINDEXED, content, tokenize='unicode61')
       ''');
-      print('[FTS] AppDatabase FTS_MODULE=fts4 STATUS=ok');
+      print('[FTS] AppDatabase FTS_MODULE=fts5 STATUS=ok');
     } catch (e) {
       try {
         await db.execute('''
           CREATE VIRTUAL TABLE IF NOT EXISTS rag_chunks_fts 
-          USING fts3(id, chapter_id, content)
+          USING fts4(id, chapter_id, content)
         ''');
-        print('[FTS] AppDatabase FTS_MODULE=fts3 STATUS=ok');
+        print('[FTS] AppDatabase FTS_MODULE=fts4 STATUS=ok');
       } catch (e2) {
-        print('[FTS] AppDatabase FTS_MODULE=none STATUS=degraded error=\$e2');
+        try {
+          await db.execute('''
+            CREATE VIRTUAL TABLE IF NOT EXISTS rag_chunks_fts 
+            USING fts3(id, chapter_id, content)
+          ''');
+          print('[FTS] AppDatabase FTS_MODULE=fts3 STATUS=ok');
+        } catch (e3) {
+          print('[FTS] AppDatabase FTS_MODULE=none STATUS=degraded error=\$e3');
+        }
       }
     }
   }

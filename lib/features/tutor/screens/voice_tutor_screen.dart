@@ -26,10 +26,10 @@ import '../widgets/voice_quality_dashboard.dart';
 /// 5. Mic Button
 /// 6. Bottom Status (voice state chip)
 class VoiceTutorScreen extends ConsumerStatefulWidget {
-  const VoiceTutorScreen({
+  VoiceTutorScreen({
     super.key,
-    required this.languageProvider,
-  });
+    LanguageProvider? languageProvider,
+  }) : languageProvider = languageProvider ?? LanguageProvider.shared;
 
   final LanguageProvider languageProvider;
 

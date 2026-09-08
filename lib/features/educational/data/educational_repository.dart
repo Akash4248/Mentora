@@ -247,6 +247,26 @@ class EducationalRepository {
     }
   }
 
+  static Future<List<FlashcardModel>> getFlashcardsByChapterTitle(String title) async {
+    try {
+      final db = await EducationalDatabase.database;
+      final maps = await db.rawQuery('''
+        SELECT f.* FROM flashcards f
+        JOIN chapters c ON f.chapterId = c.id
+        WHERE c.title LIKE ? OR c.title LIKE ?
+        ORDER BY f.sequenceNumber ASC
+      ''', ['%$title%', '$title']);
+      if (maps.isNotEmpty) {
+        return List.generate(maps.length, (i) => FlashcardModel.fromMap(maps[i]));
+      }
+      final fallback = await db.query('flashcards', limit: 20);
+      return List.generate(fallback.length, (i) => FlashcardModel.fromMap(fallback[i]));
+    } catch (e) {
+      AppEnvironment.log('SYNC', 'Error fetching flashcards by title: $e');
+      return [];
+    }
+  }
+
   // ===== PACK OPERATIONS =====
 
   static Future<int> insertPack(EducationalPackModel pack) async {

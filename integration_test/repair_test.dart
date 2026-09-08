@@ -22,10 +22,10 @@ void main() {
     print('\n--- START RUNTIME INVESTIGATION ---');
     
     // Setup typical .env
-    await dotenv.load(mergeWith: {
-      'DISCOVERY_IGNORE_ENV': 'false',
-      'BACKEND_BASE_URL': 'http://10.28.73.193',
-    });
+    dotenv.loadFromString(envString: '''
+DISCOVERY_IGNORE_ENV=false
+BACKEND_BASE_URL=http://10.28.73.193
+''');
     AppEnvironment.initialize();
 
     // Mock an active PiHub backend on localhost 8080

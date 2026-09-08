@@ -63,7 +63,7 @@ class ContentPackBootstrapService {
         medium: 'Mixed',
         subject: 'All Subjects',
         gradeMin: 1,
-        gradeMax: 10,
+        gradeMax: 12,
         kind: 'pdf',
         items: textbooks,
       );
@@ -74,7 +74,7 @@ class ContentPackBootstrapService {
         medium: 'Mixed',
         subject: 'All Subjects',
         gradeMin: 1,
-        gradeMax: 10,
+        gradeMax: 12,
         kind: 'video',
         items: videos,
       );
@@ -85,7 +85,7 @@ class ContentPackBootstrapService {
         medium: 'Mixed',
         subject: 'All Subjects',
         gradeMin: 1,
-        gradeMax: 10,
+        gradeMax: 12,
         kind: 'resource',
         items: resources,
       );

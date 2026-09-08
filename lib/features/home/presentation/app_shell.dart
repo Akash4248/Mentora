@@ -7,7 +7,7 @@ import '../../course/data/local/course_repository.dart';
 import '../../language/providers/language_provider.dart';
 import '../../onboarding/presentation/grade_selection_screen.dart';
 import 'hero_page.dart';
-import 'main_dashboard_screen.dart';
+import 'mentora_home_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 enum _AppEntry { loading, intro, onboarding, dashboard }
@@ -99,10 +99,7 @@ class _AppShellState extends State<AppShell> {
           ),
           _AppEntry.intro => HeroPage(onGetStarted: _onGetStarted),
           _AppEntry.onboarding => const GradeSelectionScreen(),
-          _AppEntry.dashboard => MainDashboardScreen(
-            courseRepository: widget.courseRepository,
-            languageCode: widget.languageProvider.languageCode,
-          ),
+          _AppEntry.dashboard => const MentoraHomeScreen(),
         };
       },
     );

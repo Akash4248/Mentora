@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
-import '../../domain/rag_chunk.dart';
+import '../domain/rag_chunk.dart';
 import '../data/local/embedding_index_repository.dart';
 import '../data/local/rag_repository.dart';
 import 'on_device_embedding_engine.dart';
@@ -45,10 +45,10 @@ class VectorSearchService {
     
     if (indexedVectors.isEmpty) {
       // Fallback to lexical check if vector index has not been populated yet
-      final ragCheck = await _ragRepository.checkChapterLocalContent(
+      final ragCheck = await _ragRepository.localRagPreCheck(
         chapterId: chapterId,
-        question: query,
-        maxChunks: topK,
+        query: query,
+        limit: topK,
       );
       return ragCheck.chunks
           .map((chunk) => VectorSearchHit(

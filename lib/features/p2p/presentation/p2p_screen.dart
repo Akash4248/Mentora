@@ -150,11 +150,15 @@ class _P2PScreenState extends State<P2PScreen> with SingleTickerProviderStateMix
       final installedPacks = await _packRepository.listInstalledPacks();
       final trustedPeerAddresses = await _trustedPeerRepository.listTrustedAddresses();
       
-      // Auto-set a fallback/default shared secret if empty so P2P validation works instantly
+      // Generate a cryptographically-random 256-bit secret (64-char hex) on first run.
+      // Never use a known-plaintext default — any attacker on the LAN could authenticate.
       var sharedSecret = await _securitySettingsRepository.getSharedSecret();
       if (sharedSecret.isEmpty) {
-        sharedSecret = 'default_p2p_secret_12345';
+        final rng = dart_math.Random.secure();
+        final bytes = List<int>.generate(32, (_) => rng.nextInt(256));
+        sharedSecret = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
         await _securitySettingsRepository.setSharedSecret(sharedSecret);
+        // Note: UI will prompt user to share this secret with their peer via QR
       }
       _sharedSecretController.text = sharedSecret;
 

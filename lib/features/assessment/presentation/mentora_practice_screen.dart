@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../network/services/mentora_backend_client.dart';
+import '../../home/presentation/mentora_home_screen.dart';
 
 class MentoraPracticeScreen extends StatefulWidget {
   const MentoraPracticeScreen({Key? key}) : super(key: key);
@@ -56,6 +57,30 @@ class _MentoraPracticeScreenState extends State<MentoraPracticeScreen> {
           ],
         ),
         iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.home_rounded, color: primaryIndigo),
+            tooltip: 'Home Dashboard',
+            onPressed: () {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const MentoraHomeScreen(initialTabIndex: 0)),
+                (route) => false,
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings_rounded, color: Color(0xFF64748B)),
+            tooltip: 'Settings',
+            onPressed: () {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const MentoraHomeScreen(initialTabIndex: 4)),
+                (route) => false,
+              );
+            },
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: primaryIndigo))

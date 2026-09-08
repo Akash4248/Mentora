@@ -34,6 +34,24 @@ class ChatMemoryPolicy {
       inactivityMinutes: 45,
     );
   }
+
+  ChatMemoryPolicy copyWith({
+    String? sessionId,
+    int? shortTermWindow,
+    bool? semanticRecallEnabled,
+    int? semanticTopK,
+    SessionResetPolicy? resetPolicy,
+    int? inactivityMinutes,
+  }) {
+    return ChatMemoryPolicy(
+      sessionId: sessionId ?? this.sessionId,
+      shortTermWindow: shortTermWindow ?? this.shortTermWindow,
+      semanticRecallEnabled: semanticRecallEnabled ?? this.semanticRecallEnabled,
+      semanticTopK: semanticTopK ?? this.semanticTopK,
+      resetPolicy: resetPolicy ?? this.resetPolicy,
+      inactivityMinutes: inactivityMinutes ?? this.inactivityMinutes,
+    );
+  }
 }
 
 class ChatMemoryPolicyRepository {
@@ -41,6 +59,8 @@ class ChatMemoryPolicyRepository {
       : _database = database ?? AppDatabase.instance;
 
   final AppDatabase _database;
+
+  Future<ChatMemoryPolicy> getPolicy(String sessionId) => getOrCreatePolicy(sessionId);
 
   Future<ChatMemoryPolicy> getOrCreatePolicy(String sessionId) async {
     final db = await _database.database;

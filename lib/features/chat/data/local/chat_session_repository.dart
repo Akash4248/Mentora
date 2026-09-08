@@ -1,5 +1,6 @@
 import '../../../course/data/local/app_database.dart';
 import '../../domain/tutor_message.dart';
+import 'package:sqflite/sqflite.dart';
 
 class ChatSessionRepository {
   ChatSessionRepository({AppDatabase? database})
@@ -7,35 +8,25 @@ class ChatSessionRepository {
 
   final AppDatabase _database;
 
-  Future<String> createOrGetSession({
+  /// Ensures a chat_sessions row exists for the session ID.
+  Future<void> ensureSessionExists({
+    required String sessionId,
     required String chapterId,
-    required String languageCode,
+    String languageCode = 'en',
   }) async {
     final db = await _database.database;
-    final rows = await db.query(
-      'chat_sessions',
-      where: 'chapter_id = ?',
-      whereArgs: [chapterId],
-      orderBy: 'last_message_at DESC',
-      limit: 1,
-    );
-
-    if (rows.isNotEmpty) {
-      return rows.first['id'] as String;
-    }
-
     final now = DateTime.now().millisecondsSinceEpoch;
-    final sessionId = '${chapterId}_$now';
-
-    await db.insert('chat_sessions', {
-      'id': sessionId,
-      'chapter_id': chapterId,
-      'language_code': languageCode,
-      'started_at': now,
-      'last_message_at': now,
-    });
-
-    return sessionId;
+    await db.insert(
+      'chat_sessions',
+      {
+        'id': sessionId,
+        'chapter_id': chapterId,
+        'language_code': languageCode,
+        'started_at': now,
+        'last_message_at': now,
+      },
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
   }
 
   Future<void> appendMessage({
@@ -44,6 +35,8 @@ class ChatSessionRepository {
     required String text,
     required DateTime timestamp,
   }) async {
+    if (text.trim() == 'Thinking...' && !isUser) return;
+
     final db = await _database.database;
     final createdAt = timestamp.millisecondsSinceEpoch;
 
@@ -62,6 +55,74 @@ class ChatSessionRepository {
     );
   }
 
+  /// Updates the last assistant message text for [sessionId], or appends if not present.
+  Future<void> updateLastAssistantMessage({
+    required String sessionId,
+    required String text,
+  }) async {
+    final db = await _database.database;
+    final rows = await db.query(
+      'chat_messages',
+      where: 'session_id = ? AND role = ?',
+      whereArgs: [sessionId, 'assistant'],
+      orderBy: 'created_at DESC',
+      limit: 1,
+    );
+
+    if (rows.isNotEmpty) {
+      final lastId = rows.first['id'];
+      if (lastId != null) {
+        await db.update(
+          'chat_messages',
+          {'text': text},
+          where: 'id = ?',
+          whereArgs: [lastId],
+        );
+      } else {
+        final createdAt = rows.first['created_at'];
+        await db.update(
+          'chat_messages',
+          {'text': text},
+          where: 'session_id = ? AND created_at = ?',
+          whereArgs: [sessionId, createdAt],
+        );
+      }
+    } else {
+      await appendMessage(
+        sessionId: sessionId,
+        isUser: false,
+        text: text,
+        timestamp: DateTime.now(),
+      );
+    }
+  }
+
+  /// Replaces the full session message list to ensure clean sync with UI state.
+  Future<void> replaceSessionMessages({
+    required String sessionId,
+    required List<TutorMessage> messages,
+  }) async {
+    final db = await _database.database;
+    await db.transaction((txn) async {
+      await txn.delete(
+        'chat_messages',
+        where: 'session_id = ?',
+        whereArgs: [sessionId],
+      );
+
+      for (final m in messages) {
+        if (m.text.trim() == 'Thinking...' && !m.isUser) continue;
+
+        await txn.insert('chat_messages', {
+          'session_id': sessionId,
+          'role': m.isUser ? 'user' : 'assistant',
+          'text': m.text,
+          'created_at': m.timestamp.millisecondsSinceEpoch,
+        });
+      }
+    });
+  }
+
   Future<List<TutorMessage>> getMessages(String sessionId) async {
     final db = await _database.database;
     final rows = await db.query(
@@ -72,6 +133,7 @@ class ChatSessionRepository {
     );
 
     return rows
+        .where((row) => (row['text'] as String?)?.trim() != 'Thinking...')
         .map(
           (row) => TutorMessage(
             text: row['text'] as String,
@@ -84,27 +146,6 @@ class ChatSessionRepository {
         .toList();
   }
 
-  Future<DateTime?> getLastMessageAt(String sessionId) async {
-    final db = await _database.database;
-    final rows = await db.query(
-      'chat_sessions',
-      columns: <String>['last_message_at'],
-      where: 'id = ?',
-      whereArgs: <Object?>[sessionId],
-      limit: 1,
-    );
-
-    if (rows.isEmpty) {
-      return null;
-    }
-
-    final value = rows.first['last_message_at'] as int?;
-    if (value == null) {
-      return null;
-    }
-    return DateTime.fromMillisecondsSinceEpoch(value);
-  }
-
   Future<void> clearMessages(String sessionId) async {
     final db = await _database.database;
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -112,14 +153,14 @@ class ChatSessionRepository {
     await db.delete(
       'chat_messages',
       where: 'session_id = ?',
-      whereArgs: <Object?>[sessionId],
+      whereArgs: [sessionId],
     );
 
     await db.update(
       'chat_sessions',
-      <String, Object?>{'last_message_at': now},
+      {'last_message_at': now},
       where: 'id = ?',
-      whereArgs: <Object?>[sessionId],
+      whereArgs: [sessionId],
     );
   }
 }

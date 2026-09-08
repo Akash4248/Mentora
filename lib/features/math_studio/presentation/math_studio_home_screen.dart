@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/idp_colors.dart';
+import '../../home/presentation/mentora_home_screen.dart';
 
 import 'algebra_workspace_screen.dart';
 import 'geometry_workspace_screen.dart';
@@ -11,6 +12,8 @@ import 'statistics_workspace_screen.dart';
 import 'formula_playground_screen.dart';
 import 'saved_explorations_screen.dart';
 import 'exploration_catalog_screen.dart';
+import 'scientific_calculator_screen.dart';
+import 'math_studio_3d_lab_screen.dart';
 
 class MathStudioHomeScreen extends StatefulWidget {
   const MathStudioHomeScreen({super.key});
@@ -42,6 +45,39 @@ class _MathStudioHomeScreenState extends State<MathStudioHomeScreen> {
         backgroundColor: primaryIndigo,
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.calculate_rounded, color: Colors.white),
+            tooltip: 'Scientific Calculator',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ScientificCalculatorScreen()),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.view_in_ar_rounded, color: Colors.white),
+            tooltip: '3D Math Lab Studio',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const MathStudio3DLabScreen()),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.home_rounded, color: Colors.white),
+            tooltip: 'Home Dashboard',
+            onPressed: () {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const MentoraHomeScreen(initialTabIndex: 0)),
+                (route) => false,
+              );
+            },
+          ),
+        ],
       ),
       body: SafeArea(
         child: LayoutBuilder(
@@ -238,6 +274,36 @@ class _MathStudioHomeScreenState extends State<MathStudioHomeScreen> {
                     physics: const NeverScrollableScrollPhysics(),
                     childAspectRatio: isWide ? 1.2 : 0.95,
                     children: [
+                      _buildModernCard(
+                        title: '3D Math Lab Studio',
+                        subtitle: 'Surface z = f(x,y), 360° orbit & GeoGebra 3D',
+                        icon: Icons.view_in_ar_rounded,
+                        gradient: const [Color(0xFF4F46E5), Color(0xFF9333EA)],
+                        badge: '3D Interactive',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const MathStudio3DLabScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                      _buildModernCard(
+                        title: 'Scientific Calculator',
+                        subtitle: 'Trig, Logs, Exponents, Rad/Deg & History',
+                        icon: Icons.calculate_rounded,
+                        gradient: const [Color(0xFF0284C7), Color(0xFF06B6D4)],
+                        badge: 'High Precision',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const ScientificCalculatorScreen(),
+                            ),
+                          );
+                        },
+                      ),
                       _buildModernCard(
                         title: 'Functions Lab',
                         subtitle: 'Interactive 2D graph plotter & curves',

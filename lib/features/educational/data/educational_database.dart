@@ -28,18 +28,29 @@ class EducationalDatabase {
     final databasesPath = await sqflite.getDatabasesPath();
     final path = join(databasesPath, 'educational.db');
 
-    // Delete existing database for fresh schema (remove in production)
-    // await sqflite.deleteDatabase(path);
+    // Delete existing database for fresh schema — REMOVED (dev shortcut, never ship)
 
     final db = await sqflite.openDatabase(
       path,
       version: 1,
+      onConfigure: (db) async {
+        // Enable WAL for better concurrent read performance
+        await db.rawQuery('PRAGMA journal_mode=WAL');
+        // Enforce foreign key constraints (disabled by SQLite default)
+        // Required for ON DELETE CASCADE to work on subjects, chapters, concepts, etc.
+        await db.rawQuery('PRAGMA foreign_keys=ON');
+        // Wait up to 10 seconds on busy locks before throwing exception
+        await db.rawQuery('PRAGMA busy_timeout=10000');
+      },
       onCreate: (db, version) async {
         AppEnvironment.log('SYNC', 'Creating educational database schema...');
         await _createSchema(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
-        AppEnvironment.log('SYNC', 'Upgrading database schema from v$oldVersion to v$newVersion');
+        AppEnvironment.log('SYNC', 'Upgrading educational database from v$oldVersion to v$newVersion');
+        // Future migrations go here — add blocks in ascending version order:
+        // if (oldVersion < 2) { await db.execute('ALTER TABLE ...'); }
+        // if (oldVersion < 3) { ... }
       },
     );
 

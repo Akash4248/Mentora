@@ -26,7 +26,7 @@ extension RuntimeModeX on RuntimeMode {
 
 class RuntimeModeResolver {
   static RuntimeMode resolve() {
-    final explicit = dotenv.env['RUNTIME_MODE']?.trim().toLowerCase();
+    final explicit = (dotenv.isInitialized ? dotenv.env['RUNTIME_MODE'] : null)?.trim().toLowerCase();
     switch (explicit) {
       case 'offline':
         return RuntimeMode.offline;
@@ -40,7 +40,7 @@ class RuntimeModeResolver {
       return RuntimeMode.offline;
     }
 
-    if (dotenv.env['HOTSPOT_MODE']?.toLowerCase() == 'true') {
+    if ((dotenv.isInitialized ? dotenv.env['HOTSPOT_MODE'] : null)?.toLowerCase() == 'true') {
       return RuntimeMode.distributed;
     }
 
