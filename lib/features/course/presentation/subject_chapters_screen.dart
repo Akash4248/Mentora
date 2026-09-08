@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../network/services/mentora_backend_client.dart';
+import '../../home/presentation/mentora_home_screen.dart';
 
 class SubjectChaptersScreen extends StatefulWidget {
   final String subjectName;
@@ -78,9 +79,31 @@ class _SubjectChaptersScreenState extends State<SubjectChaptersScreen> {
         ),
         iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.home_rounded, color: primaryIndigo),
+            tooltip: 'Home Dashboard',
+            onPressed: () {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const MentoraHomeScreen(initialTabIndex: 0)),
+                (route) => false,
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings_rounded, color: Color(0xFF64748B)),
+            tooltip: 'Settings',
+            onPressed: () {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const MentoraHomeScreen(initialTabIndex: 4)),
+                (route) => false,
+              );
+            },
+          ),
           Container(
-            margin: const EdgeInsets.only(right: 16, top: 12, bottom: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            margin: const EdgeInsets.only(right: 12, top: 12, bottom: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               color: const Color(0xFFECFDF5),
               borderRadius: BorderRadius.circular(8),
@@ -89,7 +112,7 @@ class _SubjectChaptersScreenState extends State<SubjectChaptersScreen> {
             child: Center(
               child: Text(
                 '$overallMastery% Mastered',
-                style: const TextStyle(color: Color(0xFF059669), fontWeight: FontWeight.bold, fontSize: 12),
+                style: const TextStyle(color: Color(0xFF059669), fontWeight: FontWeight.bold, fontSize: 11),
               ),
             ),
           ),

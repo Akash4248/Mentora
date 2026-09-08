@@ -5,6 +5,7 @@ import '../data/phet_catalog_service.dart';
 import '../data/phet_pack_install_service.dart';
 import '../models/experiment_descriptor.dart';
 import 'experiment_player_screen.dart';
+import '../../../home/presentation/mentora_home_screen.dart';
 
 class ExperimentCatalogScreen extends ConsumerStatefulWidget {
   const ExperimentCatalogScreen({super.key});
@@ -25,6 +26,7 @@ class _ExperimentCatalogScreenState
   String _installMessage = '';
   double? _installProgress;
   String _query = '';
+  String _selectedSubject = 'All';
   String? _error;
 
   @override
@@ -94,38 +96,71 @@ class _ExperimentCatalogScreenState
 
   @override
   Widget build(BuildContext context) {
+    const primaryIndigo = Color(0xFF4F46E5);
     final snapshot = _snapshot;
-    final experiments =
-        snapshot?.experiments.where((experiment) {
-          final query = _query.trim().toLowerCase();
-          if (query.isEmpty) return true;
-          return experiment.title.toLowerCase().contains(query) ||
-              experiment.subject.toLowerCase().contains(query);
-        }).toList() ??
-        const <ExperimentDescriptor>[];
 
-    final grouped = <String, List<ExperimentDescriptor>>{};
-    for (final experiment in experiments) {
-      grouped.putIfAbsent(experiment.subject, () => []).add(experiment);
-    }
-    final subjects = grouped.keys.toList()..sort();
+    final allExperiments = snapshot?.experiments ?? const <ExperimentDescriptor>[];
+    final availableSubjects = <String>['All', 'Physics', 'Chemistry', 'Mathematics', 'Biology'];
+
+    final filteredExperiments = allExperiments.where((experiment) {
+      final matchesQuery = _query.trim().isEmpty ||
+          experiment.title.toLowerCase().contains(_query.trim().toLowerCase()) ||
+          experiment.subject.toLowerCase().contains(_query.trim().toLowerCase());
+
+      final matchesSubject = _selectedSubject == 'All' ||
+          experiment.subject.toLowerCase() == _selectedSubject.toLowerCase();
+
+      return matchesQuery && matchesSubject;
+    }).toList();
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('Interactive Simulations'),
+        title: const Row(
+          children: [
+            Icon(Icons.science_rounded, color: Colors.white),
+            SizedBox(width: 8),
+            Text('PhET Simulations', style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        backgroundColor: primaryIndigo,
+        foregroundColor: Colors.white,
+        elevation: 0,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.home_rounded, color: Colors.white),
+            tooltip: 'Home Dashboard',
+            onPressed: () {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const MentoraHomeScreen(initialTabIndex: 0)),
+                (route) => false,
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings_rounded, color: Colors.white),
+            tooltip: 'Settings',
+            onPressed: () {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const MentoraHomeScreen(initialTabIndex: 4)),
+                (route) => false,
+              );
+            },
+          ),
           IconButton(
             onPressed: _isLoading ? null : _loadCatalog,
             tooltip: 'Refresh catalog',
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(Icons.refresh_rounded, color: Colors.white),
           ),
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: primaryIndigo))
           : Column(
               children: [
-                _buildCatalogHeader(context, snapshot),
+                _buildHeroBanner(context, snapshot),
                 if (_error != null)
                   Container(
                     width: double.infinity,
@@ -136,14 +171,16 @@ class _ExperimentCatalogScreenState
                       style: const TextStyle(color: Color(0xFF991B1B)),
                     ),
                   ),
+
+                // Search Bar
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                   child: TextField(
                     controller: _searchController,
                     onChanged: (value) => setState(() => _query = value),
                     decoration: InputDecoration(
-                      hintText: 'Search simulations',
-                      prefixIcon: const Icon(Icons.search_rounded),
+                      hintText: 'Search 80+ PhET simulations...',
+                      prefixIcon: const Icon(Icons.search_rounded, color: primaryIndigo),
                       suffixIcon: _query.isEmpty
                           ? null
                           : IconButton(
@@ -153,24 +190,64 @@ class _ExperimentCatalogScreenState
                               },
                               icon: const Icon(Icons.close_rounded),
                             ),
-                      border: const OutlineInputBorder(),
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                      ),
                     ),
                   ),
                 ),
+
+                // Subject Filter Chips
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  child: Row(
+                    children: availableSubjects.map((subj) {
+                      final isSelected = _selectedSubject == subj;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8.0),
+                        child: ChoiceChip(
+                          label: Text(subj, style: TextStyle(
+                            color: isSelected ? Colors.white : const Color(0xFF475569),
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                          )),
+                          selected: isSelected,
+                          selectedColor: primaryIndigo,
+                          backgroundColor: Colors.white,
+                          side: BorderSide(
+                            color: isSelected ? primaryIndigo : const Color(0xFFCBD5E1),
+                          ),
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() => _selectedSubject = subj);
+                            }
+                          },
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+
+                const SizedBox(height: 8),
+
+                // Simulation Grid/List
                 Expanded(
-                  child: subjects.isEmpty
+                  child: filteredExperiments.isEmpty
                       ? _buildEmptyState()
                       : ListView.builder(
                           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                          itemCount: subjects.length,
+                          itemCount: filteredExperiments.length,
                           itemBuilder: (context, index) {
-                            final subject = subjects[index];
-                            final items = grouped[subject]!;
-                            return _SubjectSection(
-                              subject: subject,
-                              experiments: items,
-                              onOpen: _openExperiment,
-                            );
+                            final experiment = filteredExperiments[index];
+                            return _buildExperimentCard(experiment);
                           },
                         ),
                 ),
@@ -179,7 +256,7 @@ class _ExperimentCatalogScreenState
     );
   }
 
-  Widget _buildCatalogHeader(
+  Widget _buildHeroBanner(
     BuildContext context,
     PhetCatalogSnapshot? snapshot,
   ) {
@@ -188,53 +265,162 @@ class _ExperimentCatalogScreenState
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      padding: const EdgeInsets.all(18),
       decoration: const BoxDecoration(
-        color: Color(0xFFF3F7F5),
-        border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+        gradient: LinearGradient(
+          colors: [Color(0xFF0F172A), Color(0xFF1E1B4B)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Icon(Icons.science_outlined, color: Color(0xFF0B6E4F)),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  '$count PhET simulations',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
+              Row(
+                children: [
+                  const Icon(Icons.science_outlined, color: Color(0xFF818CF8), size: 24),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Interactive PhET Labs ($count)',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
                   ),
-                ),
+                ],
               ),
               if (installed)
-                const Chip(
-                  avatar: Icon(Icons.offline_pin_rounded, size: 17),
-                  label: Text('Available offline'),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF065F46),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFF10B981)),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.offline_pin_rounded, size: 14, color: Color(0xFF6EE7B7)),
+                      SizedBox(width: 4),
+                      Text('Offline Bundle Ready', style: TextStyle(color: Color(0xFF6EE7B7), fontSize: 11, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
                 )
               else
-                FilledButton.icon(
+                ElevatedButton.icon(
                   onPressed: _isInstalling ? null : _installPack,
-                  icon: const Icon(Icons.download_rounded),
-                  label: const Text('Install Offline'),
+                  icon: const Icon(Icons.download_rounded, size: 16),
+                  label: const Text('Install Offline Pack', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF10B981),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
                 ),
             ],
           ),
-          if ((snapshot?.message ?? '').isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text(
-              snapshot!.message!,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
           if (_isInstalling) ...[
-            const SizedBox(height: 10),
-            LinearProgressIndicator(value: _installProgress),
-            const SizedBox(height: 5),
-            Text(_installMessage, style: Theme.of(context).textTheme.bodySmall),
+            const SizedBox(height: 12),
+            LinearProgressIndicator(value: _installProgress, backgroundColor: const Color(0xFF334155), color: const Color(0xFF38BDF8)),
+            const SizedBox(height: 6),
+            Text(_installMessage, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildExperimentCard(ExperimentDescriptor experiment) {
+    const primaryIndigo = Color(0xFF4F46E5);
+
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Color(0xFFE2E8F0)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEEF2FF),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.play_circle_fill_rounded, color: primaryIndigo, size: 24),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        experiment.title,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              experiment.subject,
+                              style: const TextStyle(
+                                color: Color(0xFF475569),
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            experiment.isInstalled ? 'PhET · Offline HTML5' : 'Bundled Interactive',
+                            style: const TextStyle(color: Color(0xFF64748B), fontSize: 11),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => _openExperiment(experiment),
+                icon: const Icon(Icons.screen_rotation_rounded, color: Colors.white, size: 18),
+                label: const Text(
+                  'Play Fullscreen (Landscape)',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryIndigo,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -246,14 +432,23 @@ class _ExperimentCatalogScreenState
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.science_outlined, size: 48),
+            const Icon(Icons.science_outlined, size: 48, color: Color(0xFF94A3B8)),
             const SizedBox(height: 12),
-            const Text('No simulations found.'),
+            const Text(
+              'No simulations found for this filter.',
+              style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+            ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
-              onPressed: _loadCatalog,
+              onPressed: () {
+                _searchController.clear();
+                setState(() {
+                  _query = '';
+                  _selectedSubject = 'All';
+                });
+              },
               icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Retry'),
+              label: const Text('Reset Filters'),
             ),
           ],
         ),
@@ -265,59 +460,6 @@ class _ExperimentCatalogScreenState
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => ExperimentPlayerScreen(experiment: experiment),
-      ),
-    );
-  }
-}
-
-class _SubjectSection extends StatelessWidget {
-  const _SubjectSection({
-    required this.subject,
-    required this.experiments,
-    required this.onOpen,
-  });
-
-  final String subject;
-  final List<ExperimentDescriptor> experiments;
-  final ValueChanged<ExperimentDescriptor> onOpen;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Text(
-              subject,
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-            ),
-          ),
-          for (final experiment in experiments)
-            Card(
-              margin: const EdgeInsets.only(bottom: 8),
-              child: ListTile(
-                leading: const Icon(
-                  Icons.play_circle_outline_rounded,
-                  color: Color(0xFF0B6E4F),
-                ),
-                title: Text(experiment.title),
-                subtitle: Text(
-                  experiment.isInstalled
-                      ? 'PhET · Offline'
-                      : experiment.usesBundledAsset
-                      ? 'Preview only'
-                      : 'PhET · Classroom',
-                ),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => onOpen(experiment),
-              ),
-            ),
-        ],
       ),
     );
   }

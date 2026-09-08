@@ -7,6 +7,7 @@ import '../../home/presentation/video_player_screen.dart';
 import '../../home/data/local/video_resource_repository.dart';
 import '../../experiment/phet/presentation/experiment_player_screen.dart';
 import '../../experiment/phet/models/experiment_descriptor.dart';
+import '../../home/presentation/mentora_home_screen.dart';
 
 class ChapterLearningWorkspaceScreen extends StatefulWidget {
   final String chapterTitle;
@@ -304,6 +305,41 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
           ],
         ),
         iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.home_rounded, color: primaryIndigo),
+            tooltip: 'Home Dashboard',
+            onPressed: () {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const MentoraHomeScreen(initialTabIndex: 0)),
+                (route) => false,
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.functions_rounded, color: primaryIndigo),
+            tooltip: 'Math Studio',
+            onPressed: () {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const MentoraHomeScreen(initialTabIndex: 3)),
+                (route) => false,
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings_rounded, color: Color(0xFF64748B)),
+            tooltip: 'Settings',
+            onPressed: () {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const MentoraHomeScreen(initialTabIndex: 4)),
+                (route) => false,
+              );
+            },
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           labelColor: primaryIndigo,

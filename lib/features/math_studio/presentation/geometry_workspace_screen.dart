@@ -551,7 +551,6 @@ class _GeometryPainter extends CustomPainter {
       for (var p in points) {
         canvas.drawCircle(p, 8, pointPaint);
       }
-    } else {
       if (points.length >= 3) {
         final path = Path()..moveTo(points[0].dx, points[0].dy);
         for (int i = 1; i < points.length; i++) {
@@ -561,11 +560,49 @@ class _GeometryPainter extends CustomPainter {
         canvas.drawPath(path, fillPaint);
         canvas.drawPath(path, strokePaint);
         _paintSideMeasurements(canvas, points, closed: true);
+        _paintAngleArcs(canvas, points);
       }
 
       for (var p in points) {
         canvas.drawCircle(p, 8, pointPaint);
       }
+    }
+  }
+
+  void _paintAngleArcs(Canvas canvas, List<Offset> vertices) {
+    if (vertices.length < 3) return;
+    final count = vertices.length;
+    for (int i = 0; i < count; i++) {
+      final prev = vertices[(i - 1 + count) % count];
+      final curr = vertices[i];
+      final next = vertices[(i + 1) % count];
+
+      final v1 = prev - curr;
+      final v2 = next - curr;
+      final angle1 = math.atan2(v1.dy, v1.dx);
+      final angle2 = math.atan2(v2.dy, v2.dx);
+
+      double sweep = angle2 - angle1;
+      if (sweep < 0) sweep += 2 * math.pi;
+      if (sweep > math.pi) sweep = 2 * math.pi - sweep;
+
+      final deg = (sweep * 180 / math.pi).round();
+      final arcPaint = Paint()
+        ..color = IDPColors.tertiary
+        ..strokeWidth = 2
+        ..style = PaintingStyle.stroke;
+
+      canvas.drawArc(
+        Rect.fromCircle(center: curr, radius: 22),
+        angle1,
+        sweep,
+        false,
+        arcPaint,
+      );
+
+      final midAngle = angle1 + sweep / 2;
+      final textOffset = curr + Offset(math.cos(midAngle) * 34, math.sin(midAngle) * 34);
+      _paintMeasurementLabel(canvas, '$deg°', textOffset);
     }
   }
 
