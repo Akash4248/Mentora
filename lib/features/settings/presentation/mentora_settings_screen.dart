@@ -193,22 +193,30 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
                                 border: Border.all(color: const Color(0xFFC7D2FE)),
                               ),
                               child: DropdownButtonHideUnderline(
-                                child: DropdownButton<int>(
-                                  value: _selectedGrade,
-                                  icon: const Icon(Icons.arrow_drop_down, color: primaryIndigo),
-                                  style: const TextStyle(color: primaryIndigo, fontWeight: FontWeight.bold, fontSize: 14),
-                                  items: List.generate(8, (i) => i + 5).map((grade) {
-                                    return DropdownMenuItem<int>(
-                                      value: grade,
-                                      child: Text('Grade $grade - NCERT'),
+                                child: Builder(
+                                  builder: (context) {
+                                    final availableGrades = List.generate(12, (i) => i + 1);
+                                    final currentGrade = availableGrades.contains(_selectedGrade)
+                                        ? _selectedGrade
+                                        : 9;
+                                    return DropdownButton<int>(
+                                      value: currentGrade,
+                                      icon: const Icon(Icons.arrow_drop_down, color: primaryIndigo),
+                                      style: const TextStyle(color: primaryIndigo, fontWeight: FontWeight.bold, fontSize: 14),
+                                      items: availableGrades.map((grade) {
+                                        return DropdownMenuItem<int>(
+                                          value: grade,
+                                          child: Text('Grade $grade - NCERT'),
+                                        );
+                                      }).toList(),
+                                      onChanged: (val) async {
+                                        if (val != null) {
+                                          setState(() => _selectedGrade = val);
+                                          final prefs = await SharedPreferences.getInstance();
+                                          await prefs.setInt('selected_grade', val);
+                                        }
+                                      },
                                     );
-                                  }).toList(),
-                                  onChanged: (val) async {
-                                    if (val != null) {
-                                      setState(() => _selectedGrade = val);
-                                      final prefs = await SharedPreferences.getInstance();
-                                      await prefs.setInt('selected_grade', val);
-                                    }
                                   },
                                 ),
                               ),

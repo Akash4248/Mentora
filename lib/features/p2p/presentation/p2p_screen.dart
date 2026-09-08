@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as dart_math;
 import 'package:file_picker/file_picker.dart';
 import 'package:share_plus/share_plus.dart';
@@ -265,7 +266,8 @@ Chapter: ${pack.title}
 Version: ${pack.version}
 ''';
 
-      final fileLocation = pack.zipPath;
+      final exportResult = await _packArchiveService.exportPackArchive(pack.packId);
+      final fileLocation = exportResult.archivePath;
       if (fileLocation.isNotEmpty && await File(fileLocation).exists()) {
         await Share.shareXFiles(
           [XFile(fileLocation)],
@@ -280,14 +282,14 @@ Version: ${pack.version}
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Native share: $e')),
+        SnackBar(content: Text('Native share error: $e')),
       );
     }
   }
 
   Future<void> _importReceivedPackNative() async {
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.any,
         allowMultiple: false,
       );
@@ -302,8 +304,8 @@ Version: ${pack.version}
       final file = File(filePath);
       final fileName = file.uri.pathSegments.last;
 
-      if (fileName.endsWith('.zip') || fileName.endsWith('.mentora') || fileName.endsWith('.json')) {
-        await _packArchiveService.importArchive(file);
+      if (fileName.endsWith('.zip') || fileName.endsWith('.mentora') || fileName.endsWith('.otpack') || fileName.endsWith('.json')) {
+        await _packArchiveService.importPackArchive(filePath, allowReplaceSameOrOlder: true);
       }
 
       await _refresh();

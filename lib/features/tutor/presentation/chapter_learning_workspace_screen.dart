@@ -623,6 +623,8 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
                     activeColor: const Color(0xFF10B981),
                     onChanged: (val) => setState(() => _simGravity = val),
                   ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -634,13 +636,13 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
               onPressed: () {
                 final exp = ExperimentDescriptor(
                   id: 'phet-${_activeSubjectName.toLowerCase()}',
+                  slug: _activeSubjectName.toLowerCase(),
                   title: 'PhET Interactive Simulation: $_activeChapterTitle',
                   subject: _activeSubjectName,
                   provider: 'PhET Interactive Simulations',
                   launchLocation: 'assets/phet/simulations/placeholder.html',
-                  usesBundledAsset: true,
-                  description: 'Interactive HTML5 simulation for $_activeChapterTitle',
-                  isInstalled: true,
+                  launchSource: ExperimentLaunchSource.bundledFallback,
+                  publicUrl: null,
                 );
                 Navigator.push(
                   context,
