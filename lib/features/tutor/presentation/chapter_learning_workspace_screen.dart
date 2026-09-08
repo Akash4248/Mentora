@@ -48,9 +48,9 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: 6, vsync: this);
     _tabController.addListener(() {
-      if (_tabController.indexIsChanging || _tabController.index != 2) {
+      if (_tabController.indexIsChanging || _tabController.index != 4) {
         print('[VIDEO_DEBUG] Workspace Tab changed to ${_tabController.index}. Pausing YouTube player plugin.');
         _youtubeController?.pauseVideo();
       }
@@ -116,6 +116,12 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
         _activeChapterTitle = args['chapterTitle']?.toString() ?? widget.chapterTitle;
         _activeSubjectName = args['subjectName']?.toString() ?? args['subject']?.toString() ?? widget.subjectName;
         _activeGrade = (args['grade'] as num?)?.toInt() ?? widget.grade;
+        final initialTab = (args['initialTabIndex'] as num?)?.toInt();
+        if (initialTab != null && initialTab >= 0 && initialTab < _tabController.length) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _tabController.animateTo(initialTab);
+          });
+        }
       } else if (args is String) {
         _activeChapterTitle = args;
         _activeSubjectName = widget.subjectName;
@@ -309,57 +315,12 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
         iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
         actions: [
           IconButton(
-            icon: const Icon(Icons.style_outlined, color: Color(0xFFD97706)),
-            tooltip: 'Chapter Flashcards',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ChapterFlashcardsScreen(
-                    chapterId: 1,
-                    chapterTitle: _activeChapterTitle,
-                    subjectName: _activeSubjectName,
-                    grade: _activeGrade,
-                  ),
-                ),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.menu_book_outlined, color: Color(0xFF0284C7)),
-            tooltip: 'Textbook PDF',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => TextbookViewerScreen(
-                    pdfPath: '/storage/emulated/0/Android/data/org.mentora.app/files/packs/$_activeChapterTitle/source.pdf',
-                    chapterTitle: _activeChapterTitle,
-                    subjectName: _activeSubjectName,
-                    grade: _activeGrade,
-                  ),
-                ),
-              );
-            },
-          ),
-          IconButton(
             icon: const Icon(Icons.home_rounded, color: primaryIndigo),
             tooltip: 'Home Dashboard',
             onPressed: () {
               Navigator.pushAndRemoveUntil(
                 context,
                 MaterialPageRoute(builder: (_) => const MentoraHomeScreen(initialTabIndex: 0)),
-                (route) => false,
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.functions_rounded, color: primaryIndigo),
-            tooltip: 'Math Studio',
-            onPressed: () {
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (_) => const MentoraHomeScreen(initialTabIndex: 3)),
                 (route) => false,
               );
             },
@@ -373,10 +334,11 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
           isScrollable: true,
           tabs: const [
             Tab(text: '💬 Chat'),
+            Tab(text: '📖 Textbook'),
+            Tab(text: '🎴 Flashcards'),
             Tab(text: '🔬 Simulation'),
             Tab(text: '🎥 Watch'),
             Tab(text: '📝 Quiz'),
-            Tab(text: '🎴 Flashcards'),
           ],
         ),
       ),
@@ -506,22 +468,30 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
             ],
           ),
 
-          // TAB 2: INTERACTIVE SIMULATION PLAYER (STITCH DESIGN)
-          _buildSimulationTab(),
+          // TAB 2: TEXTBOOK PDF VIEWER
+          TextbookViewerScreen(
+            pdfPath: '/storage/emulated/0/Android/data/org.mentora.app/files/packs/$_activeChapterTitle/source.pdf',
+            chapterTitle: _activeChapterTitle,
+            subjectName: _activeSubjectName,
+            grade: _activeGrade,
+          ),
 
-          // TAB 3: YOUTUBE VIDEO LECTURE WATCH SCREEN (STITCH DESIGN)
-          _buildWatchTab(),
-
-          // TAB 4: DIAGNOSTIC ASSESSMENT QUIZ (STITCH DESIGN)
-          _buildQuizTab(),
-
-          // TAB 5: CHAPTER FLASHCARDS DECK
+          // TAB 3: CHAPTER FLASHCARDS DECK
           ChapterFlashcardsScreen(
             chapterId: 1,
             chapterTitle: _activeChapterTitle,
             subjectName: _activeSubjectName,
             grade: _activeGrade,
           ),
+
+          // TAB 4: INTERACTIVE SIMULATION PLAYER
+          _buildSimulationTab(),
+
+          // TAB 5: YOUTUBE VIDEO LECTURE WATCH SCREEN
+          _buildWatchTab(),
+
+          // TAB 6: DIAGNOSTIC ASSESSMENT QUIZ
+          _buildQuizTab(),
         ],
       ),
     );
