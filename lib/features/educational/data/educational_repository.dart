@@ -253,7 +253,7 @@ class EducationalRepository {
       final maps = await db.rawQuery('''
         SELECT f.* FROM flashcards f
         JOIN chapters c ON f.chapterId = c.id
-        WHERE c.title LIKE ? OR c.title LIKE ?
+        WHERE c.name LIKE ? OR c.name LIKE ?
         ORDER BY f.sequenceNumber ASC
       ''', ['%$title%', '$title']);
       if (maps.isNotEmpty) {

@@ -295,6 +295,17 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
 
   @override
   Widget build(BuildContext context) {
+    if (_tabController.length != 6) {
+      _tabController.dispose();
+      _tabController = TabController(length: 6, vsync: this);
+      _tabController.addListener(() {
+        if (_tabController.indexIsChanging || _tabController.index != 4) {
+          print('[VIDEO_DEBUG] Workspace Tab changed to ${_tabController.index}. Pausing YouTube player plugin.');
+          _youtubeController?.pauseVideo();
+        }
+      });
+    }
+
     const primaryIndigo = Color(0xFF4F46E5);
     const slateBg = Color(0xFFF8FAFC);
     const cardBg = Color(0xFFFFFFFF);
