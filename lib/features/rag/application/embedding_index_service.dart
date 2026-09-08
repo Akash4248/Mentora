@@ -1,5 +1,6 @@
 import '../data/local/embedding_index_repository.dart';
 import '../data/local/rag_repository.dart';
+import 'on_device_embedding_engine.dart';
 
 class EmbeddingIndexProgress {
   const EmbeddingIndexProgress({
@@ -27,11 +28,11 @@ class EmbeddingIndexService {
 
   Stream<EmbeddingIndexProgress> indexChapter({
     required String chapterId,
-    String modelName = 'local-embedding-v1',
+    String modelName = 'bge-small-en-v1.5',
     int dimension = 384,
   }) async* {
-    final chunkIds = await _ragRepository.getChunkIdsForChapter(chapterId);
-    final total = chunkIds.length;
+    final chunks = await _ragRepository.getChunksForChapter(chapterId);
+    final total = chunks.length;
 
     if (total == 0) {
       yield const EmbeddingIndexProgress(
@@ -55,16 +56,21 @@ class EmbeddingIndexService {
       done: false,
     );
 
-    for (final chunkId in chunkIds) {
+    for (final chunk in chunks) {
       final alreadyIndexed = await _embeddingRepository.isChunkIndexed(
-        chunkId: chunkId,
+        chunkId: chunk.id,
       );
 
       if (!alreadyIndexed) {
+        // Generate 384-dimensional vector embedding for chunk content
+        final floatVector = OnDeviceEmbeddingEngine.instance.generateEmbedding(chunk.content);
+        final vectorBlob = OnDeviceEmbeddingEngine.packVector(floatVector);
+
         await _embeddingRepository.upsertEmbeddingMetadata(
-          chunkId: chunkId,
+          chunkId: chunk.id,
           modelName: modelName,
           dimension: dimension,
+          vectorBlob: vectorBlob,
         );
       }
 
