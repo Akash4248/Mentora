@@ -12,6 +12,7 @@ import '../../../features/network/domain/endpoint_builder.dart';
 import '../../../features/network/domain/runtime_backend_url.dart';
 import '../../content_packs/application/content_pack_archive_service.dart';
 import '../../content_packs/data/local/content_pack_repository.dart';
+import '../../course/data/local/app_database.dart';
 import '../../rag/application/pdf_extraction_service.dart';
 import '../../rag/data/local/rag_repository.dart';
 import '../../rag/data/local/rag_repository_v2.dart';
@@ -150,7 +151,7 @@ class SyncManager {
   Future<List<PackSyncEntry>> _loadOfflineFallbackPacks(int? grade) async {
     try {
       final targetGrade = grade ?? 9;
-      final db = await _contentPackRepository.db;
+      final db = await AppDatabase.instance.database;
       final rows = await db.rawQuery(
         'SELECT chapter_id, title, subject, grade FROM chapters WHERE grade = ?',
         [targetGrade],
@@ -159,14 +160,12 @@ class SyncManager {
       if (rows.isNotEmpty) {
         return rows.map((row) {
           final cId = row['chapter_id'] as String? ?? 'ch_unknown';
-          final title = row['title'] as String? ?? 'Chapter';
           final subj = row['subject'] as String? ?? 'General';
           return PackSyncEntry(
             packId: cId,
-            title: title,
+            version: '1',
             subject: subj,
             grade: targetGrade,
-            version: 1,
             sizeBytes: 1500000,
             downloadUrl: 'offline://master_db/$cId',
           );
