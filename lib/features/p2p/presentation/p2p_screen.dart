@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as dart_math;
 import 'package:file_picker/file_picker.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/theme/idp_colors.dart';
@@ -246,7 +247,90 @@ class _P2PScreenState extends State<P2PScreen> with SingleTickerProviderStateMix
   }
 
   Future<void> _handlePendingIncomingTransfers() async {
-    if (!mounted || _processingTransfer || _pendingIncomingTransfers.isEmpty) {
+  Future<void> _shareSelectedPackNative() async {
+    final pack = _selectedPack;
+    if (pack == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a content pack to share.')),
+      );
+      return;
+    }
+
+    try {
+      final summaryText = '''
+📚 Mentora AI Tutor - Educational Pack Share
+Grade: ${pack.gradeMin} - ${pack.gradeMax}
+Subject: ${pack.subject}
+Chapter: ${pack.title}
+Version: ${pack.version}
+''';
+
+      final fileLocation = pack.zipPath;
+      if (fileLocation.isNotEmpty && await File(fileLocation).exists()) {
+        await Share.shareXFiles(
+          [XFile(fileLocation)],
+          text: summaryText,
+          subject: 'Mentora Content Pack: ${pack.title}',
+        );
+      } else {
+        await Share.share(
+          summaryText,
+          subject: 'Mentora Content Pack: ${pack.title}',
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Native share: $e')),
+      );
+    }
+  }
+
+  Future<void> _importReceivedPackNative() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.any,
+        allowMultiple: false,
+      );
+
+      if (result == null || result.files.isEmpty) return;
+
+      final filePath = result.files.single.path;
+      if (filePath == null) return;
+
+      setState(() => _loading = true);
+
+      final file = File(filePath);
+      final fileName = file.uri.pathSegments.last;
+
+      if (fileName.endsWith('.zip') || fileName.endsWith('.mentora') || fileName.endsWith('.json')) {
+        await _packArchiveService.importArchive(file);
+      }
+
+      await _refresh();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ Successfully imported received pack: $fileName'),
+            backgroundColor: const Color(0xFF10B981),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Import failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  if (!mounted || _processingTransfer || _pendingIncomingTransfers.isEmpty) {
       return;
     }
 

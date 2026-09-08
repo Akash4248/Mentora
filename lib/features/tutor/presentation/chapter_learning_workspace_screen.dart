@@ -5,6 +5,8 @@ import '../../network/services/mentora_backend_client.dart';
 import '../../chat/presentation/formatted_text_widget.dart';
 import '../../home/presentation/video_player_screen.dart';
 import '../../home/data/local/video_resource_repository.dart';
+import '../../experiment/phet/presentation/experiment_player_screen.dart';
+import '../../experiment/phet/models/experiment_descriptor.dart';
 
 class ChapterLearningWorkspaceScreen extends StatefulWidget {
   final String chapterTitle;
@@ -621,7 +623,38 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
                     activeColor: const Color(0xFF10B981),
                     onChanged: (val) => setState(() => _simGravity = val),
                   ),
-                ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // FULLSCREEN LANDSCAPE PHET SIMULATION BUTTON
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                final exp = ExperimentDescriptor(
+                  id: 'phet-${_activeSubjectName.toLowerCase()}',
+                  title: 'PhET Interactive Simulation: $_activeChapterTitle',
+                  subject: _activeSubjectName,
+                  provider: 'PhET Interactive Simulations',
+                  launchLocation: 'assets/phet/simulations/placeholder.html',
+                  usesBundledAsset: true,
+                  description: 'Interactive HTML5 simulation for $_activeChapterTitle',
+                  isInstalled: true,
+                );
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ExperimentPlayerScreen(experiment: exp),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.screen_rotation_rounded, color: Colors.white),
+              label: const Text('Play Interactive Fullscreen (Landscape)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryIndigo,
+                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
           ),
