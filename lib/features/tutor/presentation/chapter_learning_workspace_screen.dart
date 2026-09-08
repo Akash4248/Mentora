@@ -452,51 +452,107 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // SIMULATION CANVAS VIEWPORT
-          Container(
-            height: 220,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: const Color(0xFF0F172A),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 4)),
-              ],
-            ),
-            child: Stack(
-              children: [
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(_simIsPlaying ? Icons.science : Icons.pause_circle_filled, size: 48, color: const Color(0xFF8B5CF6)),
-                        const SizedBox(height: 8),
-                        Text(
-                          _simData?['title'] ?? 'Interactive $_activeChapterTitle Lab',
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _simData?['description'] ?? 'Adjust key parameters to observe principles of $_activeChapterTitle',
-                          style: const TextStyle(color: Color(0xFF38BDF8), fontWeight: FontWeight.w500, fontSize: 12),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  ),
+          // SIMULATION CANVAS VIEWPORT WITH DYNAMIC HTML5 CANVAS ENGINE
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              height: 230,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F172A),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFF334155)),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 10, offset: const Offset(0, 4)),
+                ],
+              ),
+              child: InAppWebView(
+                initialData: InAppWebViewInitialData(
+                  data: '''
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; background: #0F172A; font-family: sans-serif; overflow: hidden; }
+    #canvas { width: 100%; height: 100%; display: block; }
+    .badge { position: absolute; top: 12px; left: 12px; background: rgba(139, 92, 246, 0.2); border: 1px solid #8B5CF6; color: #C4B5FD; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <div class="badge">🧪 Interactive Lab: $_activeChapterTitle</div>
+  <canvas id="canvas"></canvas>
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    let width, height;
+    let t = 0;
+    const lengthVal = $_simLength;
+    const gravityVal = $_simGravity;
+
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    function draw() {
+      ctx.clearRect(0, 0, width, height);
+      
+      // Grid background
+      ctx.strokeStyle = 'rgba(51, 65, 85, 0.4)';
+      ctx.lineWidth = 1;
+      const step = 30;
+      for (let x = 0; x < width; x += step) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+      }
+      for (let y = 0; y < height; y += step) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+      }
+
+      // Animated mathematical / physics curve
+      ctx.beginPath();
+      ctx.strokeStyle = '#38BDF8';
+      ctx.lineWidth = 3;
+      const cy = height / 2;
+      for (let x = 0; x < width; x += 2) {
+        const freq = 0.02 * lengthVal;
+        const amp = 30 * (gravityVal / 5.0);
+        const y = cy + Math.sin(x * freq + t) * amp + Math.cos(x * 0.01 - t * 0.5) * (amp * 0.4);
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      // Floating particles
+      ctx.fillStyle = '#8B5CF6';
+      for (let i = 0; i < 8; i++) {
+        const px = (width / 8) * i + Math.sin(t + i) * 20;
+        const py = cy + Math.sin(px * 0.02 * lengthVal + t) * (30 * (gravityVal / 5.0));
+        ctx.beginPath();
+        ctx.arc(px, py, 5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      t += 0.03;
+      requestAnimationFrame(draw);
+    }
+    draw();
+  </script>
+</body>
+</html>
+''',
+                  mimeType: 'text/html',
+                  encoding: 'utf-8',
                 ),
-                Positioned(
-                  top: 12,
-                  right: 12,
-                  child: IconButton(
-                    icon: Icon(_simIsPlaying ? Icons.pause : Icons.play_arrow, color: Colors.white),
-                    onPressed: () => setState(() => _simIsPlaying = !_simIsPlaying),
-                  ),
+                initialSettings: InAppWebViewSettings(
+                  javaScriptEnabled: true,
+                  transparentBackground: true,
+                  supportZoom: false,
                 ),
-              ],
+              ),
             ),
           ),
           const SizedBox(height: 20),
