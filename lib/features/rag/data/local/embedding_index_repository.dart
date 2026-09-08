@@ -95,7 +95,6 @@ class EmbeddingIndexRepository {
         sourceTitle: row['source_title'] as String,
         chunkOrder: row['chunk_order'] as int,
         content: row['content'] as String,
-        createdAt: DateTime.fromMillisecondsSinceEpoch(row['created_at'] as int),
       );
 
       final blob = row['vector_blob'];
