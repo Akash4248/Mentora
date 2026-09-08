@@ -48,6 +48,7 @@ dependencies:
   web_socket_channel: ^3.0.2
   flutter_inappwebview: ^6.1.5
   google_fonts: ^8.2.0
+  youtube_player_flutter: ^10.0.1
 
 dev_dependencies:
   integration_test:
@@ -74,6 +75,7 @@ flutter:
     - assets/seed_data_math_science.json
     - assets/chapter_video_resources.json
     - assets/curriculum_256_chapters.json
+    - assets/educational_master.db
     - assets/phet/catalog.json
     - assets/phet/simulations/
 

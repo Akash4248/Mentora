@@ -28,7 +28,7 @@ class ConceptDependencyTreeView extends StatelessWidget {
         ),
       ),
       child: Column(
-        crossAxisAlignment: CrossAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [

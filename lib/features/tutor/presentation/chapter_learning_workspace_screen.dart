@@ -36,10 +36,20 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
   bool _isSending = false;
   final List<Map<String, dynamic>> _messages = [];
 
+  InAppWebViewController? _watchWebViewController;
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    _tabController.addListener(() {
+      if (_tabController.indexIsChanging || _tabController.index != 2) {
+        print('[VIDEO_DEBUG] Workspace Tab changed to ${_tabController.index}. Pausing video playback.');
+        _watchWebViewController?.evaluateJavascript(
+          source: 'document.querySelectorAll("video").forEach(v => v.pause());',
+        );
+      }
+    });
   }
 
   @override
@@ -652,49 +662,7 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
     final heroTitle = currentVideo?['title']?.toString() ?? 'NCERT Class $_activeGrade $_activeSubjectName: $_activeChapterTitle';
     final heroUrl = currentVideo?['videoUrl']?.toString() ?? currentVideo?['youtubeId']?.toString() ?? 'https://www.youtube.com/watch?v=M7lc1UVf-VE';
     final videoId = _extractYouTubeId(heroUrl);
-
-    final htmlContent = '''
-<!DOCTYPE html>
-<html>
-<head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; background-color: #000000; overflow: hidden; }
-    #player { width: 100%; height: 100%; position: absolute; top: 0; left: 0; border: 0; }
-  </style>
-</head>
-<body>
-  <div id="player"></div>
-  <script src="https://www.youtube-nocookie.com/iframe_api"></script>
-  <script>
-    var player;
-    function onYouTubeIframeAPIReady() {
-      player = new YT.Player('player', {
-        height: '100%',
-        width: '100%',
-        videoId: '$videoId',
-        host: 'https://www.youtube-nocookie.com',
-        playerVars: {
-          'playsinline': 1,
-          'autoplay': 1,
-          'controls': 1,
-          'rel': 0,
-          'enablejsapi': 1,
-          'modestbranding': 1,
-          'origin': 'https://www.youtube-nocookie.com'
-        },
-        events: {
-          'onReady': function(event) {
-            try { event.target.playVideo(); } catch(e) {}
-          }
-        }
-      });
-    }
-  </script>
-</body>
-</html>
-''';
+    final embedUrl = 'https://www.youtube-nocookie.com/embed/$videoId?autoplay=0&playsinline=1&enablejsapi=1&rel=0';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -709,17 +677,25 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
                 color: Colors.black,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: const Color(0xFFE2E8F0)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.06),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: Column(
                 children: [
                   AspectRatio(
                     aspectRatio: 16 / 9,
                     child: InAppWebView(
-                      initialData: InAppWebViewInitialData(
-                        data: htmlContent,
-                        baseUrl: WebUri('https://www.youtube-nocookie.com'),
-                        mimeType: 'text/html',
-                        encoding: 'utf-8',
+                      initialUrlRequest: URLRequest(
+                        url: WebUri(embedUrl),
+                        headers: {
+                          'Referer': 'https://www.youtube.com/',
+                          'Origin': 'https://www.youtube.com',
+                        },
                       ),
                       initialSettings: InAppWebViewSettings(
                         javaScriptEnabled: true,
@@ -743,40 +719,25 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
                         );
                       },
                       onWebViewCreated: (controller) {
+                        _watchWebViewController = controller;
                         print('[VIDEO_DEBUG] Workspace Inline WebView created for videoId: "$videoId"');
                       },
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     color: const Color(0xFF0F172A),
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
+                        const Icon(Icons.play_circle_filled, color: Colors.redAccent, size: 20),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             heroTitle,
-                            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                            style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                        TextButton.icon(
-                          onPressed: () {
-                            print('[VIDEO_DEBUG] Expanding full screen VideoPlayerScreen for "$heroTitle"');
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (context) => VideoPlayerScreen(
-                                  videoUrl: heroUrl,
-                                  title: heroTitle,
-                                  subtitle: 'NCERT Class $_activeGrade $_activeSubjectName • $_activeChapterTitle',
-                                  description: currentVideo?['description']?.toString(),
-                                ),
-                              ),
-                            );
-                          },
-                          icon: const Icon(Icons.fullscreen, color: Colors.white, size: 18),
-                          label: const Text('Full Screen', style: TextStyle(color: Colors.white, fontSize: 11)),
                         ),
                       ],
                     ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import '../../course/domain/curriculum_models.dart';
 import '../../course/domain/course_tree.dart';
@@ -453,144 +454,316 @@ class _ChapterDashboardScreenState extends State<ChapterDashboardScreen> {
           )
         else
           ..._videos.map(
-            (video) => Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.03),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Material(
-                color: Colors.transparent,
-                borderRadius: BorderRadius.circular(16),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(16),
-                  onTap: () {
-                    print('[VIDEO_DEBUG] ChapterDashboardScreen: Opening VideoPlayerScreen for "${video.videoTitle}", URL: "${video.videoUrl}"');
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => VideoPlayerScreen(
-                          videoUrl: video.videoUrl,
-                          title: video.videoTitle,
-                          subtitle: video.channelName,
-                          description: video.description,
-                        ),
-                      ),
-                    );
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          width: 54,
-                          height: 54,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEEF2FF),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              const Icon(
-                                Icons.play_circle_fill_rounded,
-                                color: Color(0xFF6366F1),
-                                size: 36,
-                              ),
-                              Positioned(
-                                bottom: 2,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF4F46E5),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    '#${video.rank}',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFE0E7FF),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(
-                                      video.channelName,
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFF4338CA),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                video.videoTitle,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF1E293B),
-                                  height: 1.3,
-                                ),
-                              ),
-                              if (video.description.isNotEmpty) ...[
-                                const SizedBox(height: 4),
-                                Text(
-                                  video.description,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Color(0xFF64748B),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                        const Icon(
-                          Icons.play_arrow_rounded,
-                          color: Color(0xFF6366F1),
-                          size: 24,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+            (video) => _YouTubeDashboardInlinePlayerCard(
+              videoUrl: video.videoUrl,
+              videoTitle: video.videoTitle,
+              channelName: video.channelName,
+              description: video.description,
+              rank: video.rank,
             ),
           ),
       ],
     );
   }
+}
+
+class _YouTubeDashboardInlinePlayerCard extends StatefulWidget {
+  final String videoUrl;
+  final String videoTitle;
+  final String channelName;
+  final String description;
+  final int rank;
+
+  const _YouTubeDashboardInlinePlayerCard({
+    required this.videoUrl,
+    required this.videoTitle,
+    required this.channelName,
+    required this.description,
+    required this.rank,
+  });
+
+  @override
+  State<_YouTubeDashboardInlinePlayerCard> createState() => _YouTubeDashboardInlinePlayerCardState();
+}
+
+class _YouTubeDashboardInlinePlayerCardState extends State<_YouTubeDashboardInlinePlayerCard> {
+  bool _isPlayingInline = false;
+
+  String _extractYouTubeId(String rawUrl) {
+    final uri = Uri.tryParse(rawUrl);
+    String? id;
+    if (uri != null) {
+      if (uri.queryParameters.containsKey('v')) {
+        id = uri.queryParameters['v'];
+      } else if (uri.host.contains('youtu.be') && uri.pathSegments.isNotEmpty) {
+        id = uri.pathSegments.first;
+      } else if (uri.pathSegments.contains('embed') && uri.pathSegments.isNotEmpty) {
+        id = uri.pathSegments.last;
+      }
+    }
+    if (id == null || id.isEmpty) {
+      final trimmed = rawUrl.trim();
+      if (RegExp(r'^[a-zA-Z0-9_-]{11}$').hasMatch(trimmed)) {
+        id = trimmed;
+      }
+    }
+    if (id == null || id.isEmpty || !RegExp(r'^[a-zA-Z0-9_-]{11}$').hasMatch(id)) {
+      return 'M7lc1UVf-VE';
+    }
+    return id;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final videoId = _extractYouTubeId(widget.videoUrl);
+
+    final htmlContent = '''
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; background-color: #000000; overflow: hidden; }
+    #player { width: 100%; height: 100%; position: absolute; top: 0; left: 0; border: 0; }
+  </style>
+</head>
+<body>
+  <div id="player"></div>
+  <script src="https://www.youtube-nocookie.com/iframe_api"></script>
+  <script>
+    var player;
+    function onYouTubeIframeAPIReady() {
+      player = new YT.Player('player', {
+        height: '100%',
+        width: '100%',
+        videoId: '$videoId',
+        host: 'https://www.youtube-nocookie.com',
+        playerVars: {
+          'playsinline': 1,
+          'autoplay': 1,
+          'controls': 1,
+          'rel': 0,
+          'enablejsapi': 1,
+          'modestbranding': 1,
+          'origin': 'https://www.youtube-nocookie.com'
+        },
+        events: {
+          'onReady': function(event) {
+            try { event.target.playVideo(); } catch(e) {}
+          }
+        }
+      });
+    }
+  </script>
+</body>
+</html>
+''';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AspectRatio(
+            aspectRatio: 16 / 9,
+            child: _isPlayingInline
+                ? InAppWebView(
+                    initialUrlRequest: URLRequest(
+                      url: WebUri('https://www.youtube-nocookie.com/embed/$videoId?autoplay=1&playsinline=1&enablejsapi=1&rel=0'),
+                      headers: {
+                        'Referer': 'https://www.youtube.com/',
+                        'Origin': 'https://www.youtube.com',
+                      },
+                    ),
+                    initialSettings: InAppWebViewSettings(
+                      javaScriptEnabled: true,
+                      mediaPlaybackRequiresUserGesture: false,
+                      allowsInlineMediaPlayback: true,
+                      useWideViewPort: true,
+                      loadWithOverviewMode: true,
+                      supportZoom: false,
+                      transparentBackground: true,
+                      domStorageEnabled: true,
+                      databaseEnabled: true,
+                      mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
+                      allowFileAccessFromFileURLs: true,
+                      allowUniversalAccessFromFileURLs: true,
+                      userAgent: 'Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+                    ),
+                    onPermissionRequest: (controller, permissionRequest) async {
+                      return PermissionResponse(
+                        resources: permissionRequest.resources,
+                        action: PermissionResponseAction.GRANT,
+                      );
+                    },
+                    onWebViewCreated: (controller) {
+                      print('[VIDEO_DEBUG] Dashboard Inline WebView created for videoId: "$videoId"');
+                    },
+                  )
+                : Stack(
+                    children: [
+                      Container(
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                        ),
+                      ),
+                      Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () {
+                                  print('[VIDEO_DEBUG] Tapped play button for videoId "$videoId". Starting inline playback directly on page.');
+                                  setState(() {
+                                    _isPlayingInline = true;
+                                  });
+                                },
+                                customBorder: const CircleBorder(),
+                                child: Container(
+                                  padding: const EdgeInsets.all(14),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: const Color(0xFF4F46E5),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFF4F46E5).withOpacity(0.4),
+                                        blurRadius: 12,
+                                        spreadRadius: 2,
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Icon(
+                                    Icons.play_arrow_rounded,
+                                    color: Colors.white,
+                                    size: 38,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              child: Text(
+                                widget.videoTitle,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            const Text(
+                              '▶ Tap Play to watch inline directly on this screen',
+                              style: TextStyle(
+                                color: Color(0xFF94A3B8),
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Positioned(
+                        top: 10,
+                        left: 10,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.7),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            'Rank #${widget.rank}',
+                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEEF2FF),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        widget.channelName,
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4338CA)),
+                      ),
+                    ),
+                    if (_isPlayingInline)
+                      TextButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            _isPlayingInline = false;
+                          });
+                        },
+                        icon: const Icon(Icons.close, size: 14, color: Color(0xFF64748B)),
+                        label: const Text('Close Player', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  widget.videoTitle,
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (widget.description.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    widget.description,
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.4),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 }
 

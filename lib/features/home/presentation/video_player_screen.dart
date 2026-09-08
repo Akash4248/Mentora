@@ -3,6 +3,7 @@ import 'dart:ui'; // For ImageFilter
 
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'package:video_player/video_player.dart';
 import 'package:offline_tutor_app/core/theme/idp_theme.dart';
 import 'package:offline_tutor_app/core/theme/idp_colors.dart';
@@ -29,6 +30,7 @@ class VideoPlayerScreen extends StatefulWidget {
 
 class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   VideoPlayerController? _controller;
+  YoutubePlayerController? _youtubeController;
   bool _isInitialized = false;
   double _playbackSpeed = 1.0;
   String? _initError;
@@ -75,7 +77,18 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     print('[VIDEO_DEBUG] Initializing VideoPlayerScreen for title: "${widget.title}", URL: "${widget.videoUrl}", isYouTube: $_isYouTube');
     try {
       if (_isYouTube) {
-        print('[VIDEO_DEBUG] Configured YouTube embed target for URL: ${widget.videoUrl}');
+        final videoId = _extractYouTubeId(widget.videoUrl);
+        print('[VIDEO_DEBUG] Initializing YoutubePlayerController for videoId: "$videoId"');
+        _youtubeController = YoutubePlayerController(
+          initialVideoId: videoId,
+          flags: const YoutubePlayerFlags(
+            autoPlay: true,
+            mute: false,
+            enableCaption: true,
+            isLive: false,
+            forceHD: false,
+          ),
+        );
         if (mounted) {
           setState(() {
             _isInitialized = true;
@@ -129,6 +142,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   @override
   void dispose() {
+    _youtubeController?.dispose();
     _controller?.dispose();
     super.dispose();
   }
@@ -387,50 +401,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   Widget _buildVideoSection() {
-    final videoId = _extractYouTubeId(widget.videoUrl);
-    final htmlContent = '''
-<!DOCTYPE html>
-<html>
-<head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; background-color: #000000; overflow: hidden; }
-    #player { width: 100%; height: 100%; position: absolute; top: 0; left: 0; border: 0; }
-  </style>
-</head>
-<body>
-  <div id="player"></div>
-  <script src="https://www.youtube-nocookie.com/iframe_api"></script>
-  <script>
-    var player;
-    function onYouTubeIframeAPIReady() {
-      player = new YT.Player('player', {
-        height: '100%',
-        width: '100%',
-        videoId: '$videoId',
-        host: 'https://www.youtube-nocookie.com',
-        playerVars: {
-          'playsinline': 1,
-          'autoplay': 1,
-          'controls': 1,
-          'rel': 0,
-          'enablejsapi': 1,
-          'modestbranding': 1,
-          'origin': 'https://www.youtube-nocookie.com'
-        },
-        events: {
-          'onReady': function(event) {
-            try { event.target.playVideo(); } catch(e) {}
-          }
-        }
-      });
-    }
-  </script>
-</body>
-</html>
-''';
-
     return Container(
       decoration: BoxDecoration(
         color: Colors.black,
@@ -445,103 +415,19 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
-          if (_isYouTube) ...[
-            AspectRatio(
-              aspectRatio: 16 / 9,
-              child: InAppWebView(
-                initialData: InAppWebViewInitialData(
-                  data: htmlContent,
-                  baseUrl: WebUri('https://www.youtube-nocookie.com'),
-                  mimeType: 'text/html',
-                  encoding: 'utf-8',
-                ),
-                initialSettings: InAppWebViewSettings(
-                  javaScriptEnabled: true,
-                  mediaPlaybackRequiresUserGesture: false,
-                  allowsInlineMediaPlayback: true,
-                  useWideViewPort: true,
-                  loadWithOverviewMode: true,
-                  supportZoom: false,
-                  transparentBackground: true,
-                  domStorageEnabled: true,
-                  databaseEnabled: true,
-                  mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
-                  allowFileAccessFromFileURLs: true,
-                  allowUniversalAccessFromFileURLs: true,
-                  userAgent: 'Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
-                ),
-                onPermissionRequest: (controller, permissionRequest) async {
-                  return PermissionResponse(
-                    resources: permissionRequest.resources,
-                    action: PermissionResponseAction.GRANT,
-                  );
-                },
-                onWebViewCreated: (controller) {
-                  print('[VIDEO_DEBUG] WebView created for YouTube embed HTML (videoId: "$videoId")');
-                },
-                onLoadStart: (controller, url) {
-                  print('[VIDEO_DEBUG] WebView load started: $url');
-                },
-                onLoadStop: (controller, url) {
-                  print('[VIDEO_DEBUG] WebView load stopped: $url');
-                },
-                onReceivedError: (controller, request, error) {
-                  print('[VIDEO_DEBUG] WebView error on ${request.url}: ${error.description} (code: ${error.type})');
-                },
-                onReceivedHttpError: (controller, request, errorResponse) {
-                  print('[VIDEO_DEBUG] WebView HTTP error on ${request.url}: statusCode=${errorResponse.statusCode}');
-                },
-                onConsoleMessage: (controller, consoleMessage) {
-                  print('[VIDEO_DEBUG] WebView JS Console [${consoleMessage.messageLevel}]: ${consoleMessage.message}');
-                },
+          if (_isYouTube && _youtubeController != null)
+            YoutubePlayer(
+              controller: _youtubeController!,
+              showVideoProgressIndicator: true,
+              progressIndicatorColor: IDPColors.primary,
+              progressColors: const ProgressBarColors(
+                playedColor: Colors.red,
+                handleColor: Colors.redAccent,
               ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              color: const Color(0xFF1E293B),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.youtube_searched_for, color: Colors.redAccent, size: 18),
-                      const SizedBox(width: 8),
-                      Text(
-                        'YouTube Player (ID: $videoId)',
-                        style: const TextStyle(color: Colors.white70, fontSize: 12),
-                      ),
-                    ],
-                  ),
-                  TextButton.icon(
-                    onPressed: () async {
-                      try {
-                        final browser = InAppBrowser();
-                        await browser.openUrlRequest(
-                          urlRequest: URLRequest(
-                            url: WebUri('https://www.youtube.com/watch?v=$videoId'),
-                          ),
-                          settings: InAppBrowserClassSettings(
-                            browserSettings: InAppBrowserSettings(
-                              toolbarTopFixedTitle: widget.title,
-                            ),
-                          ),
-                        );
-                      } catch (e) {
-                        print('[VIDEO_DEBUG] Error launching external browser: $e');
-                      }
-                    },
-                    icon: const Icon(Icons.open_in_new, size: 14, color: Colors.white),
-                    label: const Text('Open Full Player', style: TextStyle(color: Colors.white, fontSize: 12)),
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ]
+              onReady: () {
+                print('[VIDEO_DEBUG] YoutubePlayer plugin ready for videoId: "${_youtubeController!.initialVideoId}"');
+              },
+            )
           else if (_isInitialized && _controller != null)
             AspectRatio(
               aspectRatio: 16 / 9,
