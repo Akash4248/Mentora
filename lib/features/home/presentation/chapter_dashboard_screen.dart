@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
 import '../../course/domain/curriculum_models.dart';
 import '../../course/domain/course_tree.dart';
@@ -488,6 +489,7 @@ class _YouTubeDashboardInlinePlayerCard extends StatefulWidget {
 
 class _YouTubeDashboardInlinePlayerCardState extends State<_YouTubeDashboardInlinePlayerCard> {
   bool _isPlayingInline = false;
+  YoutubePlayerController? _youtubeController;
 
   String _extractYouTubeId(String rawUrl) {
     final uri = Uri.tryParse(rawUrl);
@@ -513,53 +515,41 @@ class _YouTubeDashboardInlinePlayerCardState extends State<_YouTubeDashboardInli
     return id;
   }
 
+  void _startInlinePlayback() {
+    final videoId = _extractYouTubeId(widget.videoUrl);
+    print('[VIDEO_DEBUG] Initializing inline YoutubePlayerController for videoId "$videoId"');
+    _youtubeController?.close();
+    _youtubeController = YoutubePlayerController.fromVideoId(
+      videoId: videoId,
+      autoPlay: true,
+      params: const YoutubePlayerParams(
+        showControls: true,
+        showFullscreenButton: true,
+        mute: false,
+      ),
+    );
+    setState(() {
+      _isPlayingInline = true;
+    });
+  }
+
+  void _stopInlinePlayback() {
+    _youtubeController?.pauseVideo();
+    _youtubeController?.close();
+    _youtubeController = null;
+    setState(() {
+      _isPlayingInline = false;
+    });
+  }
+
+  @override
+  void dispose() {
+    _youtubeController?.close();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final videoId = _extractYouTubeId(widget.videoUrl);
-
-    final htmlContent = '''
-<!DOCTYPE html>
-<html>
-<head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; background-color: #000000; overflow: hidden; }
-    #player { width: 100%; height: 100%; position: absolute; top: 0; left: 0; border: 0; }
-  </style>
-</head>
-<body>
-  <div id="player"></div>
-  <script src="https://www.youtube-nocookie.com/iframe_api"></script>
-  <script>
-    var player;
-    function onYouTubeIframeAPIReady() {
-      player = new YT.Player('player', {
-        height: '100%',
-        width: '100%',
-        videoId: '$videoId',
-        host: 'https://www.youtube-nocookie.com',
-        playerVars: {
-          'playsinline': 1,
-          'autoplay': 1,
-          'controls': 1,
-          'rel': 0,
-          'enablejsapi': 1,
-          'modestbranding': 1,
-          'origin': 'https://www.youtube-nocookie.com'
-        },
-        events: {
-          'onReady': function(event) {
-            try { event.target.playVideo(); } catch(e) {}
-          }
-        }
-      });
-    }
-  </script>
-</body>
-</html>
-''';
-
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -580,39 +570,9 @@ class _YouTubeDashboardInlinePlayerCardState extends State<_YouTubeDashboardInli
         children: [
           AspectRatio(
             aspectRatio: 16 / 9,
-            child: _isPlayingInline
-                ? InAppWebView(
-                    initialUrlRequest: URLRequest(
-                      url: WebUri('https://www.youtube-nocookie.com/embed/$videoId?autoplay=1&playsinline=1&enablejsapi=1&rel=0'),
-                      headers: {
-                        'Referer': 'https://www.youtube.com/',
-                        'Origin': 'https://www.youtube.com',
-                      },
-                    ),
-                    initialSettings: InAppWebViewSettings(
-                      javaScriptEnabled: true,
-                      mediaPlaybackRequiresUserGesture: false,
-                      allowsInlineMediaPlayback: true,
-                      useWideViewPort: true,
-                      loadWithOverviewMode: true,
-                      supportZoom: false,
-                      transparentBackground: true,
-                      domStorageEnabled: true,
-                      databaseEnabled: true,
-                      mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
-                      allowFileAccessFromFileURLs: true,
-                      allowUniversalAccessFromFileURLs: true,
-                      userAgent: 'Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
-                    ),
-                    onPermissionRequest: (controller, permissionRequest) async {
-                      return PermissionResponse(
-                        resources: permissionRequest.resources,
-                        action: PermissionResponseAction.GRANT,
-                      );
-                    },
-                    onWebViewCreated: (controller) {
-                      print('[VIDEO_DEBUG] Dashboard Inline WebView created for videoId: "$videoId"');
-                    },
+            child: (_isPlayingInline && _youtubeController != null)
+                ? YoutubePlayer(
+                    controller: _youtubeController!,
                   )
                 : Stack(
                     children: [
@@ -632,12 +592,7 @@ class _YouTubeDashboardInlinePlayerCardState extends State<_YouTubeDashboardInli
                             Material(
                               color: Colors.transparent,
                               child: InkWell(
-                                onTap: () {
-                                  print('[VIDEO_DEBUG] Tapped play button for videoId "$videoId". Starting inline playback directly on page.');
-                                  setState(() {
-                                    _isPlayingInline = true;
-                                  });
-                                },
+                                onTap: _startInlinePlayback,
                                 customBorder: const CircleBorder(),
                                 child: Container(
                                   padding: const EdgeInsets.all(14),
@@ -726,11 +681,7 @@ class _YouTubeDashboardInlinePlayerCardState extends State<_YouTubeDashboardInli
                     ),
                     if (_isPlayingInline)
                       TextButton.icon(
-                        onPressed: () {
-                          setState(() {
-                            _isPlayingInline = false;
-                          });
-                        },
+                        onPressed: _stopInlinePlayback,
                         icon: const Icon(Icons.close, size: 14, color: Color(0xFF64748B)),
                         label: const Text('Close Player', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
                         style: TextButton.styleFrom(
@@ -764,6 +715,5 @@ class _YouTubeDashboardInlinePlayerCardState extends State<_YouTubeDashboardInli
       ),
     );
   }
-}
 }
 

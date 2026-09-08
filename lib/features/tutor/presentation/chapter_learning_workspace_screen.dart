@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import '../../network/services/mentora_backend_client.dart';
 import '../../chat/presentation/formatted_text_widget.dart';
 import '../../home/presentation/video_player_screen.dart';
@@ -36,7 +37,8 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
   bool _isSending = false;
   final List<Map<String, dynamic>> _messages = [];
 
-  InAppWebViewController? _watchWebViewController;
+  YoutubePlayerController? _youtubeController;
+  String? _activeVideoId;
 
   @override
   void initState() {
@@ -44,16 +46,15 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
     _tabController = TabController(length: 4, vsync: this);
     _tabController.addListener(() {
       if (_tabController.indexIsChanging || _tabController.index != 2) {
-        print('[VIDEO_DEBUG] Workspace Tab changed to ${_tabController.index}. Pausing video playback.');
-        _watchWebViewController?.evaluateJavascript(
-          source: 'document.querySelectorAll("video").forEach(v => v.pause());',
-        );
+        print('[VIDEO_DEBUG] Workspace Tab changed to ${_tabController.index}. Pausing YouTube player plugin.');
+        _youtubeController?.pauseVideo();
       }
     });
   }
 
   @override
   void dispose() {
+    _youtubeController?.close();
     _scrollController.dispose();
     _chatController.dispose();
     _tabController.dispose();
@@ -661,8 +662,20 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
 
     final heroTitle = currentVideo?['title']?.toString() ?? 'NCERT Class $_activeGrade $_activeSubjectName: $_activeChapterTitle';
     final heroUrl = currentVideo?['videoUrl']?.toString() ?? currentVideo?['youtubeId']?.toString() ?? 'https://www.youtube.com/watch?v=M7lc1UVf-VE';
-    final videoId = _extractYouTubeId(heroUrl);
-    final embedUrl = 'https://www.youtube-nocookie.com/embed/$videoId?autoplay=0&playsinline=1&enablejsapi=1&rel=0';
+    final videoId = YoutubePlayerController.convertUrlToId(heroUrl) ?? _extractYouTubeId(heroUrl);
+
+    if (_youtubeController == null || _activeVideoId != videoId) {
+      _youtubeController?.close();
+      _activeVideoId = videoId;
+      _youtubeController = YoutubePlayerController.fromVideoId(
+        videoId: videoId,
+        autoPlay: false,
+        params: const YoutubePlayerParams(
+          showControls: true,
+          showFullscreenButton: true,
+        ),
+      );
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -687,42 +700,8 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
               ),
               child: Column(
                 children: [
-                  AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: InAppWebView(
-                      initialUrlRequest: URLRequest(
-                        url: WebUri(embedUrl),
-                        headers: {
-                          'Referer': 'https://www.youtube.com/',
-                          'Origin': 'https://www.youtube.com',
-                        },
-                      ),
-                      initialSettings: InAppWebViewSettings(
-                        javaScriptEnabled: true,
-                        mediaPlaybackRequiresUserGesture: false,
-                        allowsInlineMediaPlayback: true,
-                        useWideViewPort: true,
-                        loadWithOverviewMode: true,
-                        supportZoom: false,
-                        transparentBackground: true,
-                        domStorageEnabled: true,
-                        databaseEnabled: true,
-                        mixedContentMode: MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW,
-                        allowFileAccessFromFileURLs: true,
-                        allowUniversalAccessFromFileURLs: true,
-                        userAgent: 'Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
-                      ),
-                      onPermissionRequest: (controller, permissionRequest) async {
-                        return PermissionResponse(
-                          resources: permissionRequest.resources,
-                          action: PermissionResponseAction.GRANT,
-                        );
-                      },
-                      onWebViewCreated: (controller) {
-                        _watchWebViewController = controller;
-                        print('[VIDEO_DEBUG] Workspace Inline WebView created for videoId: "$videoId"');
-                      },
-                    ),
+                  YoutubePlayer(
+                    controller: _youtubeController!,
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),

@@ -2,7 +2,6 @@ import 'dart:io';
 import 'dart:ui'; // For ImageFilter
 
 import 'package:flutter/material.dart';
-import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'package:video_player/video_player.dart';
 import 'package:offline_tutor_app/core/theme/idp_theme.dart';
@@ -79,14 +78,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       if (_isYouTube) {
         final videoId = _extractYouTubeId(widget.videoUrl);
         print('[VIDEO_DEBUG] Initializing YoutubePlayerController for videoId: "$videoId"');
-        _youtubeController = YoutubePlayerController(
-          initialVideoId: videoId,
-          flags: const YoutubePlayerFlags(
-            autoPlay: true,
+        _youtubeController = YoutubePlayerController.fromVideoId(
+          videoId: videoId,
+          autoPlay: true,
+          params: const YoutubePlayerParams(
+            showControls: true,
+            showFullscreenButton: true,
             mute: false,
-            enableCaption: true,
-            isLive: false,
-            forceHD: false,
           ),
         );
         if (mounted) {
@@ -142,7 +140,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   @override
   void dispose() {
-    _youtubeController?.dispose();
+    _youtubeController?.close();
     _controller?.dispose();
     super.dispose();
   }
@@ -418,15 +416,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           if (_isYouTube && _youtubeController != null)
             YoutubePlayer(
               controller: _youtubeController!,
-              showVideoProgressIndicator: true,
-              progressIndicatorColor: IDPColors.primary,
-              progressColors: const ProgressBarColors(
-                playedColor: Colors.red,
-                handleColor: Colors.redAccent,
-              ),
-              onReady: () {
-                print('[VIDEO_DEBUG] YoutubePlayer plugin ready for videoId: "${_youtubeController!.initialVideoId}"');
-              },
             )
           else if (_isInitialized && _controller != null)
             AspectRatio(

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/user_api_key_service.dart';
 import '../../network/services/mentora_backend_client.dart';
 import 'model_selection_screen.dart';
+import 'manage_content_screen.dart';
 
 class MentoraSettingsScreen extends StatefulWidget {
   const MentoraSettingsScreen({Key? key}) : super(key: key);
@@ -16,6 +18,7 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
   bool _isLoading = true;
   bool _isHybridMode = true;
   bool _isPiHubMode = false;
+  int _selectedGrade = 9;
   CloudLlmProvider _selectedProvider = CloudLlmProvider.gemini;
   late TextEditingController _apiKeyController;
   late TextEditingController _serverUrlController;
@@ -38,6 +41,9 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
 
   Future<void> _loadSettings() async {
     final service = await UserApiKeyService.getInstance();
+    final prefs = await SharedPreferences.getInstance();
+    final savedGrade = prefs.getInt('selected_grade') ?? 9;
+
     setState(() {
       _keyService = service;
       _isHybridMode = service.isHybridModeEnabled;
@@ -46,6 +52,7 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
       _apiKeyController.text = service.apiKey;
       _serverUrlController.text = service.customServerUrl;
       _ggufModel = service.ggufModelName;
+      _selectedGrade = savedGrade;
       _isLoading = false;
     });
   }
@@ -144,6 +151,98 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
           : ListView(
               padding: const EdgeInsets.all(16.0),
               children: [
+                // SECTION 0: GRADE & CONTENT PACK MANAGEMENT
+                _buildSectionHeader('GRADE & CONTENT PACK MANAGEMENT'),
+                const SizedBox(height: 8),
+                Card(
+                  elevation: 0,
+                  color: cardBg,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: const BorderSide(color: borderColor),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Active Student Grade',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Currently configured for Grade $_selectedGrade NCERT',
+                                    style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEEF2FF),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: const Color(0xFFC7D2FE)),
+                              ),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<int>(
+                                  value: _selectedGrade,
+                                  icon: const Icon(Icons.arrow_drop_down, color: primaryIndigo),
+                                  style: const TextStyle(color: primaryIndigo, fontWeight: FontWeight.bold, fontSize: 14),
+                                  items: List.generate(8, (i) => i + 5).map((grade) {
+                                    return DropdownMenuItem<int>(
+                                      value: grade,
+                                      child: Text('Grade $grade - NCERT'),
+                                    );
+                                  }).toList(),
+                                  onChanged: (val) async {
+                                    if (val != null) {
+                                      setState(() => _selectedGrade = val);
+                                      final prefs = await SharedPreferences.getInstance();
+                                      await prefs.setInt('selected_grade', val);
+                                    }
+                                  },
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Divider(height: 24, color: borderColor),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(builder: (context) => const ManageContentScreen()),
+                                  );
+                                },
+                                icon: const Icon(Icons.cloud_download_outlined, color: primaryIndigo),
+                                label: const Text('Download & Manage Grade Packs'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: primaryIndigo,
+                                  side: const BorderSide(color: primaryIndigo),
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
                 // SECTION 1: AI INFERENCE ENGINE
                 _buildSectionHeader('AI INFERENCE ENGINE'),
                 const SizedBox(height: 8),

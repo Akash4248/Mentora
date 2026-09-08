@@ -126,34 +126,21 @@ class _MentoraHomeScreenState extends State<MentoraHomeScreen> {
         actions: [
           Container(
             margin: const EdgeInsets.only(right: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
               color: const Color(0xFFEEF2FF),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: const Color(0xFFC7D2FE)),
             ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<int>(
-                value: _selectedGrade,
-                icon: const Icon(Icons.arrow_drop_down, color: primaryIndigo),
-                style: const TextStyle(color: primaryIndigo, fontWeight: FontWeight.bold, fontSize: 13),
-                items: List.generate(8, (i) => i + 5).map((grade) {
-                  return DropdownMenuItem<int>(
-                    value: grade,
-                    child: Text('Grade $grade - NCERT'),
-                  );
-                }).toList(),
-                onChanged: (val) async {
-                  if (val != null) {
-                    setState(() {
-                      _selectedGrade = val;
-                    });
-                    final prefs = await SharedPreferences.getInstance();
-                    await prefs.setInt('selected_grade', val);
-                    _fetchBackendSubjects();
-                  }
-                },
-              ),
+            child: Row(
+              children: [
+                const Icon(Icons.bookmark_outline, size: 14, color: primaryIndigo),
+                const SizedBox(width: 4),
+                Text(
+                  'Grade $_selectedGrade',
+                  style: const TextStyle(color: primaryIndigo, fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+              ],
             ),
           ),
         ],
