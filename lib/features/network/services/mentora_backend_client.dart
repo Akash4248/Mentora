@@ -599,21 +599,33 @@ class MentoraBackendClient {
     required String topic,
     int grade = 9,
   }) async {
-    // Probe and auto-discover gateway URL before network request if default
-    if (_activeBaseUrl == 'http://127.0.0.1:8000') {
+    // Probe and auto-discover gateway URL before network request if unverified .local or loopback
+    if (_activeBaseUrl.contains('.local') || _activeBaseUrl.contains('127.0.0.1')) {
       await autoDiscoverGatewayUrl();
+    }
+
+    // If backend is known to be unavailable, attempt local LLM fallback directly first
+    final isBackendKnownOffline = BackendAvailabilityCache().cachedStatus == false;
+    if (isBackendKnownOffline) {
+      try {
+        final localResult = await _tryLocalLlmFallback(question, topic, grade);
+        if (localResult != null) {
+          return localResult;
+        }
+      } catch (_) {}
     }
 
     try {
       final response = await _client.post(
         '/ai/tutor',
         data: {'question': question, 'topic': topic, 'grade': grade},
-        options: Options(sendTimeout: const Duration(seconds: 120), receiveTimeout: const Duration(seconds: 120)),
+        options: Options(sendTimeout: const Duration(seconds: 4), receiveTimeout: const Duration(seconds: 120)),
       );
 
       if (response.statusCode == 200) {
         final decoded = response.data is Map ? Map<String, dynamic>.from(response.data) : jsonDecode(response.data);
         if (decoded['answer'] != null) {
+          BackendAvailabilityCache().updateStatus(true, url: _activeBaseUrl);
           return decoded;
         }
       } else if (response.statusCode == 504) {
@@ -630,6 +642,7 @@ class MentoraBackendClient {
         };
       }
     } on DioException catch (e) {
+      BackendAvailabilityCache().updateStatus(false);
       try {
         final localResult = await _tryLocalLlmFallback(question, topic, grade);
         if (localResult != null) {
@@ -637,13 +650,15 @@ class MentoraBackendClient {
         }
       } catch (_) {}
 
-      autoDiscoverGatewayUrl();
-      final errDetail = e is TimeoutException
-          ? 'Backend request timed out after 120s'
-          : e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
+      final isNetworkHostError = e.toString().contains('Failed host lookup') || e.toString().contains('SocketException');
+      final hostName = _activeBaseUrl.replaceAll('http://', '').replaceAll('https://', '');
+
+      final friendlyMsg = isNetworkHostError
+          ? '🔌 **Offline Mode: PiHub Unreachable**\n\nUnable to reach PiHub server at `$hostName`.\n\n💡 *Tip: Connect your phone to the PiHub Wi-Fi network, or load an offline GGUF model in **Settings > Local AI Tutor** to ask questions anywhere without Wi-Fi.*'
+          : '⚠️ **Backend Service Error**: ${e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '')}\n\n*Tip: Check Settings > Local AI Tutor to load an offline model.*';
 
       return {
-        'answer': '⚠️ **Backend Failure**: $errDetail.\n\n*Note: On-device local LLM is not loaded. Select or load a GGUF model in Settings to enable offline fallback.*',
+        'answer': friendlyMsg,
         'hasAudio': false,
         'source': 'backend_connection_error',
       };
@@ -674,9 +689,25 @@ class MentoraBackendClient {
       } else {
         try {
           final adminService = LlmAdminChannelService();
-          final status = await adminService.getEngineStatus();
-          if (!status.loaded && status.modelPath.trim().isEmpty) {
-            return null;
+          var status = await adminService.getEngineStatus();
+          if (!status.loaded) {
+            if (status.modelPath.trim().isEmpty) {
+              return null;
+            }
+            // Preload GGUF model into memory if path exists but engine cold
+            await adminService.preloadModel();
+
+            // Wait up to 10s for Kotlin background thread in LlamaEngine to finish loading model
+            final stopWatch = Stopwatch()..start();
+            while (stopWatch.elapsedMilliseconds < 10000) {
+              await Future.delayed(const Duration(milliseconds: 200));
+              status = await adminService.getEngineStatus();
+              if (status.loaded) break;
+            }
+
+            if (!status.loaded) {
+              return null;
+            }
           }
         } catch (_) {
           return null;
@@ -688,6 +719,7 @@ class MentoraBackendClient {
       final prompt = '''<|im_start|>system
 You are an expert NCERT school AI tutor for Class $grade $tClean.
 Answer the student's question directly and clearly using Markdown formatting, bullet points, and key formulas.
+IMPORTANT: If the user asks in Kannada (e.g. "can u explain in kannada" or Kannada script) or any regional language, respond in that language.
 Do not output internal monologues or planning steps.
 <|im_end|>
 <|im_start|>user
