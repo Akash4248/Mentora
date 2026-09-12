@@ -214,7 +214,8 @@ class ReasoningOutputFilter {
         lower.startsWith('topic:') ||
         lower.startsWith('language:') ||
         lower.startsWith('teaching style:') ||
-        lower.startsWith('grade') ||
+        lower.startsWith('grade:') ||
+        lower.startsWith('grade level:') ||
         RegExp(r'^[\-\s=]{3,}$').hasMatch(lower) ||
         lower.contains('do not reveal internal reasoning') ||
         lower.contains('do not output chain of thought') ||

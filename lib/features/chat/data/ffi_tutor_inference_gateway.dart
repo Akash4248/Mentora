@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:ffi';
-import 'dart:io';
 
 import 'tutor_inference_gateway.dart';
 
@@ -28,28 +26,9 @@ class FfiTutorInferenceGateway implements TutorInferenceGateway {
   }
 
   bool _checkNativeLibraryAvailability() {
-    try {
-      if (Platform.isAndroid) {
-        DynamicLibrary.open('libllama.so');
-        return true;
-      } else if (Platform.isLinux) {
-        try {
-          DynamicLibrary.open('libllama.so');
-          return true;
-        } catch (_) {
-          DynamicLibrary.open('libfllama.so');
-          return true;
-        }
-      } else if (Platform.isIOS || Platform.isMacOS) {
-        DynamicLibrary.process();
-        return true;
-      } else if (Platform.isWindows) {
-        DynamicLibrary.open('llama.dll');
-        return true;
-      }
-    } catch (_) {
-      // Native FFI library loading failed
-    }
+    // Return false until FFI isolate streaming is bound to native C symbols.
+    // This allows PlatformTutorInferenceGateway to fall back to MethodChannel (LlamaEngine.kt on Android)
+    // or LinuxTutorInferenceGateway on desktop.
     return false;
   }
 
