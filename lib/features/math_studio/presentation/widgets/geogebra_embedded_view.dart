@@ -1,5 +1,8 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/theme/idp_colors.dart';
 import '../../../../core/theme/idp_typography.dart';
@@ -21,6 +24,12 @@ class _GeogebraEmbeddedViewState extends State<GeogebraEmbeddedView> {
   bool _isLoading = true;
   bool _hasError = false;
 
+  bool get _isWebViewSupported =>
+      !kIsWeb &&
+      !Platform.isLinux &&
+      !Platform.isWindows &&
+      InAppWebViewPlatform.instance != null;
+
   String get _appUrl {
     switch (widget.initialApp) {
       case 'geometry':
@@ -35,6 +44,53 @@ class _GeogebraEmbeddedViewState extends State<GeogebraEmbeddedView> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_isWebViewSupported) {
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.calculate_rounded, size: 56, color: Color(0xFF4F46E5)),
+                const SizedBox(height: 16),
+                Text(
+                  'GeoGebra Interactive Suite (${widget.initialApp.toUpperCase()})',
+                  style: IDPTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Embedded webview is optimized for mobile devices. Open GeoGebra directly in your desktop browser for full 3D performance.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: IDPColors.onSurfaceVariant),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.open_in_new_rounded),
+                  label: const Text('Open GeoGebra Suite'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF4F46E5),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                  ),
+                  onPressed: () async {
+                    final uri = Uri.parse(_appUrl);
+                    if (await canLaunchUrl(uri)) {
+                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,

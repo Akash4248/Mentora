@@ -1,5 +1,9 @@
+import 'dart:io';
+import 'dart:math' as math;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import '../../network/services/mentora_backend_client.dart';
 import '../../chat/presentation/formatted_text_widget.dart';
@@ -510,6 +514,12 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
     );
   }
 
+  bool get _isWebViewSupported {
+    if (kIsWeb) return true;
+    if (Platform.isLinux || Platform.isWindows) return false;
+    return InAppWebViewPlatform.instance != null;
+  }
+
   // STITCH TAB 2: INTERACTIVE HTML5 SIMULATION PLAYER
   Widget _buildSimulationTab() {
     const primaryIndigo = Color(0xFF4F46E5);
@@ -533,7 +543,8 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
                   BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 10, offset: const Offset(0, 4)),
                 ],
               ),
-              child: InAppWebView(
+              child: _isWebViewSupported
+                  ? InAppWebView(
                 initialData: InAppWebViewInitialData(
                   data: '''
 <!DOCTYPE html>
@@ -619,7 +630,12 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
                   transparentBackground: true,
                   supportZoom: false,
                 ),
-              ),
+              )
+                  : NativeSimulationCanvasWidget(
+                      chapterTitle: _activeChapterTitle,
+                      simLength: _simLength,
+                      simGravity: _simGravity,
+                    ),
             ),
           ),
           const SizedBox(height: 20),
@@ -641,9 +657,9 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Intensity (I): ${_simLength.toStringAsFixed(1)}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                      Text('System Length (L): ${_simLength.toStringAsFixed(1)} m', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                       Chip(
-                        label: Text('${_simLength.toStringAsFixed(1)} units', style: const TextStyle(color: primaryIndigo, fontWeight: FontWeight.bold, fontSize: 11)),
+                        label: Text('${_simLength.toStringAsFixed(1)} m', style: const TextStyle(color: primaryIndigo, fontWeight: FontWeight.bold, fontSize: 11)),
                         backgroundColor: const Color(0xFFEEF2FF),
                       ),
                     ],
@@ -753,7 +769,7 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
     final heroUrl = currentVideo?['videoUrl']?.toString() ?? currentVideo?['youtubeId']?.toString() ?? 'https://www.youtube.com/watch?v=M7lc1UVf-VE';
     final videoId = YoutubePlayerController.convertUrlToId(heroUrl) ?? _extractYouTubeId(heroUrl);
 
-    if (_youtubeController == null || _activeVideoId != videoId) {
+    if (_isWebViewSupported && (_youtubeController == null || _activeVideoId != videoId)) {
       _youtubeController?.close();
       _activeVideoId = videoId;
       _youtubeController = YoutubePlayerController.fromVideoId(
@@ -789,9 +805,41 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
               ),
               child: Column(
                 children: [
-                  YoutubePlayer(
-                    controller: _youtubeController!,
-                  ),
+                  _isWebViewSupported
+                      ? YoutubePlayer(
+                          controller: _youtubeController!,
+                        )
+                      : Container(
+                          height: 200,
+                          width: double.infinity,
+                          color: const Color(0xFF0F172A),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.play_circle_fill, color: Colors.redAccent, size: 48),
+                              const SizedBox(height: 12),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                child: Text(
+                                  heroTitle,
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              ElevatedButton.icon(
+                                onPressed: () {
+                                  final uri = Uri.tryParse(heroUrl);
+                                  if (uri != null) launchUrl(uri);
+                                },
+                                icon: const Icon(Icons.open_in_browser, size: 16),
+                                label: const Text('Open Lecture Video in Browser'),
+                              ),
+                            ],
+                          ),
+                        ),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     color: const Color(0xFF0F172A),
@@ -998,13 +1046,14 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
               child: ElevatedButton(
                 onPressed: () {
                   setState(() {
-                    _currentQuestionIndex = (_currentQuestionIndex + 1) % questions.length;
+                    _currentQuestionIndex = 0;
                     _selectedOptionIndex = null;
                     _showExplanation = false;
+                    _score = 0;
                   });
                 },
-                style: ElevatedButton.styleFrom(backgroundColor: primaryIndigo, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                child: const Text('Next Question', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF64748B), padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                child: const Text('Restart Quiz', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               ),
             ),
           ],
@@ -1012,4 +1061,137 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
       ),
     );
   }
+}
+
+class NativeSimulationCanvasWidget extends StatefulWidget {
+  const NativeSimulationCanvasWidget({
+    super.key,
+    required this.chapterTitle,
+    required this.simLength,
+    required this.simGravity,
+  });
+
+  final String chapterTitle;
+  final double simLength;
+  final double simGravity;
+
+  @override
+  State<NativeSimulationCanvasWidget> createState() => _NativeSimulationCanvasWidgetState();
+}
+
+class _NativeSimulationCanvasWidgetState extends State<NativeSimulationCanvasWidget>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 10),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return Stack(
+          children: [
+            CustomPaint(
+              size: Size.infinite,
+              painter: _SimulationPainter(
+                time: _controller.value * 20,
+                lengthVal: widget.simLength,
+                gravityVal: widget.simGravity,
+              ),
+            ),
+            Positioned(
+              top: 12,
+              left: 12,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0x338B5CF6),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFF8B5CF6)),
+                ),
+                child: Text(
+                  '🧪 Interactive Lab (Native Desktop): ${widget.chapterTitle}',
+                  style: const TextStyle(color: Color(0xFFC4B5FD), fontSize: 11, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _SimulationPainter extends CustomPainter {
+  _SimulationPainter({
+    required this.time,
+    required this.lengthVal,
+    required this.gravityVal,
+  });
+
+  final double time;
+  final double lengthVal;
+  final double gravityVal;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final bgPaint = Paint()..color = const Color(0xFF0F172A);
+    canvas.drawRect(Offset.zero & size, bgPaint);
+
+    final gridPaint = Paint()
+      ..color = const Color(0x66334155)
+      ..strokeWidth = 1;
+
+    const step = 30.0;
+    for (double x = 0; x < size.width; x += step) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
+    }
+    for (double y = 0; y < size.height; y += step) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
+
+    final wavePaint = Paint()
+      ..color = const Color(0xFF38BDF8)
+      ..strokeWidth = 3
+      ..style = PaintingStyle.stroke;
+
+    final path = Path();
+    final cy = size.height / 2;
+    for (double x = 0; x < size.width; x += 2) {
+      final freq = 0.02 * lengthVal;
+      final amp = 30 * (gravityVal / 5.0);
+      final y = cy + math.sin(x * freq + time) * amp + math.cos(x * 0.01 - time * 0.5) * (amp * 0.4);
+      if (x == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+    canvas.drawPath(path, wavePaint);
+
+    final particlePaint = Paint()..color = const Color(0xFF8B5CF6);
+    for (int i = 0; i < 8; i++) {
+      final px = (size.width / 8) * i + math.sin(time + i) * 20;
+      final py = cy + math.sin(px * 0.02 * lengthVal + time) * (30 * (gravityVal / 5.0));
+      canvas.drawCircle(Offset(px, py), 5, particlePaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _SimulationPainter oldDelegate) =>
+      oldDelegate.time != time || oldDelegate.lengthVal != lengthVal || oldDelegate.gravityVal != gravityVal;
 }

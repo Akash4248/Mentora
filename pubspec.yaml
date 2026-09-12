@@ -51,6 +51,7 @@ dependencies:
   flutter_riverpod: ^2.6.1
   web_socket_channel: ^3.0.2
   flutter_inappwebview: ^6.1.5
+  url_launcher: ^6.3.1
   # google_fonts removed: package was declared but never used in the codebase.
   # If fonts are needed in future, bundle them via pubspec fonts: section instead
   # to avoid runtime network fetches on offline-first devices.
