@@ -33,6 +33,10 @@ class ChatController extends StateNotifier<ChatViewState> {
     required String chapterId,
     required String welcomeMessage,
   }) async {
+    if (state.isBootstrapping || (state.sessionId == sessionId && state.messages.isNotEmpty)) {
+      return;
+    }
+
     state = state.copyWith(isBootstrapping: true, sessionId: sessionId);
 
     try {
@@ -99,13 +103,13 @@ class ChatController extends StateNotifier<ChatViewState> {
     state = state.copyWith(chatMode: mode);
   }
 
-  void addMessage(TutorMessage message) {
+  Future<void> addMessage(TutorMessage message) async {
     final updated = [...state.messages, message];
     state = state.copyWith(messages: updated);
     
     // Save to SQLite (skips transient 'Thinking...' placeholders)
     if (state.sessionId != null && (message.isUser || message.text.trim() != 'Thinking...')) {
-      _sessionRepo.appendMessage(
+      await _sessionRepo.appendMessage(
         sessionId: state.sessionId!,
         isUser: message.isUser,
         text: message.text,

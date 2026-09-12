@@ -35,6 +35,7 @@ class _ChapterChatScreenState extends ConsumerState<ChapterChatScreen> {
   final TextEditingController _inputController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final ConversationMemoryHarness _memoryHarness = ConversationMemoryHarness();
+  Timer? _scrollTimer;
   late String _sessionId;
 
   @override
@@ -56,6 +57,7 @@ class _ChapterChatScreenState extends ConsumerState<ChapterChatScreen> {
 
   @override
   void dispose() {
+    _scrollTimer?.cancel();
     _inputController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -75,7 +77,7 @@ class _ChapterChatScreenState extends ConsumerState<ChapterChatScreen> {
       isUser: true,
       timestamp: DateTime.now(),
     );
-    controller.addMessage(userMsg);
+    await controller.addMessage(userMsg);
     controller.setGenerating(true);
     _scrollToBottom();
 
@@ -85,6 +87,7 @@ class _ChapterChatScreenState extends ConsumerState<ChapterChatScreen> {
         currentQuestion: text,
         chapterTitle: widget.chapter.title,
         courseName: widget.course.name,
+        chapterId: widget.chapter.id,
         policy: state.memoryPolicy,
       );
 
@@ -94,7 +97,7 @@ class _ChapterChatScreenState extends ConsumerState<ChapterChatScreen> {
         isUser: false,
         timestamp: DateTime.now(),
       );
-      controller.addMessage(placeholderMsg);
+      await controller.addMessage(placeholderMsg);
 
       await for (final token in gateway.streamResponse(
         prompt: contextualPrompt,
@@ -111,6 +114,19 @@ class _ChapterChatScreenState extends ConsumerState<ChapterChatScreen> {
     } catch (e) {
       final errorMsg = 'I faced an issue retrieving the response: $e';
       await controller.persistCompletedAssistantMessage(errorMsg);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Inference error: $e'),
+            backgroundColor: IDPColors.error,
+            action: SnackBarAction(
+              label: 'Retry',
+              textColor: Colors.white,
+              onPressed: _handleSendMessage,
+            ),
+          ),
+        );
+      }
     } finally {
       controller.setGenerating(false);
       _scrollToBottom();
@@ -118,7 +134,8 @@ class _ChapterChatScreenState extends ConsumerState<ChapterChatScreen> {
   }
 
   void _scrollToBottom() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (_scrollTimer?.isActive ?? false) return;
+    _scrollTimer = Timer(const Duration(milliseconds: 100), () {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
           _scrollController.position.maxScrollExtent,

@@ -5,6 +5,9 @@ import 'connectivity_service.dart';
 
 /// Network quality indicators.
 enum NetworkQuality {
+  /// Initial unknown state before first refresh completes
+  unknown,
+
   /// No connectivity
   offline,
 
@@ -46,7 +49,7 @@ class NetworkStateService {
   NetworkQuality get quality {
     final snapshot = _lastSnapshot;
     if (snapshot == null) {
-      return NetworkQuality.offline;
+      return NetworkQuality.unknown;
     }
     if (!snapshot.isOnline) {
       return NetworkQuality.offline;

@@ -69,18 +69,28 @@ class SyncManager {
         return [];
       }
 
-            if (gradeCompare != 0) {
-              return gradeCompare;
-            }
-            final subjectCompare = (a.subject ?? '').toLowerCase().compareTo(
-              (b.subject ?? '').toLowerCase(),
-            );
-            if (subjectCompare != 0) {
-              return subjectCompare;
-            }
-            return a.packId.compareTo(b.packId);
-          });
-        }
+      final url = _runtimeEndpoints().packsList;
+      final uri = grade != null ? Uri.parse('$url?grade=$grade') : Uri.parse(url);
+      final response = await http.get(uri).timeout(const Duration(seconds: 5));
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body) as List<dynamic>;
+        final packs = data
+            .map((json) => PackSyncEntry.fromJson(json as Map<String, dynamic>))
+            .toList();
+        packs.sort((a, b) {
+          final gradeCompare = (a.grade ?? 0).compareTo(b.grade ?? 0);
+          if (gradeCompare != 0) {
+            return gradeCompare;
+          }
+          final subjectCompare = (a.subject ?? '').toLowerCase().compareTo(
+            (b.subject ?? '').toLowerCase(),
+          );
+          if (subjectCompare != 0) {
+            return subjectCompare;
+          }
+          return a.packId.compareTo(b.packId);
+        });
+        return packs;
       }
       return await _loadOfflineFallbackPacks(grade);
     } catch (e) {

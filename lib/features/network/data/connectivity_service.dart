@@ -74,8 +74,23 @@ class ConnectivityService {
   /// Timeout for probe attempt
   final int probeTimeoutSeconds;
 
-  /// Check if device has internet connectivity
-  Future<bool> isConnected() async {
+  /// Check if device has internet or local backend connectivity
+  Future<bool> isConnected({String? backendUrl}) async {
+    if (backendUrl != null && backendUrl.isNotEmpty) {
+      try {
+        final uri = Uri.parse(backendUrl);
+        if (uri.host.isNotEmpty && uri.port > 0) {
+          final socket = await Socket.connect(
+            uri.host,
+            uri.port,
+            timeout: Duration(seconds: probeTimeoutSeconds),
+          );
+          socket.destroy();
+          return true;
+        }
+      } catch (_) {}
+    }
+
     try {
       final result = await InternetAddress.lookup(probeHost).timeout(
         Duration(seconds: probeTimeoutSeconds),

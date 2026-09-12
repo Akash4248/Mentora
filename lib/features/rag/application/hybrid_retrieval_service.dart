@@ -127,15 +127,14 @@ class HybridRetrievalService {
       return [];
     }
 
-    // 1. Attempt FTS5 / FTS4 search with BM25 ranking via rag_chunks_fts
+    // 1. Attempt FTS4 search with BM25/FTS ranking via rag_chunks_v2_fts
     try {
       final ftsMatch = rawTerms.map((t) => '$t*').join(' OR ');
       final ftsResults = await db.rawQuery('''
-        SELECT c.*, -bm25(fts) AS fts_score
+        SELECT c.*, 1.0 AS fts_score
         FROM rag_chunks_v2 c
-        INNER JOIN rag_chunks_fts fts ON fts.id = c.id
+        INNER JOIN rag_chunks_v2_fts fts ON fts.id = c.id
         WHERE c.chapter_id = ? AND fts MATCH ?
-        ORDER BY fts_score DESC
         LIMIT ?
       ''', [chapterId, ftsMatch, limit]);
 
@@ -201,6 +200,11 @@ class HybridRetrievalService {
 
     final chunks = rows.map(_rowToChunk).toList();
 
+    // Ensure vocabulary is initialized before embedding generation
+    if (_vectorService.isVocabularyEmpty) {
+      await _vectorService.initializeVocabulary(chunks);
+    }
+
     // Generate embeddings for all chunks
     final embeddings = <String, List<double>>{};
     try {
@@ -208,7 +212,7 @@ class HybridRetrievalService {
         embeddings[chunk.id] = _vectorService.generateEmbedding(chunk);
       }
     } catch (_) {
-      // If vocabulary not initialized, return empty
+      // If vocabulary fails, return empty
       return [];
     }
 

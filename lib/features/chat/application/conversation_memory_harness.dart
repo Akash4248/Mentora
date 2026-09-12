@@ -21,24 +21,26 @@ class ConversationMemoryHarness {
     required String chapterTitle,
     required String courseName,
     required ChatMemoryPolicy policy,
+    String? chapterId,
+    String? grade,
   }) async {
     final buffer = StringBuffer();
+    final studentGrade = grade ?? 'Grade 9';
 
     // 1. System Role & Guardrails
     buffer.writeln('### System Context');
     buffer.writeln(
-      'You are Mentora Socratic AI Tutor for $courseName, Grade 9. '
+      'You are Mentora Socratic AI Tutor for $courseName, $studentGrade. '
       'Subject Chapter: "$chapterTitle". '
       'Guide the student through interactive questioning, clear step-by-step explanations, and real-world examples. '
       'DO NOT give direct answers immediately if a guided hint helps them think.',
     );
     buffer.writeln();
 
-    // 2. Available Tool Declarations (Function Calling Harness)
-    buffer.writeln('### Available Memory & Knowledge Tools');
+    // 2. Available Memory & Knowledge Context
+    buffer.writeln('### Memory & Knowledge Context');
     buffer.writeln(
-      '- Tool `search_chapter_knowledge(query)`: Search NCERT textbook concepts.\n'
-      '- Tool `lookup_past_memory(query)`: Search previous student chat turns across chapters.',
+      'Relevant textbook concepts and student history are retrieved automatically below.',
     );
     buffer.writeln();
 
@@ -66,7 +68,7 @@ class ConversationMemoryHarness {
     if (policy.semanticRecallEnabled) {
       try {
         final ragCheck = await _ragRepository.localRagPreCheck(
-          chapterId: '',
+          chapterId: chapterId ?? '',
           query: currentQuestion,
           limit: policy.semanticTopK > 0 ? policy.semanticTopK : 2,
         );
