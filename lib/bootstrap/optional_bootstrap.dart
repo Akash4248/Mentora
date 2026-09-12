@@ -4,6 +4,7 @@ import '../features/educational/application/network_resilience.dart';
 import '../features/educational/application/sync_manager.dart';
 import '../features/network/application/distributed_service_composer.dart';
 import '../features/network/domain/backend_config.dart';
+import '../features/network/services/backend_discovery_service.dart';
 import 'runtime_mode.dart';
 import 'startup_coordinator.dart';
 
@@ -46,6 +47,7 @@ class OptionalBootstrap {
 
       _coordinator.beginStep('Starting resilience monitoring');
       NetworkResilienceCoordinator().startMonitoring();
+      BackendDiscoveryService().startBackgroundMonitoring();
       _coordinator.completeStep('Starting resilience monitoring');
 
       _coordinator.beginStep('Checking pack versions');

@@ -607,20 +607,20 @@ class MentoraBackendClient {
     required String topic,
     int grade = 9,
   }) async {
-    // Probe and auto-discover gateway URL before network request if unverified .local or loopback
-    if (_activeBaseUrl.contains('.local') || _activeBaseUrl.contains('127.0.0.1')) {
-      await autoDiscoverGatewayUrl();
-    }
-
-    // If backend is known to be unavailable, attempt local LLM fallback directly first
-    final isBackendKnownOffline = BackendAvailabilityCache().cachedStatus == false;
-    if (isBackendKnownOffline) {
+    // Check global availability state: If offline or unverified, fallback immediately without network probing
+    if (BackendAvailabilityCache().isOffline) {
       try {
         final localResult = await _tryLocalLlmFallback(question, topic, grade);
         if (localResult != null) {
           return localResult;
         }
       } catch (_) {}
+
+      return {
+        'answer': '🔌 **Offline Mode: PiHub Unreachable**\n\nUnable to reach backend server.\n\n💡 *Tip: Load an offline GGUF model in **Settings > Local AI Tutor** to ask questions anywhere without Wi-Fi.*',
+        'hasAudio': false,
+        'source': 'offline_mode_no_local_model',
+      };
     }
 
     try {
