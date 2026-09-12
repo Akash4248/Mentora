@@ -146,6 +146,29 @@ class LinuxLlmConfigService {
 
       final home = Platform.environment['HOME'];
       if (home != null) {
+        final searchDirs = [
+          '$home/Desktop/PIHUB/backend/inference-service/models',
+          '$home/Desktop/NOTIMP/pihub/backend/inference-service/models',
+          '$home/Desktop/IDP/models',
+          '$home/Desktop/IDP',
+          '$home/Downloads',
+          '$home/models',
+          '$home/.cache/lm-studio/models',
+          '$home/.ollama/models',
+        ];
+        for (final dirPath in searchDirs) {
+          final dir = Directory(dirPath);
+          if (await dir.exists()) {
+            try {
+              final files = dir.listSync(recursive: false).whereType<File>();
+              for (final f in files) {
+                if (f.path.toLowerCase().endsWith('.gguf')) {
+                  candidates.add(f.path);
+                }
+              }
+            } catch (_) {}
+          }
+        }
         candidates.add('$home/Downloads/qwen2.5-1.5b-instruct-q4_k_m.gguf');
         candidates.add('$home/models/model.gguf');
       }

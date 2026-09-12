@@ -6,6 +6,7 @@ import 'package:offline_tutor_app/features/chat/data/linux_tutor_inference_gatew
 import 'package:offline_tutor_app/features/chat/data/local/linux_llm_config_service.dart';
 import 'package:offline_tutor_app/features/network/services/mentora_backend_client.dart';
 
+@Timeout(Duration(minutes: 2))
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 

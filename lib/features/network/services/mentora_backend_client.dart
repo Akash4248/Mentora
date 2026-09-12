@@ -609,18 +609,10 @@ class MentoraBackendClient {
   }) async {
     // Check global availability state: If offline or unverified, fallback immediately without network probing
     if (BackendAvailabilityCache().isOffline) {
-      try {
-        final localResult = await _tryLocalLlmFallback(question, topic, grade);
-        if (localResult != null) {
-          return localResult;
-        }
-      } catch (_) {}
-
-      return {
-        'answer': '🔌 **Offline Mode: PiHub Unreachable**\n\nUnable to reach backend server.\n\n💡 *Tip: Load an offline GGUF model in **Settings > Local AI Tutor** to ask questions anywhere without Wi-Fi.*',
-        'hasAudio': false,
-        'source': 'offline_mode_no_local_model',
-      };
+      final localResult = await _tryLocalLlmFallback(question, topic, grade);
+      if (localResult != null) {
+        return localResult;
+      }
     }
 
     try {
@@ -716,7 +708,11 @@ class MentoraBackendClient {
 
         final validation = await configService.validate(config);
         if (!validation.ready) {
-          return null;
+          return {
+            'answer': '🔌 **Offline Mode: Local GGUF Model Required**\n\n${validation.message}\n\n💡 *Tip: Select a GGUF model file or llama-cli runner binary in **Settings > Local AI Tutor**.*',
+            'hasAudio': false,
+            'source': 'local_llm_config_incomplete',
+          };
         }
       } else {
         try {
@@ -724,12 +720,16 @@ class MentoraBackendClient {
           var status = await adminService.getEngineStatus();
           if (!status.loaded) {
             if (status.modelPath.trim().isEmpty) {
-              return null;
+              return {
+                'answer': '🔌 **Offline Mode: Local GGUF Model Required**\n\nNo offline GGUF model path is configured.\n\n💡 *Tip: Load an offline GGUF model in **Settings > Local AI Tutor** to ask questions anywhere without Wi-Fi.*',
+                'hasAudio': false,
+                'source': 'offline_mode_no_local_model',
+              };
             }
             // Preload GGUF model into memory if path exists but engine cold
             await adminService.preloadModel();
 
-            // Wait up to 10s for Kotlin background thread in LlamaEngine to finish loading model
+            // Wait up to 10s for background thread in LlamaEngine to finish loading model
             final stopWatch = Stopwatch()..start();
             while (stopWatch.elapsedMilliseconds < 10000) {
               await Future.delayed(const Duration(milliseconds: 200));
@@ -738,11 +738,19 @@ class MentoraBackendClient {
             }
 
             if (!status.loaded) {
-              return null;
+              return {
+                'answer': '⚠️ **Local AI Engine Timeout**: Failed to warm up GGUF model into memory within 10 seconds. Please try again.',
+                'hasAudio': false,
+                'source': 'local_llm_warmup_timeout',
+              };
             }
           }
-        } catch (_) {
-          return null;
+        } catch (e) {
+          return {
+            'answer': '⚠️ **Local AI Error**: Failed to initialize local engine: $e',
+            'hasAudio': false,
+            'source': 'local_llm_init_error',
+          };
         }
       }
 
@@ -788,11 +796,20 @@ $question
           'hasAudio': false,
           'source': 'on_device_local_llm',
         };
+      } else {
+        return {
+          'answer': '⚠️ **Local AI Error**: On-device model returned an empty response. Please retry your question.',
+          'hasAudio': false,
+          'source': 'local_llm_empty_response',
+        };
       }
-    } catch (_) {
-      // Ignore and fallback to network error message
+    } catch (e) {
+      return {
+        'answer': '⚠️ **Local AI Execution Error**: ${e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '')}\n\n*Tip: Check Settings > Local AI Tutor to verify your local GGUF model file.*',
+        'hasAudio': false,
+        'source': 'local_llm_execution_error',
+      };
     }
-    return null;
   }
 
   String _deduplicateTopicHeaders(String text, String topic) {
