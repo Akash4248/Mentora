@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/user_api_key_service.dart';
 import '../../network/services/mentora_backend_client.dart';
+import '../../network/domain/backend_url_utils.dart';
 import '../../home/presentation/mentora_home_screen.dart';
 import 'model_selection_screen.dart';
 import 'manage_content_screen.dart';
@@ -94,6 +95,48 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
               ? '✅ Connected: ${res['activeUrl']} (${res['latencyMs']} ms)'
               : '❌ Backend Discovery Failed: ${res['status']}'),
           backgroundColor: res['online'] ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+        ),
+      );
+    }
+  }
+
+  Future<void> _saveAndProbeCustomUrl([String? inputUrl]) async {
+    final raw = inputUrl ?? _serverUrlController.text;
+    if (raw.trim().isEmpty) return;
+
+    final normalized = BackendUrlUtils.normalizeUrl(raw);
+    _serverUrlController.text = normalized;
+    await _keyService?.setCustomServerUrl(normalized);
+
+    setState(() {
+      _isDiscovering = true;
+      _connectedUrl = null;
+      _connectedDeviceName = null;
+      _latencyMs = null;
+    });
+
+    final res = await BackendUrlUtils.probeUrl(normalized);
+    final bool isOnline = res['success'] == true;
+    final int? latency = res['latencyMs'];
+
+    if (isOnline) {
+      MentoraBackendClient().setBaseUrl(normalized);
+    }
+
+    if (mounted) {
+      setState(() {
+        _isDiscovering = false;
+        _latencyMs = isOnline ? latency : null;
+        _connectedUrl = isOnline ? normalized : null;
+        _connectedDeviceName = isOnline ? 'Manual Backend Gateway ($normalized)' : null;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(isOnline
+              ? '✅ Connected to backend: $normalized (${latency ?? 0} ms)'
+              : '❌ Unreachable: $normalized — verify IP & backend server status'),
+          backgroundColor: isOnline ? const Color(0xFF10B981) : const Color(0xFFEF4444),
         ),
       );
     }
@@ -483,34 +526,52 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
                           ],
                         ),
                         const Divider(height: 24, color: borderColor),
-                        if (!_isPiHubMode) ...[
-                          const Text(
-                            'Internet Backend URL (from .env / settings)',
-                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                          ),
-                          const SizedBox(height: 6),
-                          TextField(
-                            controller: _serverUrlController,
-                            onChanged: (val) async {
-                              await _keyService?.setCustomServerUrl(val);
-                            },
-                            decoration: InputDecoration(
-                              hintText: 'https://api.mentora.app or http://127.0.0.1:8000',
-                              filled: true,
-                              fillColor: slateBg,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(color: borderColor),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(color: primaryIndigo),
+                        const Text(
+                          'Backend Gateway URL / Laptop Host IP',
+                          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Enter your laptop IP (e.g. 10.35.98.193 or akash-Ubuntu:8000)',
+                          style: TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _serverUrlController,
+                                onSubmitted: (val) => _saveAndProbeCustomUrl(val),
+                                decoration: InputDecoration(
+                                  hintText: 'http://10.35.98.193:8000 or akash-Ubuntu:8000',
+                                  filled: true,
+                                  fillColor: slateBg,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: const BorderSide(color: borderColor),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: const BorderSide(color: primaryIndigo),
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 16),
-                        ],
+                            const SizedBox(width: 8),
+                            ElevatedButton(
+                              onPressed: () => _saveAndProbeCustomUrl(),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: primaryIndigo,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              child: const Text('Connect', style: TextStyle(fontWeight: FontWeight.bold)),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
 
                         // DISCOVERY PROGRESS BAR & STATUS CARD
                         if (_isDiscovering || _discoveryProgress != null) ...[

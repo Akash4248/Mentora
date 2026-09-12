@@ -4,12 +4,10 @@ import 'dart:io';
 import '../config/app_environment.dart';
 import '../features/chat/data/llm_admin_channel_service.dart';
 import '../features/content_packs/application/content_pack_bootstrap_service.dart';
+import '../features/course/data/local/app_database.dart';
 import '../features/course/data/local/course_repository.dart';
 import '../features/course/data/local/database_auto_repair_service.dart';
-import '../features/educational/application/inverted_index.dart';
-import '../features/educational/data/educational_database.dart';
-import '../features/educational/application/sync_manager.dart';
-import '../features/rag/data/local/rag_repository.dart';
+import '../features/rag/data/local/rag_repository_v2.dart';
 import 'startup_coordinator.dart';
 
 class BackgroundBootstrap {
@@ -37,7 +35,7 @@ class BackgroundBootstrap {
   Future<void> _run() async {
     try {
       _coordinator.beginStep('Warming local database');
-      await EducationalDatabase.database;
+      await AppDatabase.instance.database;
       
       // Run the database auto-repair to ensure FTS and packs are intact
       await DatabaseAutoRepairService().runAutoRepair();
@@ -49,7 +47,7 @@ class BackgroundBootstrap {
       _coordinator.completeStep('Seeding courses');
 
       _coordinator.beginStep('Seeding offline retrieval');
-      await RagRepository().ensureSeedChunks();
+      await RagRepositoryV2().ensureSeedChunks();
       _coordinator.completeStep('Seeding offline retrieval');
 
       _coordinator.beginStep('Deferring content sync');
@@ -57,9 +55,6 @@ class BackgroundBootstrap {
       _coordinator.completeStep('Deferring content sync');
 
       _coordinator.beginStep('Building offline search');
-      if (!EducationalDatabase.isFullTextSearchAvailable) {
-        await InvertedIndexService().buildIndex();
-      }
       _coordinator.markOfflineSearchReady();
       _coordinator.completeStep('Building offline search');
 

@@ -5,9 +5,9 @@ import '../data/backend_api_service.dart';
 import '../data/backend_health_monitor.dart';
 import '../data/connectivity_service.dart';
 import '../data/network_state_service.dart';
-import '../data/platform_inference_adapter.dart';
 import '../domain/backend_config.dart';
 import '../domain/inference_router.dart';
+import '../domain/local_inference_source.dart';
 import '../application/hybrid_inference_service.dart';
 import 'confidence_evaluator.dart';
 import 'educational_complexity_analyzer.dart';
@@ -158,7 +158,7 @@ class DistributedServiceComposer {
     );
 
     // Local inference adapter
-    final localInference = PlatformInferenceAdapter(platformGateway);
+    final localInference = platformGateway as LocalInferenceSource;
 
     // Inference routing
     _inferenceRouter = InferenceRouter(

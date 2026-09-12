@@ -1,6 +1,6 @@
-import 'local_search_service.dart';
 import 'retrieval_router.dart';
 import '../models/educational_models.dart';
+import '../models/local_search_models.dart';
 import '../../../config/app_environment.dart';
 
 /// Tutorial response from the offline tutor
@@ -31,11 +31,6 @@ class TutorialResponse {
 }
 
 /// Offline tutor service using local educational content
-/// 
-/// Provides educational responses based on:
-/// - Local search results (concepts, chapters, flashcards)
-/// - Chapter context and related concepts
-/// - Educational best practices for explanation structure
 class OfflineTutorService {
   static final OfflineTutorService _instance = OfflineTutorService._internal();
 
@@ -43,10 +38,9 @@ class OfflineTutorService {
     return _instance;
   }
 
-  OfflineTutorService._internal();
-
-  final RetrievalRouter _router = RetrievalRouter();
-  final LocalSearchService _search = LocalSearchService();
+  void rateResponse(String id, int rating) {
+    AppEnvironment.log('SYNC', '[OfflineTutor] Rating response $id: $rating stars');
+  }
 
   /// Answer a student question using local educational content
   /// 

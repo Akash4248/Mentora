@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 
 import '../../../config/app_environment.dart';
+import '../domain/backend_url_utils.dart';
 import '../../settings/services/user_api_key_service.dart';
 
 /// Singleton Dio client for all Mentora backend communication.
@@ -85,8 +86,7 @@ class MentoraDioClient {
   }
 
   static String _normalizeBase(String raw) {
-    final trimmed = raw.trim().replaceAll(RegExp(r'/$'), '');
-    return trimmed.isEmpty ? 'http://pihub.local:8000' : trimmed;
+    return BackendUrlUtils.normalizeUrl(raw);
   }
 
   /// Invalidate and rebuild the Dio singleton (e.g. after base URL change).

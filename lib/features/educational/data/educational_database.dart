@@ -1,11 +1,11 @@
 import 'package:sqflite/sqflite.dart' as sqflite;
 import 'package:path/path.dart';
 import '../../../config/app_environment.dart';
+import '../../../features/course/data/local/app_database.dart';
 
 /// Manages the SQLite database for offline educational content
 class EducationalDatabase {
   static final EducationalDatabase _instance = EducationalDatabase._internal();
-  static sqflite.Database? _database;
   static bool _ftsSearchAvailable = true;
 
   factory EducationalDatabase() {
@@ -14,10 +14,9 @@ class EducationalDatabase {
 
   EducationalDatabase._internal();
 
-  /// Get database instance (lazy initialization)
+  /// Get database instance (lazy initialization delegated to AppDatabase)
   static Future<sqflite.Database> get database async {
-    _database ??= await _initializeDatabase();
-    return _database!;
+    return AppDatabase.instance.database;
   }
 
   /// Initialize the SQLite database with schema
@@ -253,12 +252,7 @@ class EducationalDatabase {
 
   /// Close database connection
   static Future<void> close() async {
-    final db = _database;
-    if (db != null) {
-      await db.close();
-      _database = null;
-      AppEnvironment.log('SYNC', 'Educational database closed');
-    }
+    AppEnvironment.log('SYNC', 'Educational database delegated close');
   }
 
   /// Delete entire database (use with caution)
@@ -267,7 +261,6 @@ class EducationalDatabase {
       final databasesPath = await sqflite.getDatabasesPath();
       final path = join(databasesPath, 'educational.db');
       await sqflite.deleteDatabase(path);
-      _database = null;
       AppEnvironment.log('SYNC', 'Educational database deleted');
     } catch (e) {
       AppEnvironment.log('SYNC', 'Error deleting database: $e');

@@ -14,6 +14,7 @@ import 'core/theme/idp_theme.dart';
 import 'features/experiment/runtime/behaviors/behavior_registry.dart';
 import 'features/experiment/runtime/effects/effect_registry.dart';
 import 'features/experiment/runtime/tools/measurement_registry.dart';
+import 'features/home/presentation/app_shell.dart';
 import 'features/home/presentation/mentora_home_screen.dart';
 import 'features/assessment/presentation/mentora_practice_screen.dart';
 import 'features/progress/presentation/mentora_mastery_screen.dart';
@@ -85,7 +86,11 @@ class OfflineTutorApp extends StatelessWidget {
             GlobalWidgetsLocalizations.delegate,
           ],
           supportedLocales: AppLocalizations.supportedLocales,
-          home: const MentoraHomeScreen(),
+          home: AppShell(
+            courseRepository: courseRepository,
+            startupCoordinator: startupCoordinator,
+            languageProvider: languageProvider,
+          ),
           routes: {
             '/home': (context) => const MentoraHomeScreen(),
             '/practice': (context) => const MentoraPracticeScreen(),

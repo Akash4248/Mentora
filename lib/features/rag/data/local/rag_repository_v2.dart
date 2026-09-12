@@ -10,6 +10,30 @@ class RagRepositoryV2 {
 
   final AppDatabase _database;
 
+  /// Ensure initial seed data is present in rag_chunks_v2 table
+  Future<void> ensureSeedChunks() async {
+    final db = await _database.database;
+    final count = Sqflite.firstIntValue(
+      await db.rawQuery('SELECT COUNT(*) FROM rag_chunks_v2'),
+    );
+    if ((count ?? 0) > 0) return;
+
+    final now = DateTime.now();
+    await insertChunk(
+      ChunkV2(
+        id: 'chunk_v2_seed_1',
+        chapterId: 'chap_linear_eq',
+        sourceTitle: 'Linear Equations Core Concepts',
+        sourceLanguage: 'en',
+        chunkOrder: 1,
+        contentType: 'text',
+        content: 'A linear equation in one variable has the general form ax + b = 0. Solve by performing inverse operations.',
+        tokenCount: 22,
+        createdAt: now,
+      ),
+    );
+  }
+
   /// Insert new chunk
   Future<void> insertChunk(ChunkV2 chunk) async {
     final db = await _database.database;

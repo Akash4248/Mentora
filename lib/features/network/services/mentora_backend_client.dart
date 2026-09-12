@@ -10,6 +10,7 @@ import '../../course/data/local/course_repository.dart';
 import '../../course/domain/course_tree.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../data/backend_availability_cache.dart';
+import '../domain/backend_url_utils.dart';
 import '../domain/runtime_backend_url.dart';
 import '../../settings/services/user_api_key_service.dart';
 import '../../chat/application/markdown_format_normalizer.dart';
@@ -42,30 +43,40 @@ class DiscoveryProgress {
 
 class MentoraBackendClient {
   /// Returns candidate gateway URLs for auto-discovery, in probe priority order.
-  ///
-  /// Sources (in order of reliability):
-  ///   1. AppEnvironment.backendBaseUrl (--dart-define or .env)
-  ///   2. mDNS standard Pi hostname (pihub.local)
-  ///   3. Current device hostname .local (for dev laptops running the server)
-  ///   4. Loopback (for emulator / local server)
-  ///
-  /// All hardcoded developer machine IPs (10.35.98.193, akash-Ubuntu) have been
-  /// removed. If you need to test against a specific IP, pass it via
-  /// --dart-define=BACKEND_BASE_URL=http://<ip>:8000.
   static List<String> getCandidateGatewayUrls() {
     final list = <String>[];
 
-    // 1. Explicitly configured URL (highest priority)
-    final configured = AppEnvironment.backendBaseUrl;
-    if (configured.isNotEmpty) list.add(configured);
+    // 1. Runtime active backend URL (if already set)
+    try {
+      final current = RuntimeBackendUrl().current;
+      if (current.isNotEmpty) list.add(BackendUrlUtils.normalizeUrl(current));
+    } catch (_) {}
 
-    // 2. Standard Pi gateway hostnames
+    // 2. Custom server URL from user settings (if user typed one)
+    try {
+      final custom = UserApiKeyService.instanceSync?.customServerUrl;
+      if (custom != null && custom.isNotEmpty) {
+        list.add(BackendUrlUtils.normalizeUrl(custom));
+      }
+    } catch (_) {}
+
+    // 3. Explicitly configured URL from AppEnvironment (.env or --dart-define)
+    final configured = AppEnvironment.backendBaseUrl;
+    if (configured.isNotEmpty) list.add(BackendUrlUtils.normalizeUrl(configured));
+
+    // 4. Developer Laptop Hostnames (akash-Ubuntu, pihub)
     list.addAll([
+      'http://akash-Ubuntu.local:8000',
+      'http://akash-ubuntu.local:8000',
+      'http://akash-Ubuntu:8000',
+      'http://akash-ubuntu:8000',
+      'http://akash-Ubuntu.local',
+      'http://akash-ubuntu.local',
       'http://pihub.local:8000',
       'http://pihub.local',
     ]);
 
-    // 3. Device hostname .local (developer running server on same laptop)
+    // 5. Client device local hostname (when running client locally on dev laptop)
     try {
       final hostname = Platform.localHostname;
       if (hostname.isNotEmpty) {
@@ -75,29 +86,40 @@ class MentoraBackendClient {
       }
     } catch (_) {}
 
-    // 4. Loopback (emulator or local dev server)
+    // 6. Loopback (emulator or local dev server)
     list.addAll([
       'http://10.0.2.2:8000', // Android emulator → host loopback
       'http://127.0.0.1:8000',
+      'http://localhost:8000',
     ]);
 
-    return list.toSet().toList();
+    return list.map(BackendUrlUtils.normalizeUrl).toSet().toList();
   }
 
-  /// Active gateway URL. Updated by [BackendDiscoveryService] on successful
-  /// connection. Default is driven by [AppEnvironment] (--dart-define or .env),
-  /// never a hardcoded developer IP.
+  /// Active gateway URL. Updated on successful connection.
   static String _activeBaseUrl = AppEnvironment.backendBaseUrl;
   String get baseUrl => _activeBaseUrl;
   void setBaseUrl(String url) {
-    _activeBaseUrl = url;
-    MentoraDioClient.updateBaseUrl(url);
+    final normalized = BackendUrlUtils.normalizeUrl(url);
+    _activeBaseUrl = normalized;
+    MentoraDioClient.updateBaseUrl(normalized);
+    RuntimeBackendUrl().updateUrl(normalized);
+    BackendAvailabilityCache().updateStatus(true, url: normalized);
+    _persistActiveUrl(normalized);
+  }
+
+  static Future<void> _persistActiveUrl(String url) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kCachedBackendUrl, url);
+      await prefs.setInt(_kCachedBackendUrlTs, DateTime.now().millisecondsSinceEpoch);
+      await prefs.setString('backend_active_url', url);
+    } catch (_) {}
   }
 
   MentoraBackendClient({String? baseUrl}) {
     if (baseUrl != null) {
-      _activeBaseUrl = baseUrl;
-      MentoraDioClient.updateBaseUrl(baseUrl);
+      setBaseUrl(baseUrl);
     }
   }
 

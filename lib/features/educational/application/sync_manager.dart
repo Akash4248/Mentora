@@ -59,38 +59,33 @@ class SyncManager {
   /// keep using [processPackUpdates], which performs the local install check.
   Future<List<PackSyncEntry>> checkForPackUpdates({int? grade}) async {
     try {
-      // Consult cached backend status to avoid redundant 30s timeout
       final cached = BackendAvailabilityCache().cachedStatus;
       if (cached == false) {
         AppEnvironment.log(
           'SYNC',
           '[SyncManager] Skipping pack check — backend cached as unavailable',
         );
-        return [];
+        return await _loadOfflineFallbackPacks(grade);
       }
 
-      final url = _runtimeEndpoints().packsList;
-      final uri = grade != null ? Uri.parse('$url?grade=$grade') : Uri.parse(url);
-      final response = await http.get(uri).timeout(const Duration(seconds: 5));
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body) as List<dynamic>;
-        final packs = data
-            .map((json) => PackSyncEntry.fromJson(json as Map<String, dynamic>))
+      final catalogUrls = await ContentPackSyncService().discoverCatalogUrls();
+      if (catalogUrls.isNotEmpty) {
+        final catalog = await ContentPackSyncService().fetchCatalog(catalogUrls.first);
+        final packs = catalog.packs
+            .map((item) => PackSyncEntry(
+                  packId: item.packId,
+                  version: item.version.toString(),
+                  subject: item.subject,
+                  grade: item.gradeMin,
+                  sizeBytes: 1500000,
+                  downloadUrl: item.archiveUrl.toString(),
+                ))
+            .where((entry) => grade == null || entry.grade == grade)
             .toList();
-        packs.sort((a, b) {
-          final gradeCompare = (a.grade ?? 0).compareTo(b.grade ?? 0);
-          if (gradeCompare != 0) {
-            return gradeCompare;
-          }
-          final subjectCompare = (a.subject ?? '').toLowerCase().compareTo(
-            (b.subject ?? '').toLowerCase(),
-          );
-          if (subjectCompare != 0) {
-            return subjectCompare;
-          }
-          return a.packId.compareTo(b.packId);
-        });
-        return packs;
+
+        if (packs.isNotEmpty) {
+          return packs;
+        }
       }
       return await _loadOfflineFallbackPacks(grade);
     } catch (e) {

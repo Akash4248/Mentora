@@ -28,6 +28,7 @@ class UserApiKeyService {
   static const String _keyCustomServerUrl = 'mentora_custom_server_url';
 
   static UserApiKeyService? _instance;
+  static UserApiKeyService? get instanceSync => _instance;
   final SharedPreferences _prefs;
 
   UserApiKeyService._(this._prefs);

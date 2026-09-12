@@ -6,18 +6,14 @@ import '../../../features/course/data/local/app_database.dart';
 import '../domain/chunk_v2.dart';
 import 'formula_extractor.dart';
 import 'multilingual_processor.dart';
-import 'vector_embedding_service.dart';
 
 /// Ingestion pipeline: Load seed JSON → Extract formulas → Store in DB
 class RagIngestionService {
   RagIngestionService({
     AppDatabase? database,
-    VectorEmbeddingService? vectorService,
-  })  : _database = database ?? AppDatabase.instance,
-        _vectorService = vectorService ?? VectorEmbeddingService();
+  })  : _database = database ?? AppDatabase.instance;
 
   final AppDatabase _database;
-  final VectorEmbeddingService _vectorService;
 
   /// Ingest seed data from JSON asset file
   Future<IngestionResult> ingestSeedData(String assetPath) async {
@@ -206,62 +202,8 @@ class RagIngestionService {
     return (text.length / 4).ceil();
   }
 
-  /// Initialize vocabulary from chapter for semantic search
-  Future<void> initializeChapterSemantics(String chapterId) async {
-    final db = await _database.database;
-    final rows = await db.query(
-      'rag_chunks_v2',
-      where: 'chapter_id = ?',
-      whereArgs: [chapterId],
-    );
-
-    if (rows.isNotEmpty) {
-      final chunks = rows
-          .map((row) => _rowToChunk(row))
-          .toList();
-
-      await _vectorService.initializeVocabulary(chunks);
-    }
-  }
-
-  ChunkV2 _rowToChunk(Map<String, dynamic> row) {
-    // Parse JSON fields
-    List<Formula> formulas = [];
-    if (row['formulas_json'] != null && (row['formulas_json'] as String).isNotEmpty) {
-      try {
-        final jsonList = jsonDecode(row['formulas_json']) as List;
-        formulas = jsonList
-            .map((item) => Formula.fromJson(item as Map<String, dynamic>))
-            .toList();
-      } catch (_) {
-        // Silently ignore
-      }
-    }
-
-    Map<String, dynamic> metadata = {};
-    if (row['metadata_json'] != null && (row['metadata_json'] as String).isNotEmpty) {
-      try {
-        metadata = jsonDecode(row['metadata_json']) as Map<String, dynamic>;
-      } catch (_) {
-        // Silently ignore
-      }
-    }
-
-    return ChunkV2(
-      id: row['id'] as String,
-      chapterId: row['chapter_id'] as String,
-      content: row['content'] as String,
-      contentType: row['content_type'] as String,
-      sourceTitle: row['source_title'] as String,
-      sourceLanguage: row['source_language'] as String? ?? 'en',
-      chunkOrder: row['chunk_order'] as int,
-      createdAt: DateTime.fromMillisecondsSinceEpoch(row['created_at'] as int),
-      tokenCount: row['token_count'] as int? ?? 0,
-      originalMarkdown: row['original_markdown'] as String?,
-      formulas: formulas,
-      metadata: metadata,
-    );
-  }
+  /// Initialize vocabulary from chapter for semantic search (no-op)
+  Future<void> initializeChapterSemantics(String chapterId) async {}
 }
 
 /// Result of ingestion operation

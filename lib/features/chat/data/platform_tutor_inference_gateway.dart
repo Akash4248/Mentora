@@ -3,16 +3,32 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 
 import 'ffi_tutor_inference_gateway.dart';
+import '../../network/domain/local_inference_source.dart';
 import 'linux_tutor_inference_gateway.dart';
 import 'tutor_inference_gateway.dart';
 
-class PlatformTutorInferenceGateway implements TutorInferenceGateway {
+class PlatformTutorInferenceGateway implements TutorInferenceGateway, LocalInferenceSource {
   static const MethodChannel _channel = MethodChannel('offline_tutor/llm');
   static const EventChannel _streamChannel = EventChannel('offline_tutor/llm_stream');
   static const EventChannel _metricsChannel = EventChannel('offline_tutor/llm_metrics');
   
   final FfiTutorInferenceGateway _ffiGateway = FfiTutorInferenceGateway();
   final LinuxTutorInferenceGateway _linuxGateway = LinuxTutorInferenceGateway();
+
+  @override
+  bool get isReady => true;
+
+  @override
+  Stream<String> streamQuestion(String question) => streamResponse(prompt: question);
+
+  @override
+  Future<Map<String, String>> getModelInfo() async => {'provider': 'on-device'};
+
+  @override
+  Future<void> ensureModelLoaded() async {}
+
+  @override
+  void dispose() {}
 
   @override
   Stream<String> streamResponse({required String prompt}) async* {

@@ -1,5 +1,4 @@
 import '../../educational/data/educational_repository.dart';
-import '../../educational/application/local_search_service.dart';
 import 'intent_detector.dart';
 
 /// Source metadata attached to every asset response.
@@ -39,10 +38,7 @@ class AssetResolutionResult {
 ///
 /// Bypasses the LLM entirely for asset intents.
 class AssetResolver {
-  final LocalSearchService _searchService;
-
-  AssetResolver({LocalSearchService? searchService})
-      : _searchService = searchService ?? LocalSearchService();
+  const AssetResolver();
 
   /// Attempt to resolve an asset for the given intent and topic.
   ///
@@ -92,23 +88,6 @@ class AssetResolver {
       }
     }
 
-    // Strategy 2: Fall back to search service
-    final results = await _searchService.search(topic);
-    final flashcardResults = results.where((r) => r.type == 'flashcard').toList();
-    if (flashcardResults.isNotEmpty) {
-      final best = flashcardResults.first;
-      return AssetResolutionResult(
-        formattedResponse: '**📇 Source: Flashcard**\n\n'
-            '**Term:** ${best.title}\n\n'
-            '**Definition:** ${best.content}',
-        metadata: AssetSourceMetadata(
-          sourceType: 'Flashcard',
-          sourceTitle: best.title,
-          intentUsed: 'flashcards',
-        ),
-      );
-    }
-
     return null;
   }
 
@@ -142,23 +121,6 @@ class AssetResolver {
       }
     }
 
-    // Fall back to search
-    final results = await _searchService.search(topic);
-    final conceptResults = results.where((r) => r.type == 'concept').toList();
-    if (conceptResults.isNotEmpty) {
-      final best = conceptResults.first;
-      return AssetResolutionResult(
-        formattedResponse: '**📖 Source: Glossary**\n\n'
-            '**Term:** ${best.title}\n\n'
-            '**Definition:** ${best.content}',
-        metadata: AssetSourceMetadata(
-          sourceType: 'Glossary',
-          sourceTitle: best.title,
-          intentUsed: 'glossary',
-        ),
-      );
-    }
-
     return null;
   }
 
@@ -181,23 +143,6 @@ class AssetResolver {
           );
         }
       }
-    }
-
-    // Fall back to search
-    final results = await _searchService.search(topic);
-    final chapterResults = results.where((r) => r.type == 'chapter').toList();
-    if (chapterResults.isNotEmpty) {
-      final best = chapterResults.first;
-      return AssetResolutionResult(
-        formattedResponse: '**📋 Source: Chapter Summary**\n\n'
-            '**Chapter:** ${best.title}\n\n'
-            '${best.content}',
-        metadata: AssetSourceMetadata(
-          sourceType: 'Chapter Summary',
-          sourceTitle: best.title,
-          intentUsed: 'keyPoints',
-        ),
-      );
     }
 
     return null;

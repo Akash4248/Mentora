@@ -2,19 +2,16 @@ import 'dart:convert';
 
 import '../../../features/course/data/local/app_database.dart';
 import '../domain/chunk_v2.dart';
-import 'vector_embedding_service.dart';
+import 'on_device_embedding_engine.dart';
 
 /// Hybrid retrieval combining BM25 full-text search + semantic vector search
 /// Returns ranked results blending both signals for better relevance
 class HybridRetrievalService {
   HybridRetrievalService({
     AppDatabase? database,
-    VectorEmbeddingService? vectorService,
-  })  : _database = database ?? AppDatabase.instance,
-        _vectorService = vectorService ?? VectorEmbeddingService();
+  })  : _database = database ?? AppDatabase.instance;
 
   final AppDatabase _database;
-  final VectorEmbeddingService _vectorService;
 
   /// Hybrid search: BM25 + semantic similarity
   /// Returns chunks ranked by combined score
@@ -127,14 +124,15 @@ class HybridRetrievalService {
       return [];
     }
 
-    // 1. Attempt FTS4 search with BM25/FTS ranking via rag_chunks_v2_fts
+    // 1. Attempt FTS5 / FTS4 search with BM25 ranking via rag_chunks_fts
     try {
       final ftsMatch = rawTerms.map((t) => '$t*').join(' OR ');
       final ftsResults = await db.rawQuery('''
-        SELECT c.*, 1.0 AS fts_score
+        SELECT c.*, -bm25(fts) AS fts_score
         FROM rag_chunks_v2 c
-        INNER JOIN rag_chunks_v2_fts fts ON fts.id = c.id
+        INNER JOIN rag_chunks_fts fts ON fts.id = c.id
         WHERE c.chapter_id = ? AND fts MATCH ?
+        ORDER BY fts_score DESC
         LIMIT ?
       ''', [chapterId, ftsMatch, limit]);
 
@@ -180,13 +178,12 @@ class HybridRetrievalService {
     }).toList();
   }
 
-  /// Semantic search using TF-IDF embeddings
+  /// Semantic search using OnDeviceEmbeddingEngine (384-dim normalized vector)
   Future<List<RetrievalResult>> _semanticSearch({
     required String query,
     required String chapterId,
     required int limit,
   }) async {
-    // Get all chunks in chapter
     final db = await _database.database;
     final rows = await db.query(
       'rag_chunks_v2',
@@ -199,42 +196,23 @@ class HybridRetrievalService {
     }
 
     final chunks = rows.map(_rowToChunk).toList();
+    final queryVector = OnDeviceEmbeddingEngine.instance.generateEmbedding(query);
+    final results = <RetrievalResult>[];
 
-    // Ensure vocabulary is initialized before embedding generation
-    if (_vectorService.isVocabularyEmpty) {
-      await _vectorService.initializeVocabulary(chunks);
-    }
-
-    // Generate embeddings for all chunks
-    final embeddings = <String, List<double>>{};
-    try {
-      for (final chunk in chunks) {
-        embeddings[chunk.id] = _vectorService.generateEmbedding(chunk);
+    for (final chunk in chunks) {
+      final chunkVector = OnDeviceEmbeddingEngine.instance.generateEmbedding(chunk.content);
+      final similarity = OnDeviceEmbeddingEngine.computeCosineSimilarity(queryVector, chunkVector);
+      if (similarity >= 0.05) {
+        results.add(RetrievalResult(
+          chunk: chunk,
+          score: (similarity + 1) / 2, // Normalize -1..1 to 0..1 range
+          source: 'semantic',
+        ));
       }
-    } catch (_) {
-      // If vocabulary fails, return empty
-      return [];
     }
 
-    // Search using embeddings
-    final results = _vectorService.searchSimilar(
-      query,
-      embeddings,
-      threshold: 0.05,
-    );
-
-    return results
-        .take(limit)
-        .map((record) {
-          final (id, similarity) = record;
-          final chunk = chunks.firstWhere((c) => c.id == id);
-          return RetrievalResult(
-            chunk: chunk,
-            score: (similarity + 1) / 2, // Normalize to 0-1 range
-            source: 'semantic',
-          );
-        })
-        .toList();
+    results.sort((a, b) => b.score.compareTo(a.score));
+    return results.take(limit).toList();
   }
 
   /// Configure semantic weight (0-1): how much to weight semantic relevance
@@ -256,20 +234,8 @@ class HybridRetrievalService {
     );
   }
 
-  /// Initialize vocabulary for semantic search from chapter's chunks
-  Future<void> initializeChapterEmbeddings(String chapterId) async {
-    final db = await _database.database;
-    final rows = await db.query(
-      'rag_chunks_v2',
-      where: 'chapter_id = ?',
-      whereArgs: [chapterId],
-    );
-
-    if (rows.isNotEmpty) {
-      final chunks = rows.map(_rowToChunk).toList();
-      await _vectorService.initializeVocabulary(chunks);
-    }
-  }
+  /// Initialize vocabulary/embeddings for chapter (no-op with OnDeviceEmbeddingEngine)
+  Future<void> initializeChapterEmbeddings(String chapterId) async {}
 
   // ─────────────────────────────────────────────────────────────────
   // Helpers

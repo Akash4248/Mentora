@@ -265,6 +265,12 @@ class PiHubDiscoveryCoordinator {
       final futures = <Future<void>>[];
       for (int j = 0; j < batchSize && (i + j) <= 254; j++) {
         final ip = '$baseIp.${i + j}';
+        // Probe port 8000 (primary Mentora Gateway) and port 80 (standard PiHub)
+        futures.add(_probeHost(ip, 8000).then((alive) {
+          if (alive) {
+            candidates.add(PiHubNode(host: ip, port: 8000, name: 'LAN-$ip', source: 'scan'));
+          }
+        }));
         futures.add(_probeHost(ip, 80).then((alive) {
           if (alive) {
             candidates.add(PiHubNode(host: ip, port: 80, name: 'LAN-$ip', source: 'scan'));
@@ -310,7 +316,6 @@ class PiHubDiscoveryCoordinator {
       );
       
       stopwatch.stop();
-      stopwatch.stop();
       print('[DISCOVERY] HEALTH_CHECK_END status=${response.statusCode} duration_ms=${stopwatch.elapsedMilliseconds}');
       print('[DISCOVERY] STATUS_CODE=${response.statusCode}');
       print('[DISCOVERY] RESPONSE_TIME_MS=${stopwatch.elapsedMilliseconds}');
@@ -323,8 +328,8 @@ class PiHubDiscoveryCoordinator {
         
         try {
           final json = jsonDecode(body);
-          final isValidStatus = json['status'] == 'healthy' || json['status'] == 'degraded';
-          if (json is Map && isValidStatus && json['service'] == 'gateway') {
+          final isValidStatus = json['status'] == 'healthy' || json['status'] == 'degraded' || json['status'] == 'ok';
+          if (json is Map && isValidStatus) {
             print('[DISCOVERY] PAYLOAD_VALID=true');
             client.close(force: true);
             return true;
