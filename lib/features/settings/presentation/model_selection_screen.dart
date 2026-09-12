@@ -695,30 +695,30 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
                         label: const Text('Fast'),
                         backgroundColor: IDPColors.surfaceContainerHigh,
                         onPressed: () => _applyPreset(
-                          maxTokens: 128,
+                          maxTokens: 512,
                           timeoutMs: 60000,
                           systemPrompt:
-                              'You are a concise tutor. Give short, direct answers with one example.',
+                              'You are a clear educational tutor. Give direct answers with examples.',
                         ),
                       ),
                       ActionChip(
                         label: const Text('Balanced'),
                         backgroundColor: IDPColors.surfaceContainerHigh,
                         onPressed: () => _applyPreset(
-                          maxTokens: 256,
+                          maxTokens: 1024,
                           timeoutMs: 120000,
                           systemPrompt:
-                              'You are a helpful tutor. Explain clearly with step-by-step reasoning when needed.',
+                              'You are a helpful tutor. Explain clearly with step-by-step reasoning.',
                         ),
                       ),
                       ActionChip(
                         label: const Text('Deep Explain'),
                         backgroundColor: IDPColors.surfaceContainerHigh,
                         onPressed: () => _applyPreset(
-                          maxTokens: 512,
+                          maxTokens: 2048,
                           timeoutMs: 240000,
                           systemPrompt:
-                              'You are an expert tutor. Provide detailed explanations and structured steps.',
+                              'You are an expert tutor. Provide detailed, comprehensive explanations and structured steps.',
                         ),
                       ),
                     ],

@@ -41,14 +41,14 @@ class LinuxLlmConfig {
     return LinuxLlmConfig(
       modelPath: (json['modelPath'] as String?) ?? '',
       executablePath: (json['executablePath'] as String?) ?? '',
-      maxTokens: (json['maxTokens'] as int?) ?? 512,
+      maxTokens: (json['maxTokens'] as int?) ?? 1024,
     );
   }
 
   static const LinuxLlmConfig defaults = LinuxLlmConfig(
     modelPath: '',
     executablePath: 'llama-cli',
-    maxTokens: 512,
+    maxTokens: 1024,
   );
 }
 

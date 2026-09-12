@@ -2,7 +2,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:vector_math/vector_math_64.dart' as vector;
 
-import '../../../../core/theme/idp_colors.dart';
 import 'math_lab_toolbar.dart';
 
 class MathStudio3DCanvas extends StatefulWidget {
@@ -82,12 +81,43 @@ class _MathStudio3DCanvasState extends State<MathStudio3DCanvas>
   void _handleTap(TapUpDetails details, Size size) {
     if (widget.onTapCanvas == null) return;
 
+    final tapPos = details.localPosition;
     final center = Offset(size.width / 2, size.height / 2);
     final scale = math.min(size.width, size.height) * 0.18 * _zoom;
-    final dx = (details.localPosition.dx - center.dx) / scale;
-    final dy = (center.dy - details.localPosition.dy) / scale;
 
-    // Convert 2D tap coordinate to 3D world coordinate using inverse rotation
+    final transform = vector.Matrix4.identity()
+      ..rotateY(_azimuth)
+      ..rotateX(_elevation);
+
+    Offset project(double x, double y, double z) {
+      final p = transform.transform3(vector.Vector3(x, y, z));
+      return Offset(center.dx + p.x * scale, center.dy - p.z * scale);
+    }
+
+    // 1. Check existing points for picking proximity < 12px
+    for (int i = 0; i < widget.points.length; i++) {
+      final pt = widget.points[i];
+      final screenPt = project(pt.x, pt.y, pt.z);
+      if ((screenPt - tapPos).distance <= 12.0) {
+        widget.onTapCanvas!(pt);
+        return;
+      }
+    }
+
+    // 2. Check existing vectors for picking proximity < 12px
+    for (int i = 0; i < widget.vectors.length; i++) {
+      final vec = widget.vectors[i];
+      final screenVec = project(vec.x, vec.y, vec.z);
+      if ((screenVec - tapPos).distance <= 12.0) {
+        widget.onTapCanvas!(vec);
+        return;
+      }
+    }
+
+    // 3. Fallback to ray-cast project 2D tap coordinate to 3D world coordinate
+    final dx = (tapPos.dx - center.dx) / scale;
+    final dy = (center.dy - tapPos.dy) / scale;
+
     final cosA = math.cos(-_azimuth);
     final sinA = math.sin(-_azimuth);
     final sinE = math.sin(_elevation);
@@ -298,6 +328,9 @@ class _Math3DPainter extends CustomPainter {
     final xAxis = project(3, 0, 0);
     final yAxis = project(0, 3, 0);
     final zAxis = project(0, 0, 3);
+    final xAxisNeg = project(-3, 0, 0);
+    final yAxisNeg = project(0, -3, 0);
+    final zAxisNeg = project(0, 0, -3);
 
     final axisPaint = Paint()
       ..strokeWidth = 2.0
@@ -310,6 +343,32 @@ class _Math3DPainter extends CustomPainter {
     canvas.drawLine(origin, yAxis, axisPaint);
     axisPaint.color = const Color(0xFF38BDF8).withValues(alpha: 0.85);
     canvas.drawLine(origin, zAxis, axisPaint);
+
+    // Negative axes (dashed/dim)
+    axisPaint.color = Colors.redAccent.withValues(alpha: 0.3);
+    canvas.drawLine(origin, xAxisNeg, axisPaint);
+    axisPaint.color = Colors.greenAccent.withValues(alpha: 0.3);
+    canvas.drawLine(origin, yAxisNeg, axisPaint);
+    axisPaint.color = const Color(0xFF38BDF8).withValues(alpha: 0.3);
+    canvas.drawLine(origin, zAxisNeg, axisPaint);
+
+    void drawAxisLabel(String text, Offset pos, Color color) {
+      final tp = TextPainter(
+        text: TextSpan(
+          text: text,
+          style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(canvas, pos + const Offset(4, -8));
+    }
+
+    drawAxisLabel('+X', xAxis, Colors.redAccent);
+    drawAxisLabel('-X', xAxisNeg, Colors.redAccent.withValues(alpha: 0.6));
+    drawAxisLabel('+Y', yAxis, Colors.greenAccent);
+    drawAxisLabel('-Y', yAxisNeg, Colors.greenAccent.withValues(alpha: 0.6));
+    drawAxisLabel('+Z', zAxis, const Color(0xFF38BDF8));
+    drawAxisLabel('-Z', zAxisNeg, const Color(0xFF38BDF8).withValues(alpha: 0.6));
 
     // DRAW 3D SURFACE OR 3D GEOMETRY SOLID
     if (activeTool == MathLabTool.geometry) {
@@ -456,9 +515,6 @@ class _Math3DPainter extends CustomPainter {
       ..color = const Color(0xFF38BDF8)
       ..strokeWidth = 1.8
       ..style = PaintingStyle.stroke;
-    final fillPaint = Paint()
-      ..color = const Color(0xFF4F46E5).withValues(alpha: 0.25)
-      ..style = PaintingStyle.fill;
 
     if (geometryShape == 'cube') {
       final half = r;

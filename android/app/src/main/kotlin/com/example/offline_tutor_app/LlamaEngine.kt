@@ -13,9 +13,9 @@ import java.io.FileOutputStream
 import java.io.File
 
 class LlamaEngine(private val context: Context) {
-    private var maxOutputTokens = 512  // Match reference app behavior for full answers
+    private var maxOutputTokens = 1024  // Allow up to 1024 output tokens by default for detailed answers
     private var maxGenerationDurationMs = 120000  // 120 seconds timeout for phi-2 (30 seconds for tinyllama)
-    private val defaultSystemPrompt = "You are a helpful tutor. Reply once in plain text using 1-3 sentences unless the user asks for details. Do not repeat phrases. Do not produce speaker labels like A:, B:, User:, Assistant:. Do not continue into another turn."
+    private val defaultSystemPrompt = "You are a helpful educational tutor. Provide clear, comprehensive, and accurate explanations. Structure your response logically. Do not repeat phrases. Do not produce speaker labels like A:, B:, User:, Assistant:. Do not continue into another turn."
     private var activeSystemPrompt = defaultSystemPrompt
     private val prefs: SharedPreferences =
         context.getSharedPreferences("offline_tutor_prefs", Context.MODE_PRIVATE)
@@ -93,7 +93,7 @@ class LlamaEngine(private val context: Context) {
         systemPrompt: String?,
     ): Map<String, Any> {
         if (maxTokens != null) {
-            maxOutputTokens = maxTokens.coerceIn(16, 1024)
+            maxOutputTokens = maxTokens.coerceIn(16, 4096)
         }
         if (timeoutMs != null) {
             // 0 disables timeout; otherwise allow up to 10 minutes for slow devices.

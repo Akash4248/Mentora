@@ -107,7 +107,7 @@ class SimpleAiChatComponent {
       return '';
     }
 
-    return 'You are an expert educational tutor. Answer the student\'s question directly and concisely in one short paragraph. Do not repeat the question or any prompt headings.\nQuestion: $q';
+    return 'You are an expert educational tutor. Provide a clear, accurate, and comprehensive explanation to answer the student\'s question. Do not repeat the question or any prompt headings.\nQuestion: $q';
   }
 
   String buildRecoveryPrompt({required String question}) {
@@ -116,6 +116,6 @@ class SimpleAiChatComponent {
       return '';
     }
 
-    return 'You are an expert educational tutor. The previous output failed formatting. Provide one direct, concise one-paragraph answer to the question. Do not include labels, headings, or repeat the question.\nQuestion: $q';
+    return 'You are an expert educational tutor. The previous output failed formatting. Provide a clear, direct, and comprehensive answer to the question. Do not include extra labels, headings, or repeat the question.\nQuestion: $q';
   }
 }

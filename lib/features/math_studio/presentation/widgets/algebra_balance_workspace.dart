@@ -12,22 +12,68 @@ class AlgebraBalanceWorkspace extends StatefulWidget {
       _AlgebraBalanceWorkspaceState();
 }
 
-class _AlgebraBalanceWorkspaceState extends State<AlgebraBalanceWorkspace> {
+class _AlgebraBalanceWorkspaceState extends State<AlgebraBalanceWorkspace>
+    with SingleTickerProviderStateMixin {
   int _leftXCount = 2;
   int _leftUnits = 3;
   int _rightXCount = 0;
   int _rightUnits = 7;
   final double _xValue = 2.0;
 
+  late AnimationController _springController;
+  late Animation<double> _tiltAnimation;
+  double _targetTilt = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _springController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _tiltAnimation = const AlwaysStoppedAnimation(0.0);
+    _updateTilt(animate: false);
+  }
+
+  @override
+  void dispose() {
+    _springController.dispose();
+    super.dispose();
+  }
+
   double get _leftTotalWeight => (_leftXCount * _xValue) + _leftUnits;
   double get _rightTotalWeight => (_rightXCount * _xValue) + _rightUnits;
 
-  double get _tiltAngle {
-    final diff = _rightTotalWeight - _leftTotalWeight;
-    return (diff * 0.05).clamp(-0.3, 0.3);
-  }
+  double get _effectiveTiltAngle =>
+      _springController.isAnimating ? _tiltAnimation.value : _targetTilt;
 
   bool get _isBalanced => (_leftTotalWeight - _rightTotalWeight).abs() < 0.001;
+
+  void _updateTilt({bool animate = true}) {
+    final diff = _rightTotalWeight - _leftTotalWeight;
+    final newTarget = (diff * 0.05).clamp(-0.3, 0.3);
+
+    if (animate) {
+      final start = _effectiveTiltAngle;
+      _targetTilt = newTarget;
+      _tiltAnimation = Tween<double>(
+        begin: start,
+        end: newTarget,
+      ).animate(
+        CurvedAnimation(parent: _springController, curve: Curves.easeOutBack),
+      );
+      _springController.forward(from: 0.0);
+    } else {
+      _targetTilt = newTarget;
+    }
+  }
+
+  void _modifyState(VoidCallback fn) {
+    setState(() {
+      fn();
+      _updateTilt(animate: true);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -96,40 +142,46 @@ class _AlgebraBalanceWorkspaceState extends State<AlgebraBalanceWorkspace> {
 
           // VISUAL BALANCE SCALE CANVAS
           Expanded(
-            child: CustomPaint(
-              painter: _BalanceScalePainter(
-                tiltAngle: _tiltAngle,
-                isDark: isDark,
-              ),
-              child: Stack(
-                children: [
-                  // LEFT PAN WEIGHT BLOCKS
-                  Align(
-                    alignment: Alignment(-0.55 + _tiltAngle * 0.5, 0.2 - _tiltAngle * 0.8),
-                    child: _buildPanContents(
-                      xCount: _leftXCount,
-                      unitCount: _leftUnits,
-                      onAddX: () => setState(() => _leftXCount++),
-                      onRemoveX: () => setState(() => _leftXCount = math.max(0, _leftXCount - 1)),
-                      onAddUnit: () => setState(() => _leftUnits++),
-                      onRemoveUnit: () => setState(() => _leftUnits = math.max(0, _leftUnits - 1)),
-                    ),
+            child: AnimatedBuilder(
+              animation: _springController,
+              builder: (context, _) {
+                final tilt = _effectiveTiltAngle;
+                return CustomPaint(
+                  painter: _BalanceScalePainter(
+                    tiltAngle: tilt,
+                    isDark: isDark,
                   ),
+                  child: Stack(
+                    children: [
+                      // LEFT PAN WEIGHT BLOCKS
+                      Align(
+                        alignment: Alignment(-0.55 + tilt * 0.5, 0.2 - tilt * 0.8),
+                        child: _buildPanContents(
+                          xCount: _leftXCount,
+                          unitCount: _leftUnits,
+                          onAddX: () => _modifyState(() => _leftXCount++),
+                          onRemoveX: () => _modifyState(() => _leftXCount = math.max(0, _leftXCount - 1)),
+                          onAddUnit: () => _modifyState(() => _leftUnits++),
+                          onRemoveUnit: () => _modifyState(() => _leftUnits = math.max(0, _leftUnits - 1)),
+                        ),
+                      ),
 
-                  // RIGHT PAN WEIGHT BLOCKS
-                  Align(
-                    alignment: Alignment(0.55 + _tiltAngle * 0.5, 0.2 + _tiltAngle * 0.8),
-                    child: _buildPanContents(
-                      xCount: _rightXCount,
-                      unitCount: _rightUnits,
-                      onAddX: () => setState(() => _rightXCount++),
-                      onRemoveX: () => setState(() => _rightXCount = math.max(0, _rightXCount - 1)),
-                      onAddUnit: () => setState(() => _rightUnits++),
-                      onRemoveUnit: () => setState(() => _rightUnits = math.max(0, _rightUnits - 1)),
-                    ),
+                      // RIGHT PAN WEIGHT BLOCKS
+                      Align(
+                        alignment: Alignment(0.55 + tilt * 0.5, 0.2 + tilt * 0.8),
+                        child: _buildPanContents(
+                          xCount: _rightXCount,
+                          unitCount: _rightUnits,
+                          onAddX: () => _modifyState(() => _rightXCount++),
+                          onRemoveX: () => _modifyState(() => _rightXCount = math.max(0, _rightXCount - 1)),
+                          onAddUnit: () => _modifyState(() => _rightUnits++),
+                          onRemoveUnit: () => _modifyState(() => _rightUnits = math.max(0, _rightUnits - 1)),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                );
+              },
             ),
           ),
         ],

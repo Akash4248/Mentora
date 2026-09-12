@@ -57,7 +57,7 @@ class _GeogebraEmbeddedViewState extends State<GeogebraEmbeddedView> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.calculate_rounded, size: 56, color: Color(0xFF4F46E5)),
+                const Icon(Icons.view_in_ar_rounded, size: 56, color: Color(0xFF4F46E5)),
                 const SizedBox(height: 16),
                 Text(
                   'GeoGebra Interactive Suite (${widget.initialApp.toUpperCase()})',
@@ -65,25 +65,32 @@ class _GeogebraEmbeddedViewState extends State<GeogebraEmbeddedView> {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Embedded webview is optimized for mobile devices. Open GeoGebra directly in your desktop browser for full 3D performance.',
+                  'Desktop fallback mode active. Use Mentora Native 3D Canvas Engine for offline GPU-accelerated surface rendering.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: IDPColors.onSurfaceVariant),
                 ),
                 const SizedBox(height: 20),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.open_in_new_rounded),
-                  label: const Text('Open GeoGebra Suite'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4F46E5),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                  ),
-                  onPressed: () async {
-                    final uri = Uri.parse(_appUrl);
-                    if (await canLaunchUrl(uri)) {
-                      await launchUrl(uri, mode: LaunchMode.externalApplication);
-                    }
-                  },
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.open_in_new_rounded),
+                      label: const Text('Open Online GeoGebra'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF4F46E5),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      ),
+                      onPressed: () async {
+                        final uri = Uri.parse(_appUrl);
+                        if (await canLaunchUrl(uri)) {
+                          await launchUrl(uri, mode: LaunchMode.externalApplication);
+                        }
+                      },
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -115,7 +122,6 @@ class _GeogebraEmbeddedViewState extends State<GeogebraEmbeddedView> {
                 javaScriptEnabled: true,
                 domStorageEnabled: true,
                 useHybridComposition: true,
-                transparentBackground: true,
               ),
               onWebViewCreated: (controller) {
                 _webViewController = controller;
@@ -147,7 +153,7 @@ class _GeogebraEmbeddedViewState extends State<GeogebraEmbeddedView> {
                     CircularProgressIndicator(color: Color(0xFF4F46E5)),
                     SizedBox(height: 12),
                     Text(
-                      'Loading GeoGebra 3D Calculator Engine...',
+                      'Loading GeoGebra 3D Engine...',
                       style: TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ],
@@ -164,19 +170,19 @@ class _GeogebraEmbeddedViewState extends State<GeogebraEmbeddedView> {
                       const Icon(Icons.wifi_off_rounded, size: 48, color: Colors.orangeAccent),
                       const SizedBox(height: 12),
                       Text(
-                        'GeoGebra Online Engine Unavailable',
+                        'GeoGebra Offline Fallback',
                         style: IDPTypography.titleSmall.copyWith(fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        'Switching to Mentora Native 3D High-Performance Canvas Engine.',
+                        'Unable to reach online GeoGebra suite. Switch to Mentora Native 3D GPU Canvas for offline graphing.',
                         textAlign: TextAlign.center,
                         style: TextStyle(color: IDPColors.onSurfaceVariant),
                       ),
                       const SizedBox(height: 16),
                       ElevatedButton.icon(
                         icon: const Icon(Icons.refresh_rounded),
-                        label: const Text('Retry Connection'),
+                        label: const Text('Retry Web Connection'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF4F46E5),
                           foregroundColor: Colors.white,

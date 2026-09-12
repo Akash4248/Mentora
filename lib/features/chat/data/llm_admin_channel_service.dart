@@ -144,7 +144,7 @@ class LlmAdminChannelService {
     );
 
     return GenerationConfig(
-      maxTokens: response?['maxTokens'] as int? ?? 256,
+      maxTokens: response?['maxTokens'] as int? ?? 1024,
       timeoutMs: response?['timeoutMs'] as int? ?? 120000,
       systemPrompt: response?['systemPrompt'] as String? ?? '',
     );
@@ -175,7 +175,7 @@ class LlmAdminChannelService {
     );
 
     return GenerationConfig(
-      maxTokens: response?['maxTokens'] as int? ?? 256,
+      maxTokens: response?['maxTokens'] as int? ?? 1024,
       timeoutMs: response?['timeoutMs'] as int? ?? 120000,
       systemPrompt: response?['systemPrompt'] as String? ?? '',
     );

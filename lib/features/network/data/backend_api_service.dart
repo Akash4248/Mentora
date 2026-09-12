@@ -109,7 +109,7 @@ class BackendApiService {
     String? context,
     String? systemPrompt,
     String? language,
-    int maxTokens = 512,
+    int maxTokens = 1024,
   }) async {
     final body = <String, dynamic>{
       'question': question,
@@ -155,7 +155,7 @@ class BackendApiService {
     String? context,
     String? systemPrompt,
     String? language,
-    int maxTokens = 512,
+    int maxTokens = 1024,
   }) async* {
     AppEnvironment.log('BACKEND', 'Starting streaming answer request');
 
