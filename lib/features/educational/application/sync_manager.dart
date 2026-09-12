@@ -11,7 +11,9 @@ import '../../../features/network/data/backend_availability_cache.dart';
 import '../../../features/network/domain/endpoint_builder.dart';
 import '../../../features/network/domain/runtime_backend_url.dart';
 import '../../content_packs/application/content_pack_archive_service.dart';
+import '../../content_packs/application/content_pack_sync_service.dart';
 import '../../content_packs/data/local/content_pack_repository.dart';
+
 import '../../course/data/local/app_database.dart';
 import '../../rag/application/pdf_extraction_service.dart';
 import '../../rag/data/local/rag_repository.dart';
@@ -67,67 +69,6 @@ class SyncManager {
         return [];
       }
 
-      AppEnvironment.log('SYNC', '[SyncManager] Checking for pack updates');
-
-      final endpoint = '${_runtimeEndpoints().baseUrl}/packs';
-      print('[URL] SERVICE=SyncManager URL=$endpoint');
-      print('[SYNC] ACTIVE_URL=$endpoint');
-      print('[SYNC] REQUEST_URL=$endpoint');
-      final response = await http
-          .get(
-            Uri.parse(endpoint),
-            headers: {'Content-Type': 'application/json'},
-          )
-          .timeout(const Duration(seconds: 10));
-
-      print('[SYNC_VERIFY] REQUEST_URL=$endpoint');
-      print('[SYNC_VERIFY] HTTP_STATUS=${response.statusCode}');
-      print('[SYNC_VERIFY] RESPONSE_BYTES=${response.bodyBytes.length}');
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final validPacksById = <String, PackSyncEntry>{};
-
-        final packsList = <dynamic>[
-          ...(data['packs'] as List<dynamic>? ?? const <dynamic>[]),
-          ...(data['cached'] as List<dynamic>? ?? const <dynamic>[]),
-        ];
-
-        for (final pkg in packsList) {
-          if (pkg is Map<String, dynamic>) {
-            try {
-              final entry = PackSyncEntry.fromJson(pkg);
-              if (grade != null && entry.grade != grade) {
-                print(
-                  '[SYNC] SKIP_GRADE_MISMATCH packId=${entry.packId} packGrade=${entry.grade} requestedGrade=$grade',
-                );
-                continue;
-              }
-              final existing = validPacksById[entry.packId];
-              if (existing == null ||
-                  _parseVersion(entry.version) >
-                      _parseVersion(existing.version)) {
-                validPacksById[entry.packId] = entry;
-              }
-              if (validPacksById.length <= 5) {
-                print('[SYNC] PACK_ID=${entry.packId}');
-                print('[SYNC] DOWNLOAD_URL=${entry.downloadUrl}');
-              }
-            } catch (e) {
-              AppEnvironment.log(
-                'SYNC',
-                '[SyncManager] Failed to parse pack entry: $e',
-              );
-            }
-          }
-        }
-
-        if (validPacksById.isNotEmpty) {
-          print('[SYNC] PACK_COUNT_RECEIVED=${validPacksById.length}');
-          return validPacksById.values.toList()..sort((a, b) {
-            final gradeA = a.grade ?? 0;
-            final gradeB = b.grade ?? 0;
-            final gradeCompare = gradeA.compareTo(gradeB);
             if (gradeCompare != 0) {
               return gradeCompare;
             }

@@ -257,11 +257,13 @@ class MentoraBackendClient {
   Future<List<Map<String, dynamic>>> _fetchSubjectsFromNetwork(int grade) async {
     try {
       final response = await _client
-          .get('/catalog/subjects?grade=$grade');
+          .get('/packs/catalog');
       if (response.statusCode == 200) {
         final List data = response.data is List
             ? response.data
-            : (response.data is String ? jsonDecode(response.data) : []);
+            : (response.data is Map && response.data['subjects'] is List
+                ? response.data['subjects']
+                : (response.data is String ? jsonDecode(response.data) : []));
         if (data.isNotEmpty) {
           final list = List<Map<String, dynamic>>.from(data);
           _subjectsCache[grade] = list;
@@ -271,6 +273,7 @@ class MentoraBackendClient {
     } on DioException catch (_) {}
     return [];
   }
+
 
   Future<List<Map<String, dynamic>>> _loadSubjectsFromLocalDb(int grade) async {
     try {
@@ -324,11 +327,13 @@ class MentoraBackendClient {
   Future<List<Map<String, dynamic>>> _fetchChaptersFromNetwork(String subjectName, int grade) async {
     try {
       final response = await _client
-          .get('/catalog/chapters?subject=$subjectName&grade=$grade');
+          .get('/packs/catalog');
       if (response.statusCode == 200) {
         final List data = response.data is List
             ? response.data
-            : (response.data is String ? jsonDecode(response.data) : []);
+            : (response.data is Map && response.data['chapters'] is List
+                ? response.data['chapters']
+                : (response.data is String ? jsonDecode(response.data) : []));
         final list = List<Map<String, dynamic>>.from(data);
         if (list.isNotEmpty) {
           final key = '${grade}_${subjectName.toLowerCase().trim()}';
@@ -340,6 +345,7 @@ class MentoraBackendClient {
     } on DioException catch (_) {}
     return [];
   }
+
 
   Future<List<Map<String, dynamic>>> _loadChaptersFromLocalDb(String subjectName, int grade) async {
     try {

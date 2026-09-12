@@ -71,10 +71,16 @@ class EndpointBuilder {
   /// POST /ingest/validate - Validate ingest operation
   String get ingestValidate => '$baseUrl/ingest/validate';
 
-  // ===== Educational Pack Endpoints =====
+  // ===== Educational Pack & Catalog Endpoints =====
+  
+  /// GET /packs/catalog - List available subjects & catalog
+  String get catalogSubjects => '$baseUrl/packs/catalog';
+
+  /// GET /packs/catalog - List available chapters & catalog
+  String get catalogChapters => '$baseUrl/packs/catalog';
 
   /// GET /packs/list - List available educational packs
-  String get packsList => '$baseUrl/packs/list';
+  String get packsList => '$baseUrl/packs';
 
   /// GET /packs/catalog - Educational pack catalog
   String get packsCatalog => '$baseUrl/packs/catalog';
@@ -86,7 +92,7 @@ class EndpointBuilder {
   String get packsSync => '$baseUrl/packs/sync';
 
   /// GET /packs/download - Download educational pack
-  String get packsDownload => '$baseUrl/packs/download';
+  String get packsDownload => '$baseUrl/packs';
 
   /// POST /packs/validate - Validate pack integrity
   String get packsValidate => '$baseUrl/packs/validate';
@@ -104,20 +110,21 @@ class EndpointBuilder {
 
   // ===== Curriculum Endpoints =====
 
-  /// GET /curriculum/grades - List available grades
-  String get curriculumGrades => '$baseUrl/curriculum/grades';
+  /// GET /packs/catalog - List available grades
+  String get curriculumGrades => '$baseUrl/packs/catalog';
 
-  /// GET /curriculum/subjects - List subjects for grade
-  String get curriculumSubjects => '$baseUrl/curriculum/subjects';
+  /// GET /packs/catalog - List subjects for grade
+  String get curriculumSubjects => '$baseUrl/packs/catalog';
 
-  /// GET /curriculum/chapters - List chapters for subject
-  String get curriculumChapters => '$baseUrl/curriculum/chapters';
+  /// GET /packs/catalog - List chapters for subject
+  String get curriculumChapters => '$baseUrl/packs/catalog';
 
-  /// GET /curriculum/concepts - List concepts for chapter
-  String get curriculumConcepts => '$baseUrl/curriculum/concepts';
+  /// GET /packs/catalog - List concepts for chapter
+  String get curriculumConcepts => '$baseUrl/packs/catalog';
 
-  /// GET /curriculum/content - Get detailed curriculum content
-  String get curriculumContent => '$baseUrl/curriculum/content';
+  /// GET /packs/catalog - Get detailed curriculum content
+  String get curriculumContent => '$baseUrl/packs/catalog';
+
 
   // ===== Assessment Endpoints =====
 
