@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/idp_colors.dart';
 import '../../../core/theme/idp_typography.dart';
+import '../application/markdown_format_normalizer.dart';
 
 class FormattedTextWidget extends StatelessWidget {
   final String text;
@@ -14,7 +15,8 @@ class FormattedTextWidget extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    final lines = text.split('\n');
+    final normalizedText = MarkdownFormatNormalizer.normalize(text);
+    final lines = normalizedText.split('\n');
     final List<Widget> children = [];
 
     List<String> currentList = [];

@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../data/backend_availability_cache.dart';
 import '../domain/runtime_backend_url.dart';
 import '../../settings/services/user_api_key_service.dart';
+import '../../chat/application/markdown_format_normalizer.dart';
 import '../../chat/application/reasoning_output_filter.dart';
 import '../../chat/data/local/linux_llm_config_service.dart';
 import '../../chat/data/platform_tutor_inference_gateway.dart';
@@ -759,6 +760,7 @@ $question
 
       var fullAnswer = ReasoningOutputFilter.stripComplete(rawBuffer.toString());
       fullAnswer = _deduplicateTopicHeaders(fullAnswer, tClean);
+      fullAnswer = MarkdownFormatNormalizer.normalize(fullAnswer);
 
       if (fullAnswer.isNotEmpty) {
         final formattedAnswer = fullAnswer.startsWith('###')
