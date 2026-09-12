@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:path_provider/path_provider.dart';
 
@@ -46,12 +47,29 @@ class LinuxLlmConfig {
 
   static const LinuxLlmConfig defaults = LinuxLlmConfig(
     modelPath: '',
-    executablePath: '/home/akash/Desktop/IDP/llama.cpp/build/bin/llama-cli',
+    executablePath: 'llama-cli',
     maxTokens: 512,
   );
 }
 
 class LinuxLlmConfigService {
+  Future<bool> isValidGgufHeader(String modelPath) async {
+    try {
+      final file = File(modelPath);
+      if (!await file.exists() || await file.length() < 4) return false;
+      final handle = await file.open(mode: FileMode.read);
+      final header = await handle.read(4);
+      await handle.close();
+      return header.length == 4 &&
+          header[0] == 0x47 &&
+          header[1] == 0x47 &&
+          header[2] == 0x55 &&
+          header[3] == 0x46;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<LinuxLlmConfig> load() async {
     try {
       final file = await _configFile();
@@ -176,7 +194,7 @@ class LinuxLlmConfigService {
 
     for (final candidate in candidates) {
       final file = File(candidate);
-      if (await file.exists() && await file.length() > 0) {
+      if (await file.exists() && await file.length() > 0 && await isValidGgufHeader(candidate)) {
         return candidate;
       }
     }
@@ -184,8 +202,8 @@ class LinuxLlmConfigService {
     return null;
   }
 
-  /// Copies the selected model file into the app support directory to
-  /// improve local access performance. Returns the new model path.
+  /// Copies the selected model file into the app support directory in a background isolate
+  /// to prevent UI thread freezing on multi-GB files. Returns the new model path.
   Future<String> copyModelToAppStorage(String modelPath) async {
     final src = File(modelPath);
     if (!await src.exists()) {
@@ -195,9 +213,14 @@ class LinuxLlmConfigService {
     final dir = await getApplicationSupportDirectory();
     final modelsDir = Directory('${dir.path}/models');
     await modelsDir.create(recursive: true);
-    final dest = File('${modelsDir.path}/${src.uri.pathSegments.last}');
-    await src.copy(dest.path);
-    return dest.path;
+    final destPath = '${modelsDir.path}/${src.uri.pathSegments.last}';
+
+    await Isolate.run(() async {
+      final sourceFile = File(modelPath);
+      await sourceFile.copy(destPath);
+    });
+
+    return destPath;
   }
 
   Future<LinuxLlmValidationResult> validate(LinuxLlmConfig config) async {
@@ -235,6 +258,13 @@ class LinuxLlmConfigService {
       return LinuxLlmValidationResult(
         ready: false,
         message: 'Model file not found: $modelPath',
+      );
+    }
+
+    if (!await isValidGgufHeader(modelPath)) {
+      return LinuxLlmValidationResult(
+        ready: false,
+        message: 'Selected model is not a valid GGUF file (invalid header): $modelPath',
       );
     }
 

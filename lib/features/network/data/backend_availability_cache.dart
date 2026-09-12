@@ -13,7 +13,7 @@ class BackendAvailabilityCache {
   bool _isAvailable = false;
   String? _cachedUrl;
   DateTime? _lastChecked;
-  final Duration _cacheDuration = const Duration(minutes: 5);
+  final Duration _cacheDuration = const Duration(seconds: 30);
 
   final ValueNotifier<bool> statusNotifier = ValueNotifier<bool>(false);
   final StreamController<bool> _statusController = StreamController<bool>.broadcast();

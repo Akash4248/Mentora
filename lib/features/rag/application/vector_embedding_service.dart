@@ -10,6 +10,8 @@ class VectorEmbeddingService {
   final List<String> _vocabulary = []; // Ordered vocabulary
   final int _minTermFreq = 2; // Minimum documents containing term for inclusion
 
+  bool get isVocabularyEmpty => _vocabulary.isEmpty;
+
   /// Initialize vocabulary and IDF from corpus of chunks
   Future<void> initializeVocabulary(List<ChunkV2> trainingChunks) async {
     if (trainingChunks.isEmpty) return;

@@ -17,22 +17,30 @@ class OfflineSpeechService {
   bool _isSpeaking = false;
   bool get isSpeaking => _isSpeaking;
 
-  /// Transcribe audio from recorded WAV file or provide offline speech recognition fallback.
+  /// Transcribe audio from recorded WAV file using native STT engine.
   Future<String> transcribeAudioFile(String wavPath, {String languageCode = 'en'}) async {
     final file = File(wavPath);
     if (!await file.exists()) {
       return '';
     }
 
-    // In offline mode, if audio file is populated, read audio metadata or return prompt
     try {
       final size = await file.length();
       if (size < 100) {
         return '';
       }
-      return 'Explain chapter concept in simple terms';
+      try {
+        final result = await _ttsChannel.invokeMethod<String>('transcribe', {
+          'wavPath': wavPath,
+          'language': languageCode,
+        });
+        if (result != null && result.isNotEmpty) {
+          return result;
+        }
+      } catch (_) {}
+      return '';
     } catch (_) {
-      return 'Help me understand this lesson';
+      return '';
     }
   }
 

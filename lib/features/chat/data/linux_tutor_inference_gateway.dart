@@ -163,7 +163,7 @@ class LinuxTutorInferenceGateway implements TutorInferenceGateway {
     try {
       final result = await Process.run(executable, const <String>[
         '--help',
-      ], runInShell: false);
+      ], runInShell: false).timeout(const Duration(seconds: 3));
       final help = '${result.stdout}\n${result.stderr}'.toLowerCase();
       final detected = _LlamaCliCapabilities(
         supportsLongPrompt: help.contains('--prompt'),

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 
+import 'ffi_tutor_inference_gateway.dart';
 import 'linux_tutor_inference_gateway.dart';
 import 'tutor_inference_gateway.dart';
 
@@ -9,6 +10,8 @@ class PlatformTutorInferenceGateway implements TutorInferenceGateway {
   static const MethodChannel _channel = MethodChannel('offline_tutor/llm');
   static const EventChannel _streamChannel = EventChannel('offline_tutor/llm_stream');
   static const EventChannel _metricsChannel = EventChannel('offline_tutor/llm_metrics');
+  
+  final FfiTutorInferenceGateway _ffiGateway = FfiTutorInferenceGateway();
   final LinuxTutorInferenceGateway _linuxGateway = LinuxTutorInferenceGateway();
 
   @override
@@ -17,9 +20,15 @@ class PlatformTutorInferenceGateway implements TutorInferenceGateway {
     print('[DIAGNOSTICS] GENERATION_START (PLATFORM)');
     Stream<String> sourceStream;
 
-    if (Platform.isLinux) {
+    final ffiReady = await _ffiGateway.isAvailable();
+    if (ffiReady) {
+      print('[DIAGNOSTICS] Routing through FfiTutorInferenceGateway');
+      sourceStream = _ffiGateway.streamResponse(prompt: prompt);
+    } else if (Platform.isLinux) {
+      print('[DIAGNOSTICS] Routing through LinuxTutorInferenceGateway (llama-cli process)');
       sourceStream = _linuxGateway.streamResponse(prompt: prompt);
     } else {
+      print('[DIAGNOSTICS] Routing through MethodChannel (LlamaEngine.kt)');
       sourceStream = _streamChannel
           .receiveBroadcastStream(<String, dynamic>{'question': prompt})
           .where((event) => event is String)
@@ -62,6 +71,11 @@ class PlatformTutorInferenceGateway implements TutorInferenceGateway {
 
   @override
   Future<void> stopGeneration() async {
+    if (await _ffiGateway.isAvailable()) {
+      await _ffiGateway.stopGeneration();
+      return;
+    }
+
     if (Platform.isLinux) {
       await _linuxGateway.stopGeneration();
       return;
@@ -70,3 +84,4 @@ class PlatformTutorInferenceGateway implements TutorInferenceGateway {
     await _channel.invokeMethod<Map<dynamic, dynamic>>('stopGeneration');
   }
 }
+

@@ -5,6 +5,7 @@ import 'package:offline_tutor_app/features/chat/application/conversation_memory_
 import 'package:offline_tutor_app/features/chat/data/local/chat_session_repository.dart';
 import 'package:offline_tutor_app/features/chat/data/local/chat_memory_policy_repository.dart';
 import 'package:offline_tutor_app/features/chat/domain/tutor_message.dart';
+import 'package:offline_tutor_app/features/course/data/local/app_database.dart';
 import 'package:offline_tutor_app/features/network/services/mentora_backend_client.dart';
 import 'package:offline_tutor_app/main.dart' as app;
 
@@ -39,6 +40,12 @@ Acceleration is the rate of change of velocity.
     testWidgets('ChatSessionRepository persists messages and prevents duplicate placeholder pollution', (WidgetTester tester) async {
       final repo = ChatSessionRepository();
       const testSessionId = 'test_session_chapter_motion_9';
+      final db = await AppDatabase.instance.database;
+      await db.execute("INSERT OR IGNORE INTO courses (id, name) VALUES ('c1', 'Physics 9')");
+      await db.execute("INSERT OR IGNORE INTO subjects (id, course_id, name) VALUES ('s1', 'c1', 'Physics')");
+      await db.execute(
+        "INSERT OR IGNORE INTO chapters (id, subject_id, title, summary) VALUES ('motion_ch1', 's1', 'Motion', 'Intro to Motion')",
+      );
 
       await repo.ensureSessionExists(sessionId: testSessionId, chapterId: 'motion_ch1');
       await repo.clearMessages(testSessionId);

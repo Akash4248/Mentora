@@ -283,27 +283,35 @@ class RagRepository {
       );
     }
 
-    // ── Task C: Try FTS first, fall back to LIKE ──
+    // ── Task C: Try FTS first (rag_chunks_v2_fts primary, rag_chunks_fts secondary), fall back to LIKE ──
     try {
-      // Attempt FTS query via rag_chunks_fts
       final ftsQuery = cleanedWords.isEmpty
           ? query.trim()
-          : cleanedWords.map((w) => '$w*').join(' ');
+          : cleanedWords.map((w) => '$w*').join(' OR ');
 
-      final ftsRows = await db.rawQuery(
-        '''
-        SELECT rc.id, rc.chapter_id, rc.source_title, rc.chunk_order, rc.content, -1.0 as score
-        FROM rag_chunks rc
-        INNER JOIN rag_chunks_fts fts ON fts.id = rc.id
-        WHERE fts.chapter_id = ?
-          AND rag_chunks_fts MATCH ?
-        ORDER BY rc.created_at DESC, rc.chunk_order ASC
-        LIMIT ?
-        ''',
-        [chapterId, ftsQuery, limit],
-      );
+      final String v2FtsSql = chapterId.isEmpty
+          ? '''
+            SELECT rc.id, rc.chapter_id, rc.source_title, rc.chunk_order, rc.content, 1.0 as score
+            FROM rag_chunks_v2 rc
+            INNER JOIN rag_chunks_v2_fts fts ON fts.id = rc.id
+            WHERE rag_chunks_v2_fts MATCH ?
+            ORDER BY rc.created_at DESC, rc.chunk_order ASC
+            LIMIT ?
+            '''
+          : '''
+            SELECT rc.id, rc.chapter_id, rc.source_title, rc.chunk_order, rc.content, 1.0 as score
+            FROM rag_chunks_v2 rc
+            INNER JOIN rag_chunks_v2_fts fts ON fts.id = rc.id
+            WHERE rc.chapter_id = ?
+              AND rag_chunks_v2_fts MATCH ?
+            ORDER BY rc.created_at DESC, rc.chunk_order ASC
+            LIMIT ?
+            ''';
 
-      print('[RETRIEVAL] MODE=FTS');
+      final v2Args = chapterId.isEmpty ? [ftsQuery, limit] : [chapterId, ftsQuery, limit];
+      final ftsRows = await db.rawQuery(v2FtsSql, v2Args);
+
+      print('[RETRIEVAL] MODE=FTS_V2');
       print('[LOCAL_RAG] FTS_QUERY=$ftsQuery');
 
       final chunks = ftsRows
@@ -409,14 +417,14 @@ class RagRepository {
       final rows = await db.rawQuery(
         '''
         SELECT rc.id, rc.chapter_id, rc.source_title, rc.chunk_order, rc.content
-        FROM rag_chunks rc
-        INNER JOIN rag_chunks_fts fts ON fts.id = rc.id
-        WHERE fts.chapter_id = ?
-          AND rag_chunks_fts MATCH ?
+        FROM rag_chunks_v2 rc
+        INNER JOIN rag_chunks_v2_fts fts ON fts.id = rc.id
+        WHERE (${chapterId.trim().isEmpty ? '1=1' : 'fts.chapter_id = ?'})
+          AND rag_chunks_v2_fts MATCH ?
         ORDER BY rc.created_at DESC, rc.chunk_order ASC
         LIMIT ?
         ''',
-        [chapterId, normalizedQuery, limit],
+        chapterId.trim().isEmpty ? [normalizedQuery, limit] : [chapterId, normalizedQuery, limit],
       );
 
       final chunks = rows
@@ -430,25 +438,50 @@ class RagRepository {
             ),
           )
           .toList();
-          
+
+      if (chunks.isNotEmpty) {
+        stopwatch.stop();
+        print('[DIAGNOSTICS] RAG_SEARCH_END');
+        print('[DIAGNOSTICS] RAG_CHUNK_COUNT=${chunks.length}');
+        return chunks;
+      }
+    } catch (_) {}
+
+    try {
+      final rows = await db.rawQuery(
+        '''
+        SELECT rc.id, rc.chapter_id, rc.source_title, rc.chunk_order, rc.content
+        FROM rag_chunks rc
+        INNER JOIN rag_chunks_fts fts ON fts.id = rc.id
+        WHERE (${chapterId.trim().isEmpty ? '1=1' : 'fts.chapter_id = ?'})
+          AND rag_chunks_fts MATCH ?
+        ORDER BY rc.created_at DESC, rc.chunk_order ASC
+        LIMIT ?
+        ''',
+        chapterId.trim().isEmpty ? [normalizedQuery, limit] : [chapterId, normalizedQuery, limit],
+      );
+
+      final chunks = rows
+          .map(
+            (row) => RagChunk(
+              id: row['id'] as String,
+              chapterId: row['chapter_id'] as String,
+              sourceTitle: row['source_title'] as String,
+              chunkOrder: row['chunk_order'] as int,
+              content: row['content'] as String,
+            ),
+          )
+          .toList();
+
       stopwatch.stop();
       print('[DIAGNOSTICS] RAG_SEARCH_END');
       print('[DIAGNOSTICS] RAG_CHUNK_COUNT=${chunks.length}');
-      final contextChars = chunks.fold<int>(0, (sum, c) => sum + c.content.length);
-      print('[DIAGNOSTICS] RAG_CONTEXT_CHARS=$contextChars');
-      print('[DIAGNOSTICS] RAG_SOURCE=LOCAL_SQLITE');
-      print('[DIAGNOSTICS] RAG_DURATION_MS=${stopwatch.elapsedMilliseconds}');
-      
       return chunks;
     } catch (_) {
       final chunks = await getChunksForChapter(chapterId);
       stopwatch.stop();
       print('[DIAGNOSTICS] RAG_SEARCH_END');
       print('[DIAGNOSTICS] RAG_CHUNK_COUNT=${chunks.length}');
-      final contextChars = chunks.fold<int>(0, (sum, c) => sum + c.content.length);
-      print('[DIAGNOSTICS] RAG_CONTEXT_CHARS=$contextChars');
-      print('[DIAGNOSTICS] RAG_SOURCE=LOCAL_SQLITE_FALLBACK');
-      print('[DIAGNOSTICS] RAG_DURATION_MS=${stopwatch.elapsedMilliseconds}');
       return chunks;
     }
   }

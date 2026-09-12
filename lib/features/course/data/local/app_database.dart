@@ -17,7 +17,7 @@ class AppDatabase {
 
     _database = await openDatabase(
       fullPath,
-      version: 19,
+      version: 20,
       singleInstance: true,
       onConfigure: (db) async {
         // Enable WAL for better concurrent read performance (write-heavy workloads)
@@ -32,6 +32,7 @@ class AppDatabase {
         await _createRagTables(db);
         await _createRagFtsArtifacts(db);
         await _createRagV2Tables(db);
+        await _createRagV2FtsArtifacts(db);
         await _createEmbeddingMetadataTable(db);
         await _createStageThreeTables(db);
         await _createP2PTables(db);
@@ -50,7 +51,7 @@ class AppDatabase {
       onUpgrade: (db, oldVersion, newVersion) async {
         // Migrations must run in ascending version order.
         // Each block is guarded by oldVersion < N so that upgrading across
-        // multiple versions (e.g. v1→v19) runs every intermediate step.
+        // multiple versions (e.g. v1→v20) runs every intermediate step.
         if (oldVersion < 2) {
           await _createRagTables(db);
         }
@@ -83,6 +84,7 @@ class AppDatabase {
         }
         if (oldVersion < 8) {
           await _createRagV2Tables(db);
+          await _createRagV2FtsArtifacts(db);
         }
         if (oldVersion < 9) {
           await _createMediaResourcesTable(db);
@@ -119,6 +121,9 @@ class AppDatabase {
         }
         if (oldVersion < 19) {
           await _createChapterVideoResourcesTable(db);
+        }
+        if (oldVersion < 20) {
+          await _createRagV2FtsArtifacts(db);
         }
       },
     );
@@ -243,8 +248,45 @@ class AppDatabase {
       CREATE INDEX IF NOT EXISTS idx_chunks_v2_type
       ON rag_chunks_v2(content_type);
     ''');
+  }
 
-    // FTS4 not supported on this system - using LIKE queries instead
+  Future<void> _createRagV2FtsArtifacts(Database db) async {
+    try {
+      await db.execute('''
+        CREATE VIRTUAL TABLE IF NOT EXISTS rag_chunks_v2_fts 
+        USING fts4(id UNINDEXED, chapter_id UNINDEXED, content)
+      ''');
+
+      await db.execute('''
+        CREATE TRIGGER IF NOT EXISTS trig_rag_chunks_v2_ai
+        AFTER INSERT ON rag_chunks_v2
+        BEGIN
+          INSERT INTO rag_chunks_v2_fts(id, chapter_id, content)
+          VALUES (new.id, new.chapter_id, new.content);
+        END;
+      ''');
+
+      await db.execute('''
+        CREATE TRIGGER IF NOT EXISTS trig_rag_chunks_v2_au
+        AFTER UPDATE ON rag_chunks_v2
+        BEGIN
+          UPDATE rag_chunks_v2_fts
+          SET chapter_id = new.chapter_id, content = new.content
+          WHERE id = old.id;
+        END;
+      ''');
+
+      await db.execute('''
+        CREATE TRIGGER IF NOT EXISTS trig_rag_chunks_v2_ad
+        AFTER DELETE ON rag_chunks_v2
+        BEGIN
+          DELETE FROM rag_chunks_v2_fts WHERE id = old.id;
+        END;
+      ''');
+      print('[FTS] AppDatabase RAG_V2_FTS_STATUS=ok');
+    } catch (e) {
+      print('[FTS] AppDatabase RAG_V2_FTS_STATUS=degraded error=$e');
+    }
   }
 
   Future<void> _createEmbeddingMetadataTable(Database db) async {
