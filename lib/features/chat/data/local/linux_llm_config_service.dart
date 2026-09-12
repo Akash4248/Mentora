@@ -115,6 +115,52 @@ class LinuxLlmConfigService {
     return null;
   }
 
+  Future<String?> autoDetectModelPath() async {
+    final candidates = <String>[
+      '/home/akash/Desktop/PIHUB/backend/inference-service/models/phi-2.Q4_K_M.gguf',
+      '/home/akash/Desktop/NOTIMP/pihub/backend/inference-service/models/model.gguf',
+    ];
+
+    try {
+      final appSupport = await getApplicationSupportDirectory();
+      final modelsDir = Directory('${appSupport.path}/models');
+      if (await modelsDir.exists()) {
+        final files = modelsDir.listSync().whereType<File>();
+        for (final f in files) {
+          if (f.path.toLowerCase().contains('gguf')) {
+            candidates.add(f.path);
+          }
+        }
+      }
+
+      final appDocs = await getApplicationDocumentsDirectory();
+      final docsModelsDir = Directory('${appDocs.path}/models');
+      if (await docsModelsDir.exists()) {
+        final files = docsModelsDir.listSync().whereType<File>();
+        for (final f in files) {
+          if (f.path.toLowerCase().contains('gguf')) {
+            candidates.add(f.path);
+          }
+        }
+      }
+
+      final home = Platform.environment['HOME'];
+      if (home != null) {
+        candidates.add('$home/Downloads/qwen2.5-1.5b-instruct-q4_k_m.gguf');
+        candidates.add('$home/models/model.gguf');
+      }
+    } catch (_) {}
+
+    for (final candidate in candidates) {
+      final file = File(candidate);
+      if (await file.exists() && await file.length() > 0) {
+        return candidate;
+      }
+    }
+
+    return null;
+  }
+
   /// Copies the selected model file into the app support directory to
   /// improve local access performance. Returns the new model path.
   Future<String> copyModelToAppStorage(String modelPath) async {
@@ -132,22 +178,26 @@ class LinuxLlmConfigService {
   }
 
   Future<LinuxLlmValidationResult> validate(LinuxLlmConfig config) async {
-    final executable = config.executablePath.trim();
-    final modelPath = config.modelPath.trim();
+    var executable = config.executablePath.trim();
+    var modelPath = config.modelPath.trim();
 
-    if (executable.isEmpty) {
+    var resolvedExecutable = await _resolveExecutable(executable);
+    if (resolvedExecutable == null) {
+      resolvedExecutable = await autoDetectExecutable();
+    }
+
+    if (resolvedExecutable == null) {
       return const LinuxLlmValidationResult(
         ready: false,
         message: 'Select llama runner binary first (llama-completion or llama-cli).',
       );
     }
 
-    final resolvedExecutable = await _resolveExecutable(executable);
-    if (resolvedExecutable == null) {
-      return LinuxLlmValidationResult(
-        ready: false,
-        message: 'Binary not found or not executable: $executable',
-      );
+    if (modelPath.isEmpty || !await File(modelPath).exists()) {
+      final autoModel = await autoDetectModelPath();
+      if (autoModel != null) {
+        modelPath = autoModel;
+      }
     }
 
     if (modelPath.isEmpty) {

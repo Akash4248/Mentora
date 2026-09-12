@@ -8,7 +8,9 @@ import '../../../core/theme/idp_colors.dart';
 import '../../../core/widgets/idp_core_widgets.dart';
 import '../../../l10n/app_localizations.dart';
 
+import '../../chat/data/local/linux_llm_config_service.dart';
 import '../../chat/data/llm_admin_channel_service.dart';
+import '../services/user_api_key_service.dart';
 
 class ModelSelectionScreen extends StatefulWidget {
   const ModelSelectionScreen({super.key});
@@ -26,6 +28,7 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
   ModelMetadata? _metadata;
   GenerationConfig? _generationConfig;
   EngineStatus? _engineStatus;
+  LinuxLlmConfig? _linuxConfig;
 
   bool _loading = true;
   bool _updatingModelPath = false;
@@ -62,6 +65,10 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
       final metadata = await _service.getModelMetadata();
       final config = await _service.getGenerationConfig();
       final status = await _service.getEngineStatus();
+      LinuxLlmConfig? linuxCfg;
+      if (Platform.isLinux) {
+        linuxCfg = await LinuxLlmConfigService().load();
+      }
 
       if (!mounted) {
         return;
@@ -71,6 +78,7 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
         _metadata = metadata;
         _generationConfig = config;
         _engineStatus = status;
+        _linuxConfig = linuxCfg;
         _maxTokensController.text = config.maxTokens.toString();
         _timeoutMsController.text = config.timeoutMs.toString();
         _systemPromptController.text = config.systemPrompt;
@@ -117,12 +125,13 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
         return;
       }
 
-      if (!path.toLowerCase().endsWith('.gguf')) {
+      final lower = path.toLowerCase();
+      if (!lower.endsWith('.gguf') && !lower.endsWith('.bin') && !lower.contains('gguf') && !lower.contains('ggml')) {
         if (!mounted) {
           return;
         }
         setState(() {
-          _error = 'Please select a .gguf model file.';
+          _error = 'Selected file may not be a valid .gguf model file ($path).';
           _updatingModelPath = false;
         });
         return;
@@ -134,7 +143,7 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
           return;
         }
         setState(() {
-          _error = 'Model path was rejected by native engine. Ensure it is a readable .gguf file.';
+          _error = 'Model path was rejected. Ensure the model file exists and is readable ($path).';
           _updatingModelPath = false;
         });
         return;
@@ -146,7 +155,7 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
         return;
       }
       setState(() {
-        _error = 'Updating model path is not supported on this platform yet. Currently implemented on Android.';
+        _error = 'Updating model path is not supported on this platform.';
       });
     } on PlatformException catch (e) {
       if (!mounted) {
@@ -160,6 +169,67 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
         setState(() {
           _updatingModelPath = false;
         });
+      }
+    }
+  }
+
+  Future<void> _pickAndSetLinuxExecutable() async {
+    try {
+      final picked = await FilePicker.pickFiles(
+        type: FileType.any,
+        allowMultiple: false,
+      );
+      final path = picked?.files.single.path;
+      if (path != null && path.isNotEmpty) {
+        final configService = LinuxLlmConfigService();
+        await configService.update(executablePath: path);
+        await _load();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Updated Linux runner executable: $path')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _error = 'Failed to select runner executable: $e');
+      }
+    }
+  }
+
+  Future<void> _autoDetectLinuxModelAndBinary() async {
+    try {
+      final configService = LinuxLlmConfigService();
+      final exe = await configService.autoDetectExecutable();
+      final model = await configService.autoDetectModelPath();
+      if (exe != null || model != null) {
+        await configService.update(
+          executablePath: exe,
+          modelPath: model,
+        );
+        if (model != null) {
+          final userApiKeyService = await UserApiKeyService.getInstance();
+          final fileName = File(model).uri.pathSegments.last;
+          await userApiKeyService.setGgufModelName(fileName);
+        }
+        await _load();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Auto-detected: ${model != null ? File(model).uri.pathSegments.last : 'No model'} (${exe ?? 'No binary'})',
+              ),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          setState(() => _error = 'No GGUF models or llama binaries found in default paths.');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _error = 'Auto-detect error: $e');
       }
     }
   }
@@ -541,6 +611,34 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
                         : const Icon(Icons.folder_open_rounded, color: IDPColors.primary),
                     label: Text('Pick Local .gguf File', style: IDPTypography.labelLarge.copyWith(color: IDPColors.primary)),
                   ),
+                  if (Platform.isLinux) ...[
+                    const SizedBox(height: IDPSpacing.sm),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _pickAndSetLinuxExecutable,
+                            style: OutlinedButton.styleFrom(
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(IDPRadius.defaultRadius)),
+                            ),
+                            icon: const Icon(Icons.terminal_rounded, size: 18),
+                            label: const Text('Pick Runner Binary'),
+                          ),
+                        ),
+                        const SizedBox(width: IDPSpacing.sm),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _autoDetectLinuxModelAndBinary,
+                            style: OutlinedButton.styleFrom(
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(IDPRadius.defaultRadius)),
+                            ),
+                            icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+                            label: const Text('Auto-Detect Models'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: IDPSpacing.sm),
                   Row(
                     children: [
