@@ -91,7 +91,7 @@ class LinuxTutorInferenceGateway implements TutorInferenceGateway {
       (chunk) {
         if (chunk.isEmpty) return;
         final cleaned = chunk.replaceAll(_ansiEscape, '');
-        if (cleaned.isNotEmpty && !merged.isClosed) {
+        if (cleaned.isNotEmpty && !_isLlamaLogChunk(cleaned) && !merged.isClosed) {
           merged.add(cleaned);
         }
       },
@@ -102,20 +102,18 @@ class LinuxTutorInferenceGateway implements TutorInferenceGateway {
       },
     );
 
-    // Capture stderr continuously: buffer it for error reporting and forward
-    // cleaned content so token output that lands on stderr still reaches the UI.
+    // Capture stderr continuously for diagnostic logs and error reporting.
+    // We log it to the console buffer, but DO NOT yield stderr lines into
+    // the chat UI stream so initialization telemetry never leaks into user bubbles.
     process.stderr.transform(utf8.decoder).listen(
       (chunk) {
         if (chunk.isEmpty) return;
         stderrBuffer.write(chunk);
         final cleaned = chunk.replaceAll(_ansiEscape, '');
         if (cleaned.isNotEmpty) {
-          // Print diagnostics so we can see why UI might be waiting forever.
+          // Print diagnostics to console for developer troubleshooting.
           // ignore: avoid_print
           print('[LLAMA STDERR] ${cleaned.trim()}');
-          if (!merged.isClosed) {
-            merged.add(cleaned);
-          }
         }
       },
       onError: merged.addError,
@@ -312,6 +310,28 @@ class LinuxTutorInferenceGateway implements TutorInferenceGateway {
     } finally {
       _activeProcess = null;
     }
+  }
+
+  static bool _isLlamaLogChunk(String chunk) {
+    final lower = chunk.toLowerCase().trim();
+    if (lower.isEmpty) return true;
+    return lower.startsWith('build:') ||
+        lower.startsWith('main:') ||
+        lower.startsWith('llama_') ||
+        lower.startsWith('common_') ||
+        lower.startsWith('print_info:') ||
+        lower.startsWith('load_tensors:') ||
+        lower.startsWith('sched_reserve:') ||
+        lower.startsWith('system_info:') ||
+        lower.startsWith('sampler ') ||
+        lower.startsWith('generate:') ||
+        lower.startsWith('load:') ||
+        lower.startsWith('cpu_mapped') ||
+        lower.startsWith('cpu_repack') ||
+        lower.startsWith('memory breakdown') ||
+        lower.startsWith('[llama stderr]') ||
+        lower.contains('fitting params to device memory') ||
+        lower.contains('loaded meta data with');
   }
 }
 

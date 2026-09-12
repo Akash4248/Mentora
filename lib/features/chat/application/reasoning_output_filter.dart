@@ -190,6 +190,19 @@ class ReasoningOutputFilter {
         lower.startsWith('tutor answer:') ||
         lower.startsWith('user query:') ||
         lower.startsWith('[source') ||
+        lower.startsWith('build:') ||
+        lower.startsWith('main:') ||
+        lower.startsWith('llama_') ||
+        lower.startsWith('common_') ||
+        lower.startsWith('print_info:') ||
+        lower.startsWith('load_tensors:') ||
+        lower.startsWith('sched_reserve:') ||
+        lower.startsWith('system_info:') ||
+        lower.startsWith('sampler ') ||
+        lower.startsWith('generate:') ||
+        lower.startsWith('load:') ||
+        lower.contains('fitting params to device memory') ||
+        lower.contains('loaded meta data with') ||
         lower.startsWith('you are an expert') ||
         lower.startsWith('you are a helpful') ||
         lower.startsWith('you are an educational') ||
