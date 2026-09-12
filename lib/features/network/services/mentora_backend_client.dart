@@ -619,7 +619,10 @@ class MentoraBackendClient {
       final response = await _client.post(
         '/ai/tutor',
         data: {'question': question, 'topic': topic, 'grade': grade},
-        options: Options(sendTimeout: const Duration(seconds: 4), receiveTimeout: const Duration(seconds: 120)),
+        options: Options(
+          sendTimeout: const Duration(seconds: 3),
+          receiveTimeout: const Duration(seconds: 120),
+        ),
       );
 
       if (response.statusCode == 200) {
@@ -678,12 +681,24 @@ class MentoraBackendClient {
   ) async {
     try {
       if (Platform.isLinux) {
-        final config = await LinuxLlmConfigService().load();
-        if (!config.isReady || config.modelPath.trim().isEmpty) {
-          return null;
+        final configService = LinuxLlmConfigService();
+        var config = await configService.load();
+        if (config.modelPath.trim().isEmpty || !await File(config.modelPath.trim()).exists()) {
+          final autoModel = await configService.autoDetectModelPath();
+          final autoExe = await configService.autoDetectExecutable();
+          if (autoModel != null) {
+            config = await configService.update(
+              modelPath: autoModel,
+              executablePath: autoExe,
+            );
+            final userApiKeyService = await UserApiKeyService.getInstance();
+            final fileName = File(autoModel).uri.pathSegments.last;
+            await userApiKeyService.setGgufModelName(fileName);
+          }
         }
-        final modelFile = File(config.modelPath.trim());
-        if (!await modelFile.exists()) {
+
+        final validation = await configService.validate(config);
+        if (!validation.ready) {
           return null;
         }
       } else {
