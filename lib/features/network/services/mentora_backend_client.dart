@@ -113,7 +113,7 @@ class MentoraBackendClient {
   }) async {
     // 1. In-memory cache hit (same process session)
     final memCached = BackendAvailabilityCache().cachedUrl;
-    if (memCached != null) {
+    if (memCached != null && BackendAvailabilityCache().cachedStatus == true) {
       setBaseUrl(memCached);
       RuntimeBackendUrl().updateUrl(memCached);
       onProgress?.call(DiscoveryProgress(
@@ -128,26 +128,33 @@ class MentoraBackendClient {
       return memCached;
     }
 
-    // 2. SharedPreferences cache hit (survived cold launch)
+    // 2. SharedPreferences cache hit (survived cold launch) - probe first before claiming online
     try {
       final prefs = await SharedPreferences.getInstance();
       final cachedUrl = prefs.getString(_kCachedBackendUrl);
       final cachedTs = prefs.getInt(_kCachedBackendUrlTs) ?? 0;
       final age = DateTime.now().millisecondsSinceEpoch - cachedTs;
       if (cachedUrl != null && age < _urlCacheTtlMs) {
-        setBaseUrl(cachedUrl);
-        RuntimeBackendUrl().updateUrl(cachedUrl);
-        BackendAvailabilityCache().updateStatus(true, url: cachedUrl);
-        onProgress?.call(DiscoveryProgress(
-          currentCandidate: cachedUrl,
-          step: 1,
-          totalSteps: 1,
-          progress: 1.0,
-          isFinished: true,
-          isSuccess: true,
-          connectedUrl: cachedUrl,
-        ));
-        return cachedUrl;
+        try {
+          await _probeCandidate(cachedUrl).timeout(const Duration(milliseconds: 1500));
+          setBaseUrl(cachedUrl);
+          RuntimeBackendUrl().updateUrl(cachedUrl);
+          BackendAvailabilityCache().updateStatus(true, url: cachedUrl);
+          onProgress?.call(DiscoveryProgress(
+            currentCandidate: cachedUrl,
+            step: 1,
+            totalSteps: 1,
+            progress: 1.0,
+            isFinished: true,
+            isSuccess: true,
+            connectedUrl: cachedUrl,
+          ));
+          return cachedUrl;
+        } catch (_) {
+          // Probe failed! Cached URL is stale or server went down. Clear cache & set status offline.
+          await prefs.remove(_kCachedBackendUrl);
+          BackendAvailabilityCache().updateStatus(false);
+        }
       }
     } catch (_) {}
 
@@ -684,9 +691,10 @@ class MentoraBackendClient {
       if (Platform.isLinux) {
         final configService = LinuxLlmConfigService();
         var config = await configService.load();
+        final autoModel = await configService.autoDetectModelPath();
+        final autoExe = await configService.autoDetectExecutable();
+
         if (config.modelPath.trim().isEmpty || !await File(config.modelPath.trim()).exists()) {
-          final autoModel = await configService.autoDetectModelPath();
-          final autoExe = await configService.autoDetectExecutable();
           if (autoModel != null) {
             config = await configService.update(
               modelPath: autoModel,
@@ -695,6 +703,14 @@ class MentoraBackendClient {
             final userApiKeyService = await UserApiKeyService.getInstance();
             final fileName = File(autoModel).uri.pathSegments.last;
             await userApiKeyService.setGgufModelName(fileName);
+          }
+        }
+
+        if (config.executablePath.trim().isEmpty || !await File(config.executablePath.trim()).exists()) {
+          if (autoExe != null) {
+            config = await configService.update(
+              executablePath: autoExe,
+            );
           }
         }
 
