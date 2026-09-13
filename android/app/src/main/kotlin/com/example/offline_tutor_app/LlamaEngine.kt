@@ -254,13 +254,7 @@ class LlamaEngine(private val context: Context) {
                     systemPromptApplied = false
                 }
 
-                val promptToProcess = if (!systemPromptApplied) {
-                    // First question: combine system + user (like Termux, saves 400-500ms)
-                    activeSystemPrompt + "\n\n" + prompt
-                } else {
-                    // Subsequent questions: user only
-                    prompt
-                }
+                val promptToProcess = if (prompt.contains(activeSystemPrompt)) prompt else "$activeSystemPrompt\n\n$prompt"
 
                 val result = StringBuilder()
                 if (maxGenerationDurationMs > 0) {
@@ -280,7 +274,7 @@ class LlamaEngine(private val context: Context) {
                         result.append(token)
                     }
                 }
-                
+
                 systemPromptApplied = true
 
                 result.toString().ifBlank {
@@ -348,13 +342,7 @@ class LlamaEngine(private val context: Context) {
                     systemPromptApplied = false
                 }
 
-                val promptToProcess = if (!systemPromptApplied) {
-                    // First question: combine system + user (like Termux, saves 400-500ms)
-                    activeSystemPrompt + "\n\n" + prompt
-                } else {
-                    // Subsequent questions: user only
-                    prompt
-                }
+                val promptToProcess = if (prompt.contains(activeSystemPrompt)) prompt else "$activeSystemPrompt\n\n$prompt"
 
                 val result = StringBuilder()
                 val collector: (String) -> Unit = { token ->

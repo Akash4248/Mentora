@@ -75,7 +75,7 @@ class _ScientificCalculatorScreenState
           .replaceAll('×', '*')
           .replaceAll('÷', '/')
           .replaceAll('π', '${math.pi}')
-          .replaceAll('e', '${math.e}');
+          .replaceAll(RegExp(r'\be\b'), '${math.e}');
 
       if (!_isRadian) {
         // Convert sin(x) to sin(x*pi/180) for degree mode

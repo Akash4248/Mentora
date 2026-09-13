@@ -99,8 +99,14 @@ class SyncManager {
       final targetGrade = grade ?? 9;
       final db = await AppDatabase.instance.database;
       final rows = await db.rawQuery(
-        'SELECT chapter_id, title, subject, grade FROM chapters WHERE grade = ?',
-        [targetGrade],
+        '''
+        SELECT c.id AS chapter_id, c.title AS title, s.name AS subject
+        FROM chapters c
+        JOIN subjects s ON c.subject_id = s.id
+        JOIN courses cr ON s.course_id = cr.id
+        WHERE cr.id = ? OR cr.id = ?
+        ''',
+        ['course_$targetGrade', '$targetGrade'],
       );
 
       if (rows.isNotEmpty) {
@@ -200,7 +206,7 @@ class SyncManager {
     try {
       AppEnvironment.log('SYNC', '[SyncManager] Syncing pack: $packId');
 
-      final endpoint = '${_runtimeEndpoints().baseUrl}/packs/$packId';
+      final endpoint = '${_runtimeEndpoints().syncDelta}/$packId';
 
       final delta = {
         'action': 'sync',
@@ -514,39 +520,52 @@ class PackDownloadOperation implements SyncOperation {
 
     final stopwatch = Stopwatch()..start();
     try {
-      final response = await http
-          .get(Uri.parse(remoteUrl))
-          .timeout(const Duration(minutes: 5));
+      final docs = await path_provider.getApplicationDocumentsDirectory();
+      final savePath = path.join(
+        docs.path,
+        'content_packs',
+        '$packId.otpack',
+      );
+      final file = File(savePath);
+      if (!await file.parent.exists()) {
+        await file.parent.create(recursive: true);
+      }
+
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 15);
+      final request = await client.getUrl(Uri.parse(remoteUrl));
+      final response = await request.close();
+
+      if (response.statusCode != 200) {
+        client.close(force: true);
+        throw Exception('Http download failed with status ${response.statusCode}');
+      }
+
+      final sink = file.openWrite();
+      var downloadedBytes = 0;
+
+      await response.forEach((chunk) {
+        sink.add(chunk);
+        downloadedBytes += chunk.length;
+      });
+
+      await sink.flush();
+      await sink.close();
+      client.close();
       stopwatch.stop();
+
       print('[PACK] DOWNLOAD_COMPLETE');
       print('packId=$packId');
       print('status=${response.statusCode}');
-      print('bytes=${response.bodyBytes.length}');
+      print('bytes=$downloadedBytes');
       print('duration_ms=${stopwatch.elapsedMilliseconds}');
 
-      if (response.statusCode == 200) {
-        AppEnvironment.log(
-          'SYNC',
-          '[PackDownloadOp] Download complete: $packId. Length: ${response.bodyBytes.length} bytes',
-        );
-
-        // Save the downloaded pack
-        final docs = await path_provider.getApplicationDocumentsDirectory();
-        final savePath = path.join(
-          docs.path,
-          'content_packs',
-          '$packId.otpack',
-        );
-        final file = File(savePath);
-
-        // Ensure parent directory exists
-        if (!await file.parent.exists()) {
-          await file.parent.create(recursive: true);
-        }
-
-        await file.writeAsBytes(response.bodyBytes);
-        AppEnvironment.log('SYNC', '[PackDownloadOp] Saved pack to: $savePath');
-        print('[PACK] FILE_SAVED=$savePath');
+      AppEnvironment.log(
+        'SYNC',
+        '[PackDownloadOp] Download complete: $packId. Length: $downloadedBytes bytes',
+      );
+      AppEnvironment.log('SYNC', '[PackDownloadOp] Saved pack to: $savePath');
+      print('[PACK] FILE_SAVED=$savePath');
 
         AppEnvironment.log(
           'SYNC',

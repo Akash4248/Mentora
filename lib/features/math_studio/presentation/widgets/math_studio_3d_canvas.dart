@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:vector_math/vector_math_64.dart' as vector;
 
@@ -613,8 +614,8 @@ class _Math3DPainter extends CustomPainter {
         oldDelegate.geometryShape != geometryShape ||
         oldDelegate.geometryRadius != geometryRadius ||
         oldDelegate.geometryHeight != geometryHeight ||
-        oldDelegate.points != points ||
-        oldDelegate.vectors != vectors ||
+        !listEquals(oldDelegate.points, points) ||
+        !listEquals(oldDelegate.vectors, vectors) ||
         oldDelegate.selectedIndex != selectedIndex ||
         oldDelegate.activeTool != activeTool;
   }

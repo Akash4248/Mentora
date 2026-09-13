@@ -72,6 +72,8 @@ class ExperimentPlayerController extends ChangeNotifier {
 
         if (match.isNotEmpty) {
           templateData = match;
+        } else {
+          templateData = manifest.toJson();
         }
       }
 

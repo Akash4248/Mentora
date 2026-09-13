@@ -123,41 +123,49 @@ class RagRepository {
 
     final chunks = _chunkText(normalized);
     
-    final batch = db.batch();
     final now = DateTime.now().millisecondsSinceEpoch;
-    
     int sqliteInserts = 0;
     int ftsInserts = 0;
 
     final ftsTableExists = Sqflite.firstIntValue(await db.rawQuery(
         "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='rag_chunks_fts'")) ?? 0;
 
-    for (var i = 0; i < chunks.length; i++) {
-      final id = '${chapterId}_${now}_$i';
-      batch.insert('rag_chunks', {
-        'id': id,
-        'chapter_id': chapterId,
-        'source_title': sourceTitle,
-        'chunk_order': i,
-        'content': chunks[i],
-        'created_at': now,
-      });
-      sqliteInserts++;
-      
-      if (ftsTableExists > 0) {
-        batch.insert('rag_chunks_fts', {
-          'id': id,
-          'chapter_id': chapterId,
-          'content': chunks[i],
-        });
-        ftsInserts++;
+    await db.transaction((txn) async {
+      final batch = txn.batch();
+      for (var i = 0; i < chunks.length; i++) {
+        final id = '${chapterId}_${now}_$i';
+        batch.insert(
+          'rag_chunks',
+          {
+            'id': id,
+            'chapter_id': chapterId,
+            'source_title': sourceTitle,
+            'chunk_order': i,
+            'content': chunks[i],
+            'created_at': now,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+        sqliteInserts++;
+        
+        if (ftsTableExists > 0) {
+          batch.insert(
+            'rag_chunks_fts',
+            {
+              'id': id,
+              'chapter_id': chapterId,
+              'content': chunks[i],
+            },
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+          ftsInserts++;
+        }
       }
-    }
+      await batch.commit(noResult: true);
+    });
 
     print('[RAG] CHUNKS_CREATED=$sqliteInserts');
     print('[RAG] FTS_ROWS_CREATED=$ftsInserts');
-
-    await batch.commit(noResult: true);
   }
 
   Future<void> ingestPrecomputedChunks({

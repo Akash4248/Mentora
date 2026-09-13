@@ -18,7 +18,7 @@ class AssessmentEngine {
     for (final question in assessment.questions) {
       final answer = answers[question.id] ?? '';
       if (!question.isAutoGradable()) {
-        correctness[question.id] = answer.trim().isNotEmpty;
+        correctness[question.id] = false;
         continue;
       }
       possible += question.points;
@@ -26,7 +26,7 @@ class AssessmentEngine {
       correctness[question.id] = correct;
       if (correct) earned += question.points;
     }
-    final score = possible <= 0 ? 100.0 : (earned / possible) * 100;
+    final score = possible <= 0 ? 0.0 : (earned / possible) * 100;
     final passed = score >= assessment.passingScore;
     analytics.recordAssessmentScore(score);
     return AssessmentResult(

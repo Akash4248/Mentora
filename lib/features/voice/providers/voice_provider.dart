@@ -123,18 +123,32 @@ class VoiceNotifier extends StateNotifier<VoiceProviderState> {
       if (path != null) {
         final conn = ref.read(voiceConnectionProvider.notifier);
         if (conn.socket.status == ConnectionStatus.connected) {
-          final bytes = await File(path).readAsBytes();
-          conn.socket.sendAudioChunk(bytes, 1);
-          conn.socket.sendAudioComplete(
-            _languageCode,
-            context: context,
-          );
+          final file = File(path);
+          if (await file.exists()) {
+            final bytes = await file.readAsBytes();
+            if (bytes.isNotEmpty) {
+              const chunkSize = 4096;
+              int sequence = 1;
+              for (int i = 0; i < bytes.length; i += chunkSize) {
+                final end = (i + chunkSize < bytes.length) ? i + chunkSize : bytes.length;
+                final chunk = bytes.sublist(i, end);
+                conn.socket.sendAudioChunk(chunk, sequence++);
+              }
+              conn.socket.sendAudioComplete(
+                _languageCode,
+                context: context,
+              );
+            }
+            try {
+              await file.delete();
+            } catch (_) {}
+          }
         } else {
           // Offline Fallback: STT -> GGUF LLM -> TTS
           final chapter = context?['chapter']?.toString() ?? 'Science';
           final grade = (context?['grade'] as num?)?.toInt() ?? 9;
 
-          final answer = await OfflineSpeechService().processOfflineVoiceQuery(
+          await OfflineSpeechService().processOfflineVoiceQuery(
             wavPath: path,
             chapterTitle: chapter,
             grade: grade,

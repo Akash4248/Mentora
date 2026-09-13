@@ -18,6 +18,7 @@ import '../../chat/application/reasoning_output_filter.dart';
 import '../../chat/data/local/linux_llm_config_service.dart';
 import '../../chat/data/platform_tutor_inference_gateway.dart';
 import '../../chat/data/llm_admin_channel_service.dart';
+import '../../rag/data/local/rag_repository_v2.dart';
 
 class DiscoveryProgress {
   final String currentCandidate;
@@ -501,7 +502,7 @@ class MentoraBackendClient {
       'chapter': chapter,
       'currentVideo': {
         'id': 'v_motion_01',
-        'youtubeId': 'tBmavvMwu68',
+        'youtubeId': 'ZBalWWHYFQc',
         'title': 'NCERT Class 9 Physics: Motion & Equations of Motion',
         'channel': 'NCERT Official',
         'duration': '18:45',
@@ -784,9 +785,27 @@ class MentoraBackendClient {
 
       final gateway = PlatformTutorInferenceGateway();
       final tClean = topic.trim().isEmpty ? 'Science & Mathematics' : topic.trim();
+
+      String ragContextBlock = '';
+      try {
+        final ragRepo = RagRepositoryV2();
+        await ragRepo.ensureSeedChunks();
+        var chunks = await ragRepo.searchChunks(question, tClean, limit: 3);
+        if (chunks.isEmpty) {
+          chunks = await ragRepo.searchAll(question, limit: 3);
+        }
+        if (chunks.isNotEmpty) {
+          final excerpts = chunks.map((c) => c.content).join('\n---\n');
+          final truncated = excerpts.length > 800 ? '${excerpts.substring(0, 800)}...' : excerpts;
+          ragContextBlock = '\n\nRelevant NCERT Textbook Excerpts:\n$truncated\n';
+        }
+      } catch (e) {
+        AppEnvironment.log('RAG', 'Local RAG search for offline fallback failed: $e');
+      }
+
       final prompt = '''<|im_start|>system
 You are an expert NCERT school AI tutor for Class $grade $tClean.
-Answer the student's question directly and clearly using Markdown formatting, bullet points, and key formulas.
+Answer the student's question directly and clearly using Markdown formatting, bullet points, and key formulas.$ragContextBlock
 IMPORTANT: If the user asks in Kannada (e.g. "can u explain in kannada" or Kannada script) or any regional language, respond in that language.
 Do not output internal monologues or planning steps.
 <|im_end|>

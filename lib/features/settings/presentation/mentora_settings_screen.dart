@@ -7,6 +7,10 @@ import '../../network/domain/backend_url_utils.dart';
 import '../../home/presentation/mentora_home_screen.dart';
 import 'model_selection_screen.dart';
 import 'manage_content_screen.dart';
+import '../../content_packs/presentation/content_pack_installer_screen.dart';
+import '../../rag/presentation/screens/document_rag_ingestion_screen.dart';
+import '../../language/providers/language_provider.dart';
+import '../../language/models/app_language.dart';
 
 class MentoraSettingsScreen extends StatefulWidget {
   const MentoraSettingsScreen({Key? key}) : super(key: key);
@@ -266,13 +270,30 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
                                           child: Text('Grade $grade - NCERT'),
                                         );
                                       }).toList(),
-                                      onChanged: (val) async {
-                                        if (val != null) {
-                                          setState(() => _selectedGrade = val);
-                                          final prefs = await SharedPreferences.getInstance();
-                                          await prefs.setInt('selected_grade', val);
-                                        }
-                                      },
+                                       onChanged: (val) async {
+                                         if (val != null) {
+                                           setState(() => _selectedGrade = val);
+                                           final prefs = await SharedPreferences.getInstance();
+                                           await prefs.setInt('selected_grade', val);
+                                           if (context.mounted) {
+                                             ScaffoldMessenger.of(context).showSnackBar(
+                                               SnackBar(
+                                                 content: Text('Configured Grade $val NCERT. Manage Grade Packs to update offline content.'),
+                                                 action: SnackBarAction(
+                                                   label: 'Manage Packs',
+                                                   textColor: const Color(0xFF818CF8),
+                                                   onPressed: () {
+                                                     Navigator.push(
+                                                       context,
+                                                       MaterialPageRoute(builder: (_) => const ManageContentScreen()),
+                                                     );
+                                                   },
+                                                 ),
+                                               ),
+                                             );
+                                           }
+                                         }
+                                       },
                                     );
                                   },
                                 ),
@@ -304,6 +325,56 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
                         ),
                       ],
                     ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // SECTION 0.5: LANGUAGE & CONTENT MANAGEMENT
+                _buildSectionHeader('LANGUAGE & CONTENT MANAGEMENT'),
+                const SizedBox(height: 8),
+                Card(
+                  elevation: 0,
+                  color: cardBg,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: const BorderSide(color: borderColor),
+                  ),
+                  child: Column(
+                    children: [
+                      ListTile(
+                        leading: const Icon(Icons.language_rounded, color: primaryIndigo),
+                        title: const Text('App Language & Locales', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                        subtitle: const Text('Configure regional display language for tutor and UI', style: TextStyle(fontSize: 12)),
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: () => _showLanguageSelectionDialog(context),
+                      ),
+                      const Divider(height: 1, color: borderColor),
+                      ListTile(
+                        leading: const Icon(Icons.folder_zip_outlined, color: primaryIndigo),
+                        title: const Text('Content Pack Installer', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                        subtitle: const Text('Manage NCERT textbook and offline video packages', style: TextStyle(fontSize: 12)),
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const ContentPackInstallerScreen()),
+                          );
+                        },
+                      ),
+                      const Divider(height: 1, color: borderColor),
+                      ListTile(
+                        leading: const Icon(Icons.picture_as_pdf_outlined, color: primaryIndigo),
+                        title: const Text('Document RAG Ingestion', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                        subtitle: const Text('Process custom PDFs for offline AI retrieval', style: TextStyle(fontSize: 12)),
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const DocumentRagIngestionScreen()),
+                          );
+                        },
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -724,6 +795,48 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
         fontWeight: FontWeight.bold,
         letterSpacing: 1.0,
       ),
+    );
+  }
+
+  void _showLanguageSelectionDialog(BuildContext context) {
+    final languageProvider = LanguageProvider.shared;
+    languageProvider.initialize();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return ListenableBuilder(
+          listenable: languageProvider,
+          builder: (context, _) {
+            return AlertDialog(
+              title: const Text('Select Application Language'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: AppLanguage.values.map((lang) {
+                  final isSelected = languageProvider.languageCode == lang.code;
+                  return ListTile(
+                    title: Text(lang.displayName),
+                    subtitle: Text(lang.nativeName),
+                    trailing: isSelected ? const Icon(Icons.check, color: Color(0xFF4F46E5)) : null,
+                    onTap: () async {
+                      await languageProvider.setLanguage(lang);
+                      if (context.mounted) {
+                        Navigator.pop(context);
+                      }
+                    },
+                  );
+                }).toList(),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Close'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }

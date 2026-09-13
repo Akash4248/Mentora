@@ -22,6 +22,7 @@ import '../ai/controllers/ai_generator_controller.dart';
 import '../ai/repositories/ai_experiment_repository.dart';
 import '../ai/api/ai_experiment_api_service.dart';
 import '../ai/widgets/ai_generator_tab.dart';
+import '../../presentation/screens/experiment_catalog_screen.dart';
 
 class ExperimentBuilderScreen extends StatefulWidget {
   const ExperimentBuilderScreen({super.key});
@@ -173,7 +174,17 @@ class _ExperimentBuilderScreenState extends State<ExperimentBuilderScreen>
       case BuilderWorkflowStep.preview:
         return PreviewWorkspacePanel(controller: _controller);
       case BuilderWorkflowStep.publish:
-        return PublishWorkspacePanel(controller: _controller);
+        return PublishWorkspacePanel(
+          controller: _controller,
+          onPublished: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const ExperimentCatalogScreen(),
+              ),
+            );
+          },
+        );
     }
   }
 

@@ -3,7 +3,10 @@ import 'package:flutter/services.dart';
 class RuntimeOrientationLock {
   const RuntimeOrientationLock._();
 
+  static int _lockCount = 0;
+
   static Future<void> lockLandscape() {
+    _lockCount++;
     return SystemChrome.setPreferredOrientations(const [
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
@@ -11,6 +14,12 @@ class RuntimeOrientationLock {
   }
 
   static Future<void> restore() {
-    return SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+    if (_lockCount > 0) {
+      _lockCount--;
+    }
+    if (_lockCount == 0) {
+      return SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+    }
+    return Future.value();
   }
 }

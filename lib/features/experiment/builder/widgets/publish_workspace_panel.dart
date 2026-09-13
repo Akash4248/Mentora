@@ -5,8 +5,13 @@ import 'builder_validation_panel.dart';
 
 class PublishWorkspacePanel extends StatelessWidget {
   final ExperimentBuilderController controller;
+  final VoidCallback? onPublished;
 
-  const PublishWorkspacePanel({super.key, required this.controller});
+  const PublishWorkspacePanel({
+    super.key,
+    required this.controller,
+    this.onPublished,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -104,14 +109,17 @@ class PublishWorkspacePanel extends StatelessWidget {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
                                     content: Text(
-                                      'Sharing will be supported in the next milestone!',
+                                      'Experiment published to local catalog!',
                                     ),
                                   ),
                                 );
+                                if (onPublished != null) {
+                                  onPublished!();
+                                }
                               }
                             : null,
                         icon: const Icon(Icons.publish_rounded),
-                        label: const Text('Share Experiment'),
+                        label: const Text('Publish Experiment'),
                         style: FilledButton.styleFrom(
                           padding: const EdgeInsets.symmetric(
                             vertical: 16,

@@ -1,6 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../network/services/mentora_backend_client.dart';
 import '../../home/presentation/mentora_home_screen.dart';
+import '../data/local/quiz_result_repository.dart';
+import '../domain/quiz_result.dart';
+import '../../progress/data/local/progress_repository.dart';
+import '../../../config/app_environment.dart';
 
 class MentoraPracticeScreen extends StatefulWidget {
   const MentoraPracticeScreen({Key? key}) : super(key: key);
@@ -19,6 +24,20 @@ class _MentoraPracticeScreenState extends State<MentoraPracticeScreen> {
   int? _selectedOption;
   bool _showExplanation = false;
 
+  String get _activeChapterId {
+    switch (_selectedSubject) {
+      case 'Chemistry':
+        return 'ch_chem_1';
+      case 'Biology':
+        return 'ch_bio_1';
+      case 'Mathematics':
+        return 'ch_math_1';
+      case 'Physics':
+      default:
+        return 'Motion';
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -27,7 +46,7 @@ class _MentoraPracticeScreenState extends State<MentoraPracticeScreen> {
 
   Future<void> _loadPracticeQuestions() async {
     setState(() => _isLoading = true);
-    final data = await _client.getQuizForChapter('Motion');
+    final data = await _client.getQuizForChapter(_activeChapterId);
     setState(() {
       _quizData = data;
       _isLoading = false;
@@ -220,6 +239,31 @@ class _MentoraPracticeScreenState extends State<MentoraPracticeScreen> {
                         child: ElevatedButton(
                           onPressed: () {
                             setState(() => _showExplanation = true);
+                            final chapterId = _activeChapterId;
+                            final isCorrect = _selectedOption == currentQ['correctIndex'];
+                            final answers = <int, int>{_currentQuestionIndex: _selectedOption ?? 0};
+
+                            unawaited(
+                              QuizResultRepository()
+                                  .saveResult(
+                                    QuizResult(
+                                      chapterId: chapterId,
+                                      score: isCorrect ? 1 : 0,
+                                      totalQuestions: 1,
+                                      answers: answers,
+                                      attemptedAt: DateTime.now(),
+                                    ),
+                                  )
+                                  .catchError((e) {
+                                    AppEnvironment.log('QUIZ', 'Failed saving quiz result: $e');
+                                    return -1;
+                                  }),
+                            );
+                            unawaited(
+                              ProgressRepository()
+                                  .recordQuestionAsked(chapterId: chapterId)
+                                  .catchError((e) => AppEnvironment.log('PROGRESS', 'Failed recording question: $e')),
+                            );
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: primaryIndigo,

@@ -316,7 +316,16 @@ class _MentoraHomeScreenState extends State<MentoraHomeScreen> {
                   ),
                 ),
                 TextButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    final activeSubject = _subjects.isNotEmpty
+                        ? (_subjects.first['name'] as String? ?? 'Physics')
+                        : 'Physics';
+                    Navigator.pushNamed(
+                      context,
+                      '/subject_chapters',
+                      arguments: {'subject': activeSubject, 'grade': _selectedGrade},
+                    );
+                  },
                   child: const Text('View All', style: TextStyle(color: primaryIndigo, fontWeight: FontWeight.bold)),
                 ),
               ],

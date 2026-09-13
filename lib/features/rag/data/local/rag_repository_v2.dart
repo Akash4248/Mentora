@@ -213,6 +213,53 @@ class RagRepositoryV2 {
     }
   }
 
+  /// Search across all chapters without chapter_id restriction (ideal for global offline fallback)
+  Future<List<ChunkV2>> searchAll(
+    String query, {
+    int limit = 3,
+    String? language,
+  }) async {
+    final db = await _database.database;
+    final normalizedQuery = _buildFtsQuery(query);
+
+    if (normalizedQuery.isNotEmpty) {
+      try {
+        final rows = await db.rawQuery(
+          '''
+          SELECT rc.* FROM rag_chunks_v2 rc
+          INNER JOIN rag_chunks_v2_fts fts ON fts.id = rc.id
+          WHERE ${language != null ? 'rc.source_language = ? AND ' : ''}
+            rag_chunks_v2_fts MATCH ?
+          LIMIT ?
+          ''',
+          language == null
+              ? [normalizedQuery, limit]
+              : [language, normalizedQuery, limit],
+        );
+
+        if (rows.isNotEmpty) {
+          return rows.map((row) => ChunkV2.fromJson(row)).toList();
+        }
+      } catch (_) {}
+    }
+
+    try {
+      final rows = await db.query(
+        'rag_chunks_v2',
+        where: language == null
+            ? 'content LIKE ?'
+            : 'content LIKE ? AND source_language = ?',
+        whereArgs: language == null
+            ? ['%$query%']
+            : ['%$query%', language],
+        limit: limit,
+      );
+      return rows.map((row) => ChunkV2.fromJson(row)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
   /// Get count of chunks for chapter
   Future<int> getChunkCount(String chapterId, {String? language}) async {
     final db = await _database.database;

@@ -21,6 +21,7 @@ import '../data/local/p2p_security_settings_repository.dart';
 import '../data/local/trusted_peer_repository.dart';
 import '../data/p2p_bundle_service.dart';
 import '../data/p2p_channel_service.dart';
+import 'widgets/qr_bootstrap_sheet.dart';
 import '../../shared/application/offline_error_taxonomy.dart';
 
 class P2PScreen extends StatefulWidget {
@@ -41,7 +42,7 @@ class P2PScreen extends StatefulWidget {
   State<P2PScreen> createState() => _P2PScreenState();
 }
 
-class _P2PScreenState extends State<P2PScreen> with SingleTickerProviderStateMixin {
+class _P2PScreenState extends State<P2PScreen> {
   final BackendDiscoveryService _classroomConnection = BackendDiscoveryService();
   final P2PChannelService _service = P2PChannelService();
   final P2PBundleService _bundleService = P2PBundleService(
@@ -53,7 +54,6 @@ class _P2PScreenState extends State<P2PScreen> with SingleTickerProviderStateMix
   final P2PSecuritySettingsRepository _securitySettingsRepository = P2PSecuritySettingsRepository();
   
   final TextEditingController _sharedSecretController = TextEditingController();
-  late final TabController _tabController;
 
   P2PStatus? _status;
   List<P2PPeer> _peers = const [];
@@ -69,7 +69,6 @@ class _P2PScreenState extends State<P2PScreen> with SingleTickerProviderStateMix
   bool _processingBundle = false;
   bool _processingTransfer = false;
   Set<String> _trustedPeerAddresses = <String>{};
-  P2PPermissionStatus? _permissionStatus;
   P2PTransferTelemetrySnapshot _telemetry = const P2PTransferTelemetrySnapshot(
     send: null,
     receive: null,
@@ -77,15 +76,11 @@ class _P2PScreenState extends State<P2PScreen> with SingleTickerProviderStateMix
   final Set<String> _promptedIncomingIds = <String>{};
   Timer? _telemetryTimer;
   String? _error;
-
-  BundleTransferProgress? _exportProgress;
-  BundleTransferProgress? _importProgress;
   bool _quickSendTriggered = false;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
     _classroomConnection.addListener(_onClassroomConnectionChanged);
     _startTelemetryPolling();
     _refresh();
@@ -93,7 +88,6 @@ class _P2PScreenState extends State<P2PScreen> with SingleTickerProviderStateMix
 
   @override
   void dispose() {
-    _tabController.dispose();
     _telemetryTimer?.cancel();
     _classroomConnection.removeListener(_onClassroomConnectionChanged);
     _sharedSecretController.dispose();
@@ -133,7 +127,6 @@ class _P2PScreenState extends State<P2PScreen> with SingleTickerProviderStateMix
     try {
       final status = await _service.getStatus();
       final telemetry = await _service.getTransferTelemetry();
-      final permissionStatus = await _service.getPermissionStatus();
       final peers = await _service.listPeers();
       final received = await _service.listReceivedBundles();
       final pendingIncoming = await _service.listPendingIncomingTransfers();
@@ -195,7 +188,6 @@ class _P2PScreenState extends State<P2PScreen> with SingleTickerProviderStateMix
       setState(() {
         _status = status;
         _telemetry = telemetry;
-        _permissionStatus = permissionStatus;
         _peers = peers;
         _receivedBundles = received;
         _pendingIncomingTransfers = pendingIncoming;
@@ -251,10 +243,10 @@ class _P2PScreenState extends State<P2PScreen> with SingleTickerProviderStateMix
     }
   }
 
-  Future<void> _handlePendingIncomingTransfers() async {
   Future<void> _shareSelectedPackNative() async {
     final pack = _selectedPack;
     if (pack == null) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select a content pack to share.')),
       );
@@ -273,18 +265,21 @@ Version: ${pack.version}
       final exportResult = await _packArchiveService.exportPackArchive(pack.packId);
       final fileLocation = exportResult.archivePath;
       if (fileLocation.isNotEmpty && await File(fileLocation).exists()) {
+        // ignore: deprecated_member_use
         await Share.shareXFiles(
           [XFile(fileLocation)],
           text: summaryText,
           subject: 'Mentora Content Pack: ${pack.title}',
         );
       } else {
+        // ignore: deprecated_member_use
         await Share.share(
           summaryText,
           subject: 'Mentora Content Pack: ${pack.title}',
         );
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Native share error: $e')),
       );
@@ -295,7 +290,6 @@ Version: ${pack.version}
     try {
       final result = await FilePicker.pickFiles(
         type: FileType.any,
-        allowMultiple: false,
       );
 
       if (result == null || result.files.isEmpty) return;
@@ -336,7 +330,8 @@ Version: ${pack.version}
     }
   }
 
-  if (!mounted || _processingTransfer || _pendingIncomingTransfers.isEmpty) {
+  Future<void> _handlePendingIncomingTransfers() async {
+    if (!mounted || _processingTransfer || _pendingIncomingTransfers.isEmpty) {
       return;
     }
 
@@ -464,126 +459,127 @@ Version: ${pack.version}
     }
   }
 
-  // A combined, elegant, one-click Send flow for Content Packs
-  Future<void> _exportAndSendPack(ContentPackManifest pack, P2PPeer peer) async {
+  // Generic, secure export and send helper with peer auth dialog, 50MB size guard & temp cleanup
+  Future<void> _exportAndSend({
+    required Future<String> Function() exportAction,
+    required P2PPeer peer,
+    required String bundleLabel,
+  }) async {
+    if (!_trustedPeerAddresses.contains(peer.address)) {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Trust Peer Connection?'),
+          content: Text('Do you want to trust ${peer.name} (${peer.address}) for direct file transfer?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Trust & Send'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirm != true) return;
+
+      await _trustedPeerRepository.trustPeer(
+        address: peer.address,
+        alternateAddress: peer.resolvedAddress.isEmpty ? null : peer.resolvedAddress,
+        name: peer.name,
+        transport: peer.transport,
+      );
+      _trustedPeerAddresses.add(peer.address);
+    }
+
     setState(() {
       _processingBundle = true;
       _processingTransfer = true;
       _error = null;
-      _exportProgress = null;
     });
 
+    String? exportedPath;
     try {
-      // 1. Ensure target peer is trusted (handled automatically under the hood)
-      if (!_trustedPeerAddresses.contains(peer.address)) {
-        await _trustedPeerRepository.trustPeer(
-          address: peer.address,
-          alternateAddress: peer.resolvedAddress.isEmpty ? null : peer.resolvedAddress,
-          name: peer.name,
-          transport: peer.transport,
-        );
-        _trustedPeerAddresses.add(peer.address);
+      exportedPath = await exportAction();
+
+      final file = File(exportedPath);
+      if (!await file.exists()) {
+        throw Exception('Exported file not found at $exportedPath');
       }
 
-      // 2. Export Pack Archive
-      final exportResult = await _packArchiveService.exportPackArchive(pack.packId);
-      
-      // 3. Send Bundle
+      // 50MB Size Guard
+      const maxSizeBytes = 50 * 1024 * 1024;
+      final fileSize = await file.length();
+      if (fileSize > maxSizeBytes) {
+        throw Exception('Bundle size (${(fileSize / (1024 * 1024)).toStringAsFixed(1)} MB) exceeds maximum 50MB limit.');
+      }
+
       final sendResult = await _service.sendBundle(
         address: peer.address,
-        filePath: exportResult.archivePath,
+        filePath: exportedPath,
       );
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Successfully sent pack archive: ${sendResult.message}')),
+        SnackBar(content: Text('Successfully sent $bundleLabel: ${sendResult.message}')),
       );
     } catch (e) {
       if (!mounted) return;
       final details = OfflineErrorTaxonomy.fromError(
         e,
         context: OfflineErrorContext.p2pTransfer,
-        fallbackMessage: 'Failed to send pack archive.',
+        fallbackMessage: 'Failed to send $bundleLabel.',
       );
       setState(() {
         _error = details.formatForUi();
       });
     } finally {
+      if (exportedPath != null) {
+        try {
+          final tempFile = File(exportedPath);
+          if (await tempFile.exists()) {
+            await tempFile.delete();
+          }
+        } catch (_) {}
+      }
+
       if (mounted) {
         setState(() {
           _processingBundle = false;
           _processingTransfer = false;
-          _exportProgress = null;
         });
         _refresh();
       }
     }
   }
 
-  // A combined, elegant, one-click Send flow for Custom Chapter Bundles
+  Future<void> _exportAndSendPack(ContentPackManifest pack, P2PPeer peer) async {
+    await _exportAndSend(
+      exportAction: () async {
+        final res = await _packArchiveService.exportPackArchive(pack.packId);
+        return res.archivePath;
+      },
+      peer: peer,
+      bundleLabel: 'pack archive (${pack.title})',
+    );
+  }
+
   Future<void> _exportAndSendChapter(Chapter chapter, P2PPeer peer) async {
-    setState(() {
-      _processingBundle = true;
-      _processingTransfer = true;
-      _error = null;
-      _exportProgress = null;
-    });
-
-    try {
-      // 1. Ensure target peer is trusted (handled automatically under the hood)
-      if (!_trustedPeerAddresses.contains(peer.address)) {
-        await _trustedPeerRepository.trustPeer(
-          address: peer.address,
-          alternateAddress: peer.resolvedAddress.isEmpty ? null : peer.resolvedAddress,
-          name: peer.name,
-          transport: peer.transport,
+    await _exportAndSend(
+      exportAction: () async {
+        final res = await _bundleService.exportChapterBundle(
+          chapter,
+          sharedSecret: _sharedSecretController.text,
+          onProgress: (_) {},
         );
-        _trustedPeerAddresses.add(peer.address);
-      }
-
-      // 2. Export Chapter Bundle
-      final exportResult = await _bundleService.exportChapterBundle(
-        chapter,
-        sharedSecret: _sharedSecretController.text,
-        onProgress: (progress) {
-          if (mounted) {
-            setState(() {
-              _exportProgress = progress;
-            });
-          }
-        },
-      );
-
-      // 3. Send Bundle
-      final sendResult = await _service.sendBundle(
-        address: peer.address,
-        filePath: exportResult.filePath,
-      );
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Successfully sent chapter bundle: ${sendResult.message}')),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      final details = OfflineErrorTaxonomy.fromError(
-        e,
-        context: OfflineErrorContext.p2pTransfer,
-        fallbackMessage: 'Failed to send chapter bundle.',
-      );
-      setState(() {
-        _error = details.formatForUi();
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _processingBundle = false;
-          _processingTransfer = false;
-          _exportProgress = null;
-        });
-        _refresh();
-      }
-    }
+        return res.filePath;
+      },
+      peer: peer,
+      bundleLabel: 'chapter bundle (${chapter.title})',
+    );
   }
 
   Future<void> _runQuickSendPreset() async {
@@ -731,161 +727,11 @@ Version: ${pack.version}
     }
   }
 
-  Future<void> _importBundle() async {
-    if (_processingBundle) return;
-
-    setState(() {
-      _processingBundle = true;
-      _error = null;
-      _importProgress = null;
-    });
-
-    try {
-      final picked = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: const ['json', 'otpack', 'zip'],
-        allowMultiple: false,
-      );
-
-      final bundlePath = picked?.files.single.path;
-      if (bundlePath == null || bundlePath.isEmpty) {
-        if (!mounted) return;
-        setState(() {
-          _processingBundle = false;
-        });
-        return;
-      }
-
-      final lowerPath = bundlePath.toLowerCase();
-      if (lowerPath.endsWith('.otpack') || lowerPath.endsWith('.zip')) {
-        final packResult = await _packArchiveService.importPackArchive(bundlePath);
-        await _refresh();
-
-        if (!mounted) return;
-        setState(() {
-          _importProgress = null;
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Installed pack ${packResult.packId} with ${packResult.itemCount} items.'),
-            duration: const Duration(seconds: 3),
-          ),
-        );
-        return;
-      }
-
-      final result = await _bundleService.importBundleFromFile(
-        bundlePath,
-        verificationSecrets: await _securitySettingsRepository.getVerificationSecrets(),
-        onProgress: (progress) {
-          if (mounted) {
-            setState(() {
-              _importProgress = progress;
-            });
-          }
-        },
-        maxRetries: 3,
-      );
-      await _refresh();
-
-      if (!mounted) return;
-      setState(() {
-        _importProgress = null;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Imported ${result.importedChunkCount} chunks for ${result.chapterId}'),
-          duration: const Duration(seconds: 3),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      final details = OfflineErrorTaxonomy.fromError(
-        e,
-        context: OfflineErrorContext.contentImport,
-        fallbackMessage: 'Import failed.',
-      );
-      setState(() {
-        _error = details.formatForUi();
-        _importProgress = null;
-        _processingBundle = false;
-      });
-    }
-  }
-
-  Future<void> _showManualClassroomDialog() async {
-    final controller = TextEditingController(text: _classroomConnection.activeEndpoint ?? '');
-    final address = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Connect by Address'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          keyboardType: TextInputType.url,
-          decoration: const InputDecoration(
-            labelText: 'Classroom gateway',
-            hintText: '192.168.1.20 or http://pihub.local',
-            border: OutlineInputBorder(),
-          ),
-          onSubmitted: (value) => Navigator.of(context).pop(value),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(controller.text),
-            child: const Text('Connect'),
-          ),
-        ],
-      ),
-    );
-    controller.dispose();
-
-    if (address == null || address.trim().isEmpty) return;
-    final connected = await _classroomConnection.connectManual(address);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          connected ? 'Connected to classroom.' : 'Could not reach that classroom gateway.',
-        ),
-      ),
-    );
-  }
-
-  String _classroomStatusText(ClassroomConnectionState state) {
-    return switch (state) {
-      ClassroomConnectionState.disconnected => 'Not connected',
-      ClassroomConnectionState.discovering => 'Searching nearby network...',
-      ClassroomConnectionState.connecting => 'Connecting...',
-      ClassroomConnectionState.connected => 'Connected',
-      ClassroomConnectionState.reconnecting => 'Reconnecting automatically...',
-    };
-  }
 
 
 
-  String _formatThroughput(int bps) {
-    if (bps <= 0) return '0 B/s';
-    if (bps < 1024) return '$bps B/s';
-    final kb = bps / 1024;
-    if (kb < 1024) return '${kb.toStringAsFixed(1)} KB/s';
-    final mb = kb / 1024;
-    return '${mb.toStringAsFixed(2)} MB/s';
-  }
 
-  String _formatEta(int etaSeconds) {
-    if (etaSeconds < 0) return 'n/a';
-    final minutes = etaSeconds ~/ 60;
-    final seconds = etaSeconds % 60;
-    if (minutes <= 0) return '${seconds}s';
-    return '${minutes}m ${seconds}s';
-  }
+
 
   // ================= UI SECTION =================
   Widget _buildTopStatusBar() {
@@ -942,6 +788,27 @@ Version: ${pack.version}
     );
   }
 
+  Future<void> _showQRPairingSheet() async {
+    final scannedSecret = await QRBootstrapSheet.show(
+      context,
+      qrData: _sharedSecretController.text,
+    );
+
+    if (scannedSecret != null && scannedSecret.isNotEmpty && mounted) {
+      setState(() {
+        _sharedSecretController.text = scannedSecret;
+      });
+      await _securitySettingsRepository.setSharedSecret(scannedSecret);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ Successfully paired P2P secret via QR Code!'),
+          backgroundColor: Color(0xFF10B981),
+        ),
+      );
+    }
+  }
+
   Widget _buildAppBar() {
     return SliverAppBar(
       backgroundColor: Colors.transparent,
@@ -961,9 +828,11 @@ Version: ${pack.version}
                 ),
               ),
               const Spacer(),
-              _buildNavButton("Explore", true),
-              _buildNavButton("Resources", false),
-              _buildNavButton("Collaborate", false),
+              IconButton(
+                icon: const Icon(Icons.qr_code_scanner, color: IDPColors.primary),
+                tooltip: 'QR Code Pairing',
+                onPressed: _showQRPairingSheet,
+              ),
               const SizedBox(width: 8),
               IconButton(
                 icon: const Icon(Icons.qr_code_2, color: IDPColors.primary),
@@ -987,18 +856,7 @@ Version: ${pack.version}
     );
   }
 
-  Widget _buildNavButton(String label, bool isSelected) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Text(
-        label,
-        style: IDPTypography.body.copyWith(
-          color: isSelected ? IDPColors.primary : IDPColors.textSecondary,
-          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-        ),
-      ),
-    );
-  }
+
 
   Widget _buildPermissionsSection() {
     if (_status == null || _status!.enabled) return const SizedBox.shrink();
@@ -1027,9 +885,7 @@ Version: ${pack.version}
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(IDPRadius.md)),
             ),
-            onPressed: () {
-              _service.requestPermissions();
-            },
+            onPressed: _requestPermissions,
             child: const Text('Enable'),
           ),
         ],
@@ -1038,8 +894,8 @@ Version: ${pack.version}
   }
 
   Widget _buildTelemetrySection() {
-    final sendTelemetry = _telemetry?.send;
-    final receiveTelemetry = _telemetry?.receive;
+    final sendTelemetry = _telemetry.send;
+    final receiveTelemetry = _telemetry.receive;
     if (sendTelemetry == null && receiveTelemetry == null) return const SizedBox.shrink();
 
     return Column(
@@ -1164,7 +1020,7 @@ Version: ${pack.version}
               final radius = 100.0 + (index % 2 * 40.0);
               
               return Transform.translate(
-                offset: Offset(radius * dart_math_cos(angle), radius * dart_math_sin(angle)),
+                offset: Offset(radius * dart_math.cos(angle), radius * dart_math.sin(angle)),
                 child: GestureDetector(
                   onTap: () => _showPeerActionDialog(peer),
                   child: Column(
@@ -1211,8 +1067,7 @@ Version: ${pack.version}
     );
   }
 
-  double dart_math_cos(double radians) => dart_math.cos(radians);
-  double dart_math_sin(double radians) => dart_math.sin(radians);
+
 
   Widget _buildActiveStudyRoomsSection() {
     return Column(
@@ -1357,12 +1212,14 @@ Version: ${pack.version}
             Row(
               children: [
                 IconButton(
-                  icon: const Icon(Icons.filter_list),
-                  onPressed: () {},
+                  icon: const Icon(Icons.share),
+                  tooltip: 'Share Pack',
+                  onPressed: _shareSelectedPackNative,
                 ),
                 IconButton(
                   icon: const Icon(Icons.upload_file),
-                  onPressed: _importBundle,
+                  tooltip: 'Import Pack File',
+                  onPressed: _importReceivedPackNative,
                 ),
               ],
             ),

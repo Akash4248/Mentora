@@ -201,6 +201,20 @@ class ContentPackSyncService {
 
     final discovered = <String>{};
 
+    // Add active RuntimeBackendUrl as top priority source
+    try {
+      final activeRuntimeUrl = RuntimeBackendUrl().current;
+      if (activeRuntimeUrl.isNotEmpty) {
+        final catalogUrl = activeRuntimeUrl.endsWith('/')
+            ? '${activeRuntimeUrl}catalog.json'
+            : '$activeRuntimeUrl/catalog.json';
+        discovered.add(catalogUrl);
+        AppEnvironment.log('SYNC', 'Added runtime backend catalog: $catalogUrl');
+      }
+    } catch (e) {
+      AppEnvironment.log('SYNC', 'Failed to add runtime backend catalog URL: $e');
+    }
+
     // Add configured content pipeline URL as primary source
     try {
       final configuredUrl = AppEnvironment.contentPipelineUrl;

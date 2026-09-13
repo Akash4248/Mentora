@@ -64,8 +64,7 @@ class HybridRetrievalService {
       }
     }
 
-    // Sort by blended score and return top results
-    return blendedScores.entries
+    final sortedResults = blendedScores.entries
         .map((e) {
           final (chunk, source) = chunkDetails[e.key]!;
           return RetrievalResult(
@@ -95,9 +94,9 @@ class HybridRetrievalService {
           );
         })
         .toList()
-      ..sort((a, b) => b.score.compareTo(a.score))
-      ..take(limit)
-        ..toList();
+      ..sort((a, b) => b.score.compareTo(a.score));
+
+    return sortedResults.take(limit).toList();
   }
 
   /// BM25 keyword search using FTS5 BM25 ranking or term-frequency weighted fallback
@@ -113,24 +112,26 @@ class HybridRetrievalService {
       'about', 'how', 'does', 'work', 'can', 'you', 'give', 'an', 'example', 'a',
       'to', 'in', 'for', 'on', 'with', 'by', 'as', 'at', 'solution'
     };
+
     final rawTerms = query
         .toLowerCase()
-        .replaceAll(RegExp(r'[^\w\s]'), '')
+        .replaceAll(RegExp(r'[^a-z0-9\s]'), '')
         .split(RegExp(r'\s+'))
-        .where((t) => t.isNotEmpty && !stopWords.contains(t))
+        .where((t) => t.length >= 2 && !stopWords.contains(t))
+        .take(6)
         .toList();
 
     if (rawTerms.isEmpty) {
-      return [];
+      return const [];
     }
 
-    // 1. Attempt FTS5 / FTS4 search with BM25 ranking via rag_chunks_fts
+    // 1. Attempt FTS5 / FTS4 search with BM25 ranking via rag_chunks_v2_fts
     try {
       final ftsMatch = rawTerms.map((t) => '$t*').join(' OR ');
       final ftsResults = await db.rawQuery('''
         SELECT c.*, -bm25(fts) AS fts_score
         FROM rag_chunks_v2 c
-        INNER JOIN rag_chunks_fts fts ON fts.id = c.id
+        INNER JOIN rag_chunks_v2_fts fts ON fts.id = c.id
         WHERE c.chapter_id = ? AND fts MATCH ?
         ORDER BY fts_score DESC
         LIMIT ?

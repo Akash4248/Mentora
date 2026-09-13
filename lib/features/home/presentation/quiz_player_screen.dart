@@ -10,6 +10,8 @@ import '../../assessment/domain/quiz_result.dart';
 
 
 import '../../../core/theme/idp_theme.dart';
+import '../../educational/data/educational_repository.dart';
+import '../../network/data/backend_availability_cache.dart';
 import '../../network/services/mentora_backend_client.dart';
 
 
@@ -105,24 +107,49 @@ class _QuizPlayerScreenState extends State<QuizPlayerScreen> {
         }
       }
 
-      // 2. Fetch directly from backend API /quizzes/{chapter}
-      if (parsedQuestions.isEmpty) {
-        final backendQuiz = await MentoraBackendClient().getQuizForChapter(widget.chapter.title);
-        final qList = backendQuiz['questions'] as List? ?? [];
-        for (final item in qList) {
-          if (item is Map) {
-            final mapItem = Map<String, dynamic>.from(item);
-            final opts = List<String>.from(mapItem['options'] ?? []);
-            final cIdx = (mapItem['correctIndex'] as num?)?.toInt() ?? 0;
-            final correctStr = cIdx < opts.length ? opts[cIdx] : '';
-            parsedQuestions.add(QuizQuestion(
-              question: mapItem['question'] as String? ?? 'Question',
-              correctAnswer: mapItem['explanation'] as String? ?? correctStr,
-              options: opts,
-              correctIndex: cIdx,
-            ));
+      // 2. Try local SQLite EducationalRepository
+      final chapterIdInt = int.tryParse(widget.chapter.packId);
+      if (parsedQuestions.isEmpty && chapterIdInt != null) {
+        try {
+          final dbQuizzes = await EducationalRepository.getQuizzesByChapterId(chapterIdInt);
+          for (final quiz in dbQuizzes) {
+            if (quiz.id != null) {
+              final questions = await EducationalRepository.getQuizQuestions(quiz.id!);
+              for (final q in questions) {
+                final opts = q.options.isNotEmpty ? q.options : [q.correctAnswer];
+                final cIdx = opts.indexOf(q.correctAnswer);
+                parsedQuestions.add(QuizQuestion(
+                  question: q.question,
+                  correctAnswer: (q.explanation != null && q.explanation!.isNotEmpty) ? q.explanation! : q.correctAnswer,
+                  options: opts,
+                  correctIndex: cIdx >= 0 ? cIdx : 0,
+                ));
+              }
+            }
           }
-        }
+        } catch (_) {}
+      }
+
+      // 3. Fetch directly from backend API /quizzes/{chapter} if available and needed
+      if (parsedQuestions.isEmpty && BackendAvailabilityCache().isOnline) {
+        try {
+          final backendQuiz = await MentoraBackendClient().getQuizForChapter(widget.chapter.title);
+          final qList = backendQuiz['questions'] as List? ?? [];
+          for (final item in qList) {
+            if (item is Map) {
+              final mapItem = Map<String, dynamic>.from(item);
+              final opts = List<String>.from(mapItem['options'] ?? []);
+              final cIdx = (mapItem['correctIndex'] as num?)?.toInt() ?? 0;
+              final correctStr = cIdx < opts.length ? opts[cIdx] : '';
+              parsedQuestions.add(QuizQuestion(
+                question: mapItem['question'] as String? ?? 'Question',
+                correctAnswer: mapItem['explanation'] as String? ?? correctStr,
+                options: opts,
+                correctIndex: cIdx,
+              ));
+            }
+          }
+        } catch (_) {}
       }
 
       if (mounted) {

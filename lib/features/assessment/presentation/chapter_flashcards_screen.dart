@@ -153,7 +153,9 @@ class _ChapterFlashcardsScreenState extends State<ChapterFlashcardsScreen> {
                                     final isBack = child!.key == const ValueKey(true);
                                     final value = isBack ? math.min(rotate.value, math.pi / 2) : rotate.value;
                                     return Transform(
-                                      transform: Matrix4.rotationY(value),
+                                      transform: Matrix4.identity()
+                                        ..setEntry(3, 2, 0.002)
+                                        ..rotateY(value),
                                       alignment: Alignment.center,
                                       child: child,
                                     );
@@ -244,9 +246,10 @@ class _ChapterFlashcardsScreenState extends State<ChapterFlashcardsScreen> {
     required Color accentColor,
     required bool isDark,
   }) {
+    final screenWidth = MediaQuery.sizeOf(context).width;
     return Container(
       key: key,
-      width: 320,
+      width: math.min(screenWidth * 0.88, 360),
       height: 380,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(

@@ -7,13 +7,19 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import '../../network/services/mentora_backend_client.dart';
 import '../../chat/presentation/formatted_text_widget.dart';
+import 'dart:async';
 import '../../home/presentation/video_player_screen.dart';
 import '../../home/data/local/video_resource_repository.dart';
 import '../../experiment/phet/presentation/experiment_player_screen.dart';
 import '../../experiment/phet/models/experiment_descriptor.dart';
 import '../../course/presentation/textbook_viewer_screen.dart';
 import '../../assessment/presentation/chapter_flashcards_screen.dart';
+import '../../chat/data/local/chat_session_repository.dart';
 import '../../home/presentation/mentora_home_screen.dart';
+import '../../assessment/data/local/quiz_result_repository.dart';
+import '../../assessment/domain/quiz_result.dart';
+import '../../progress/data/local/progress_repository.dart';
+import '../../../config/app_environment.dart';
 
 class ChapterLearningWorkspaceScreen extends StatefulWidget {
   final String chapterTitle;
@@ -148,8 +154,34 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
     }
   }
 
+  String get _sessionId =>
+      'session_grade${_activeGrade}_${_activeSubjectName.replaceAll(' ', '_')}_${_activeChapterTitle.replaceAll(' ', '_')}';
+
   Future<void> _loadTabResources() async {
     print('[VIDEO_DEBUG] Workspace: Loading resources for chapter: "$_activeChapterTitle" (Grade $_activeGrade $_activeSubjectName)');
+    
+    // Load SQLite Chat History
+    try {
+      final chatRepo = ChatSessionRepository();
+      await chatRepo.ensureSessionExists(sessionId: _sessionId, chapterId: _activeChapterTitle);
+      final storedMessages = await chatRepo.getMessages(_sessionId);
+      if (storedMessages.isNotEmpty && mounted) {
+        setState(() {
+          _messages.clear();
+          for (final msg in storedMessages) {
+            _messages.add({
+              'isUser': msg.isUser,
+              'text': msg.text,
+              'hasAudio': !msg.isUser,
+            });
+          }
+        });
+        _scrollToBottom(force: true);
+      }
+    } catch (e) {
+      print('[CHAT_DEBUG] Error loading chat history: $e');
+    }
+
     final sim = await _client.getSimulationForChapter(_activeChapterTitle);
     final video = await _client.getVideoLecturesForChapter(_activeChapterTitle);
     final quiz = await _client.getQuizForChapter(_activeChapterTitle);
@@ -196,6 +228,9 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
     final text = _chatController.text.trim();
     if (text.isEmpty) return;
 
+    final chatRepo = ChatSessionRepository();
+    final userTimestamp = DateTime.now();
+
     setState(() {
       _messages.add({'isUser': true, 'text': text});
       _chatController.clear();
@@ -203,18 +238,50 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
     });
     _scrollToBottom(force: true);
 
+    try {
+      await chatRepo.ensureSessionExists(sessionId: _sessionId, chapterId: _activeChapterTitle);
+      await chatRepo.appendMessage(
+        sessionId: _sessionId,
+        isUser: true,
+        text: text,
+        timestamp: userTimestamp,
+      );
+    } catch (_) {}
+
+    unawaited(
+      ProgressRepository()
+          .recordQuestionAsked(chapterId: _activeChapterTitle)
+          .catchError((e) => AppEnvironment.log('PROGRESS', 'Failed recording question: $e')),
+    );
+    unawaited(
+      ProgressRepository()
+          .recordChatMessage(chapterId: _activeChapterTitle, sessionId: _sessionId)
+          .catchError((e) => AppEnvironment.log('PROGRESS', 'Failed recording chat message: $e')),
+    );
+
     final reply = await _client.queryAiTutor(
       question: text,
       topic: _activeChapterTitle,
       grade: _activeGrade,
     );
 
+    final answerText = (reply['answer'] ?? reply['response'] ?? 'I have analyzed your query from the NCERT curriculum.') as String;
+
+    try {
+      await chatRepo.appendMessage(
+        sessionId: _sessionId,
+        isUser: false,
+        text: answerText,
+        timestamp: DateTime.now(),
+      );
+    } catch (_) {}
+
     if (mounted) {
       setState(() {
         _isSending = false;
         _messages.add({
           'isUser': false,
-          'text': reply['answer'] ?? reply['response'] ?? 'I have analyzed your query from the NCERT curriculum.',
+          'text': answerText,
           'formulas': List<String>.from(reply['formulas'] ?? <String>[]),
           'hasAudio': true,
         });
@@ -766,7 +833,7 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
     final currentVideo = _videoData?['currentVideo'] as Map<String, dynamic>?;
 
     final heroTitle = currentVideo?['title']?.toString() ?? 'NCERT Class $_activeGrade $_activeSubjectName: $_activeChapterTitle';
-    final heroUrl = currentVideo?['videoUrl']?.toString() ?? currentVideo?['youtubeId']?.toString() ?? 'https://www.youtube.com/watch?v=M7lc1UVf-VE';
+    final heroUrl = currentVideo?['videoUrl']?.toString() ?? currentVideo?['youtubeId']?.toString() ?? 'https://www.youtube.com/watch?v=ZBalWWHYFQc';
     final videoId = YoutubePlayerController.convertUrlToId(heroUrl) ?? _extractYouTubeId(heroUrl);
 
     if (_isWebViewSupported && (_youtubeController == null || _activeVideoId != videoId)) {
@@ -890,7 +957,7 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
           const SizedBox(height: 8),
           ...playlist.map((item) {
             final itemTitle = item['title']?.toString() ?? 'Video Chapter';
-            final itemUrl = item['videoUrl']?.toString() ?? item['youtubeId']?.toString() ?? 'https://www.youtube.com/watch?v=tBmavvMwu68';
+            final itemUrl = item['videoUrl']?.toString() ?? item['youtubeId']?.toString() ?? 'https://www.youtube.com/watch?v=ZBalWWHYFQc';
             final itemDuration = item['duration']?.toString() ?? '10:00';
             final itemChannel = item['channel']?.toString() ?? 'NCERT';
 
@@ -1015,12 +1082,35 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
+                  final isCorrect = _selectedOptionIndex == currentQ['correctIndex'];
                   setState(() {
                     _showExplanation = true;
-                    if (_selectedOptionIndex == currentQ['correctIndex']) {
+                    if (isCorrect) {
                       _score++;
                     }
                   });
+                  final chapterId = _activeChapterTitle;
+                  unawaited(
+                    QuizResultRepository()
+                        .saveResult(
+                          QuizResult(
+                            chapterId: chapterId,
+                            score: isCorrect ? 1 : 0,
+                            totalQuestions: 1,
+                            answers: {_currentQuestionIndex: _selectedOptionIndex ?? 0},
+                            attemptedAt: DateTime.now(),
+                          ),
+                        )
+                        .catchError((e) {
+                          AppEnvironment.log('QUIZ', 'Failed saving workspace quiz result: $e');
+                          return -1;
+                        }),
+                  );
+                  unawaited(
+                    ProgressRepository()
+                        .recordQuestionAsked(chapterId: chapterId)
+                        .catchError((e) => AppEnvironment.log('PROGRESS', 'Failed recording workspace question: $e')),
+                  );
                 },
                 style: ElevatedButton.styleFrom(backgroundColor: primaryIndigo, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                 child: const Text('Submit Answer', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),

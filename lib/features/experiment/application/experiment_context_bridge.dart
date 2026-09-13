@@ -15,6 +15,7 @@ class ExperimentContextBridge {
   final String _experimentName;
   
   StreamSubscription? _subscription;
+  Timer? _debounceTimer;
 
   ExperimentContextBridge({
     required SimulationContextNotifier notifier,
@@ -33,13 +34,20 @@ class ExperimentContextBridge {
   void _init() {
     // Listen to all runtime events
     _subscription = _eventBus.stream.listen((event) {
-      _updateContext();
+      _scheduleUpdate();
     });
     // Initial population
-    _updateContext();
+    _performUpdate();
   }
 
-  void _updateContext() {
+  void _scheduleUpdate() {
+    if (_debounceTimer?.isActive ?? false) return;
+    _debounceTimer = Timer(const Duration(milliseconds: 200), () {
+      _performUpdate();
+    });
+  }
+
+  void _performUpdate() {
     final variables = <String, dynamic>{};
     
     // Extract state from the world's objects
@@ -50,7 +58,6 @@ class ExperimentContextBridge {
       }
       itemData['state'] = {
         'visible': state.visible,
-        // include other important state fields if necessary
       };
       variables[state.objectId] = itemData;
     }
@@ -60,15 +67,18 @@ class ExperimentContextBridge {
       variables[variable.id] = variable.value;
     }
 
+    final currentState = _world.clock.isPaused ? 'Paused' : 'Active';
+
     _notifier.update(
       experimentId: _experimentId,
       experimentName: _experimentName,
       variables: variables,
-      currentState: 'Active',
+      currentState: currentState,
     );
   }
 
   void dispose() {
+    _debounceTimer?.cancel();
     _subscription?.cancel();
     _notifier.clear();
   }

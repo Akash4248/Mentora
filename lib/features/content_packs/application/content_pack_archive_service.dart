@@ -185,8 +185,14 @@ class ContentPackArchiveService {
 
       for (final file in decodedArchive) {
         if (file.isFile) {
+          final targetPath = p.normalize(p.join(unpackDir.path, file.name));
+          if (!p.isWithin(unpackDir.path, targetPath)) {
+            throw Exception(
+              'Security error: Zip-Slip path traversal detected in entry: ${file.name}',
+            );
+          }
           final data = file.content as List<int>;
-          final outFile = File(p.join(unpackDir.path, file.name));
+          final outFile = File(targetPath);
           outFile.createSync(recursive: true);
           outFile.writeAsBytesSync(data);
         }

@@ -14,7 +14,7 @@ class ExperimentRunSyncAdapterImpl implements ExperimentRunSyncAdapter {
   final Uuid _uuid = const Uuid();
 
   final Map<String, List<ExperimentEventDto>> _eventBatches = {};
-  Timer? _batchTimer;
+  final Map<String, Timer> _batchTimers = {};
 
   static const int maxBatchSize = 25;
   static const Duration maxBatchInterval = Duration(seconds: 5);
@@ -46,13 +46,14 @@ class ExperimentRunSyncAdapterImpl implements ExperimentRunSyncAdapter {
     if (batch.length >= maxBatchSize) {
       _flushBatch(runId);
     } else {
-      _batchTimer?.cancel();
-      _batchTimer = Timer(maxBatchInterval, () => _flushBatch(runId));
+      _batchTimers[runId]?.cancel();
+      _batchTimers[runId] = Timer(maxBatchInterval, () => _flushBatch(runId));
     }
   }
 
   void _flushBatch(String runId) {
-    _batchTimer?.cancel();
+    _batchTimers[runId]?.cancel();
+    _batchTimers.remove(runId);
     final batch = _eventBatches[runId];
     if (batch == null || batch.isEmpty) return;
 
@@ -73,16 +74,19 @@ class ExperimentRunSyncAdapterImpl implements ExperimentRunSyncAdapter {
     // Flush any pending events first
     _flushBatch(runId);
 
-    print('[EXPERIMENT_SYNC] RUN_COMPLETED runId=$runId');
+    final expId = (metrics['experimentId'] ?? metrics['experiment_id'] ?? 'default_exp').toString();
+    final stdId = (metrics['studentId'] ?? metrics['student_id'] ?? 'current_student').toString();
+
+    print('[EXPERIMENT_SYNC] RUN_COMPLETED runId=$runId expId=$expId stdId=$stdId');
     _queue.enqueue(PendingExperimentSync(
       id: _uuid.v4(),
       operationType: SyncOperationType.completeRun,
       runId: runId,
       runDto: ExperimentRunDto(
         runId: runId,
-        experimentId: '', // placeholder, completeRun uses metrics mainly
-        studentId: '',
-        executionMode: metrics['executionMode'] ?? '', // hacky, but complete Run only needs metrics
+        experimentId: expId,
+        studentId: stdId,
+        executionMode: metrics['executionMode']?.toString() ?? 'guided',
         startedAt: DateTime.now(),
         status: 'completed',
         metrics: metrics,

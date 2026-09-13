@@ -209,19 +209,21 @@ class RuntimeWorld {
   }
 
   void tick(double dt) {
-    _visualElapsed += dt;
-    animationEngine.tick(
-      dt,
-      clock.isRunning ? clock.elapsedTime : _visualElapsed,
-    );
     if (clock.isRunning) {
       clock.tick(dt);
+      _visualElapsed = clock.elapsedTime;
       analytics.addTimeSpent(dt);
       experimentState.tick(dt);
       variableExecutor.tick(dt);
       observationScheduler.tick(dt);
       rules.evaluateContinuousRules(dt);
+    } else {
+      _visualElapsed += dt;
     }
+    animationEngine.tick(
+      dt,
+      _visualElapsed,
+    );
   }
 
   void start() {

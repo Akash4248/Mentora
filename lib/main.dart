@@ -21,6 +21,10 @@ import 'features/progress/presentation/mentora_mastery_screen.dart';
 import 'features/course/presentation/subject_chapters_screen.dart';
 import 'features/tutor/presentation/chapter_learning_workspace_screen.dart';
 import 'features/settings/presentation/mentora_settings_screen.dart';
+import 'features/progress/presentation/progress_dashboard_screen.dart';
+import 'features/experiment/presentation/screens/experiment_hub_screen.dart';
+import 'features/content_packs/presentation/content_pack_installer_screen.dart';
+import 'features/rag/presentation/screens/document_rag_ingestion_screen.dart';
 
 import 'features/voice/screens/voice_debug_screen.dart';
 
@@ -95,14 +99,24 @@ class OfflineTutorApp extends StatelessWidget {
             '/home': (context) => const MentoraHomeScreen(),
             '/practice': (context) => const MentoraPracticeScreen(),
             '/mastery': (context) => const MentoraMasteryScreen(),
+            '/progress_dashboard': (context) => ProgressDashboardScreen(
+                  courseRepository: courseRepository,
+                  languageCode: languageProvider.languageCode,
+                ),
+            '/experiment_hub': (context) => const ExperimentHubScreen(),
+            '/content_packs': (context) => const ContentPackInstallerScreen(),
+            '/document_rag': (context) => const DocumentRagIngestionScreen(),
             '/subject_chapters': (context) => const SubjectChaptersScreen(),
             '/chapter_workspace': (context) => const ChapterLearningWorkspaceScreen(),
             '/settings': (context) => const MentoraSettingsScreen(),
             '/voice_overlay': (context) => const VoiceDebugScreen(),
           },
-          onUnknownRoute: (settings) => MaterialPageRoute(
-            builder: (context) => const MentoraHomeScreen(),
-          ),
+          onUnknownRoute: (settings) {
+            debugPrint('[ROUTE] Unknown route requested: ${settings.name}');
+            return MaterialPageRoute(
+              builder: (context) => const MentoraHomeScreen(),
+            );
+          },
         );
       },
     );

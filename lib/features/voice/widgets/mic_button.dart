@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../simulation_context/providers/simulation_context_provider.dart';
 import '../models/voice_state.dart';
 import '../providers/voice_provider.dart';
 
@@ -25,18 +26,19 @@ class MicButton extends ConsumerWidget {
     final theme = Theme.of(context);
 
     return GestureDetector(
-      onTap: () => _handleTap(voice.state, notifier, languageCode),
+      onTap: () => _handleTap(voice.state, notifier, ref, languageCode),
       child: _AnimatedMic(state: voice.state, theme: theme),
     );
   }
 
-  void _handleTap(VoiceState state, VoiceNotifier notifier, String languageCode) {
+  void _handleTap(VoiceState state, VoiceNotifier notifier, WidgetRef ref, String languageCode) {
     switch (state) {
       case VoiceState.idle:
         notifier.startRecording(languageCode: languageCode);
         break;
       case VoiceState.listening:
-        notifier.stopRecording();
+        final ctx = ref.read(simulationContextProvider);
+        notifier.stopRecording(context: ctx.hasContext ? ctx.toJson() : null);
         break;
       case VoiceState.speaking:
         notifier.stopPlayback();

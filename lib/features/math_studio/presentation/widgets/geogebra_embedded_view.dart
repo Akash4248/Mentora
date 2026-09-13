@@ -122,6 +122,8 @@ class _GeogebraEmbeddedViewState extends State<GeogebraEmbeddedView> {
                 javaScriptEnabled: true,
                 domStorageEnabled: true,
                 useHybridComposition: true,
+                transparentBackground: false,
+                cacheMode: CacheMode.LOAD_CACHE_ELSE_NETWORK,
               ),
               onWebViewCreated: (controller) {
                 _webViewController = controller;

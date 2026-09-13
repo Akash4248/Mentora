@@ -44,9 +44,13 @@ class CurriculumRepository {
             try {
               final sumContent = await summariesFile.readAsString();
               final List<dynamic> sumList = jsonDecode(sumContent);
-              if (sumList.isNotEmpty) {
-                final firstItem = sumList.first as Map<String, dynamic>;
-                summary = firstItem['text'] as String? ?? '';
+              final textParts = sumList
+                  .whereType<Map<String, dynamic>>()
+                  .map((item) => item['text'] as String? ?? '')
+                  .where((t) => t.trim().isNotEmpty)
+                  .toList();
+              if (textParts.isNotEmpty) {
+                summary = textParts.join('\n\n');
               }
             } catch (_) {}
           }
@@ -54,19 +58,28 @@ class CurriculumRepository {
 
         final language = manifestData['language'] as String? ?? 'english';
 
-        final chapter = CurriculumChapter(
-          packId: pack.packId,
-          title: _capitalize(chapterTitle),
-          subject: subject,
-          grade: grade,
-          rootPath: pack.rootPath,
-          summary: summary,
-          language: language,
-        );
+        final minGrade = manifestData['gradeMin'] as int? ?? pack.gradeMin;
+        final maxGrade = manifestData['gradeMax'] as int? ?? pack.gradeMax;
+        final targetGrades = <int>{
+          manifestData['grade'] as int? ?? pack.gradeMin,
+          for (var g = minGrade; g <= maxGrade; g++) g,
+        };
 
-        grouped.putIfAbsent(grade, () => {});
-        grouped[grade]!.putIfAbsent(subject, () => []);
-        grouped[grade]![subject]!.add(chapter);
+        for (final grade in targetGrades) {
+          final chapter = CurriculumChapter(
+            packId: pack.packId,
+            title: _capitalize(chapterTitle),
+            subject: subject,
+            grade: grade,
+            rootPath: pack.rootPath,
+            summary: summary,
+            language: language,
+          );
+
+          grouped.putIfAbsent(grade, () => {});
+          grouped[grade]!.putIfAbsent(subject, () => []);
+          grouped[grade]![subject]!.add(chapter);
+        }
       } catch (e) {
         print('[CURRICULUM] Error parsing pack manifest ${pack.packId}: $e');
       }

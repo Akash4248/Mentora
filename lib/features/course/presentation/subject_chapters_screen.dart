@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../network/services/mentora_backend_client.dart';
 import '../../home/presentation/mentora_home_screen.dart';
-import 'textbook_viewer_screen.dart';
-import '../../assessment/presentation/chapter_flashcards_screen.dart';
+import '../../../config/app_environment.dart';
 
 class SubjectChaptersScreen extends StatefulWidget {
   final String subjectName;
@@ -22,40 +21,47 @@ class _SubjectChaptersScreenState extends State<SubjectChaptersScreen> {
   final MentoraBackendClient _client = MentoraBackendClient();
   List<Map<String, dynamic>> _chapters = [];
   bool _isLoading = true;
-  int _activeGrade = 9;
   String _activeSubject = 'Physics';
+  int _activeGrade = 9;
+  bool _argsResolved = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _resolveArgsAndLoad();
-  }
-
-  void _resolveArgsAndLoad() {
-    final args = ModalRoute.of(context)?.settings.arguments;
-    if (args is Map<String, dynamic>) {
-      _activeSubject = args['subject']?.toString() ?? widget.subjectName;
-      _activeGrade = (args['grade'] as num?)?.toInt() ?? widget.grade;
-    } else if (args is String) {
-      _activeSubject = args;
-      _activeGrade = widget.grade;
-    } else {
-      _activeSubject = widget.subjectName;
-      _activeGrade = widget.grade;
+    if (!_argsResolved) {
+      _argsResolved = true;
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is Map<String, dynamic>) {
+        _activeSubject = args['subject']?.toString() ?? args['subjectName']?.toString() ?? widget.subjectName;
+        _activeGrade = (args['grade'] as num?)?.toInt() ?? widget.grade;
+      } else if (args is String) {
+        _activeSubject = args;
+        _activeGrade = widget.grade;
+      } else {
+        _activeSubject = widget.subjectName;
+        _activeGrade = widget.grade;
+      }
+      _loadChapters();
     }
-    _loadChapters();
   }
 
   Future<void> _loadChapters() async {
     if (_chapters.isEmpty) {
       setState(() => _isLoading = true);
     }
-    final data = await _client.getChaptersForSubject(_activeSubject, grade: _activeGrade);
-    if (mounted) {
-      setState(() {
-        _chapters = data;
-        _isLoading = false;
-      });
+    try {
+      final data = await _client.getChaptersForSubject(_activeSubject, grade: _activeGrade);
+      if (mounted) {
+        setState(() {
+          _chapters = data;
+        });
+      }
+    } catch (e) {
+      AppEnvironment.log('COURSE', 'Failed loading chapters: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -219,50 +225,37 @@ class _SubjectChaptersScreenState extends State<SubjectChaptersScreen> {
                                 Expanded(
                                   child: SingleChildScrollView(
                                     scrollDirection: Axis.horizontal,
-                                    reverse: true,
                                     child: Row(
                                       children: [
                                         InkWell(
-                                          onTap: () {
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (_) => TextbookViewerScreen(
-                                                  pdfPath: '/storage/emulated/0/Android/data/org.mentora.app/files/packs/${ch['title']}/source.pdf',
-                                                  chapterTitle: ch['title'] as String,
-                                                  subjectName: _activeSubject,
-                                                  grade: _activeGrade,
-                                                ),
-                                              ),
-                                            );
-                                          },
+                                          onTap: () => _openChapterWorkspace(ch['title'] as String, 0),
+                                          child: _buildActionPill('Chat', Icons.chat_bubble_outline, primaryIndigo),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        InkWell(
+                                          onTap: () => _openChapterWorkspace(ch['title'] as String, 1),
                                           child: _buildActionPill('Textbook', Icons.menu_book_outlined, const Color(0xFF0284C7)),
                                         ),
                                         const SizedBox(width: 4),
                                         InkWell(
-                                          onTap: () {
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (_) => ChapterFlashcardsScreen(
-                                                  chapterId: ch['number'] as int? ?? 1,
-                                                  chapterTitle: ch['title'] as String,
-                                                  subjectName: _activeSubject,
-                                                  grade: _activeGrade,
-                                                ),
-                                              ),
-                                            );
-                                          },
+                                          onTap: () => _openChapterWorkspace(ch['title'] as String, 2),
                                           child: _buildActionPill('Cards', Icons.style_outlined, const Color(0xFFD97706)),
                                         ),
                                         const SizedBox(width: 4),
-                                        _buildActionPill('Chat', Icons.chat_bubble_outline, primaryIndigo),
+                                        InkWell(
+                                          onTap: () => _openChapterWorkspace(ch['title'] as String, 3),
+                                          child: _buildActionPill('Sims', Icons.science_outlined, const Color(0xFF10B981)),
+                                        ),
                                         const SizedBox(width: 4),
-                                        _buildActionPill('Sims', Icons.science_outlined, const Color(0xFF10B981)),
+                                        InkWell(
+                                          onTap: () => _openChapterWorkspace(ch['title'] as String, 4),
+                                          child: _buildActionPill('Watch', Icons.play_arrow_outlined, const Color(0xFFF59E0B)),
+                                        ),
                                         const SizedBox(width: 4),
-                                        _buildActionPill('Watch', Icons.play_arrow_outlined, const Color(0xFFF59E0B)),
-                                        const SizedBox(width: 4),
-                                        _buildActionPill('Quiz', Icons.quiz_outlined, const Color(0xFF8B5CF6)),
+                                        InkWell(
+                                          onTap: () => _openChapterWorkspace(ch['title'] as String, 5),
+                                          child: _buildActionPill('Quiz', Icons.quiz_outlined, const Color(0xFF8B5CF6)),
+                                        ),
                                       ],
                                     ),
                                   ),
@@ -280,11 +273,24 @@ class _SubjectChaptersScreenState extends State<SubjectChaptersScreen> {
     );
   }
 
+  void _openChapterWorkspace(String chapterTitle, int tabIndex) {
+    Navigator.pushNamed(
+      context,
+      '/chapter_workspace',
+      arguments: {
+        'chapterTitle': chapterTitle,
+        'subjectName': _activeSubject,
+        'grade': _activeGrade,
+        'initialTabIndex': tabIndex,
+      },
+    );
+  }
+
   Widget _buildActionPill(String label, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Row(

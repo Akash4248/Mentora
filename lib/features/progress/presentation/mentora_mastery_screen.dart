@@ -125,6 +125,13 @@ class _MentoraMasteryScreenState extends State<MentoraMasteryScreen> {
         iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
         actions: [
           IconButton(
+            icon: const Icon(Icons.analytics_rounded, color: primaryIndigo),
+            tooltip: 'Detailed Analytics & Trends',
+            onPressed: () {
+              Navigator.pushNamed(context, '/progress_dashboard').then((_) => _loadMasteryData());
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.home_rounded, color: primaryIndigo),
             tooltip: 'Home Dashboard',
             onPressed: () {

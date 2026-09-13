@@ -137,8 +137,27 @@ class _ExperimentPlayerScreenState
                 mediaPlaybackRequiresUserGesture: false,
                 useHybridComposition: true,
                 transparentBackground: false,
+                cacheMode: CacheMode.LOAD_CACHE_ELSE_NETWORK,
               ),
-              onWebViewCreated: (controller) => _controller = controller,
+              onWebViewCreated: (controller) {
+                _controller = controller;
+                controller.addJavaScriptHandler(
+                  handlerName: 'onSimulationState',
+                  callback: (args) {
+                    if (args.isNotEmpty && args[0] is Map) {
+                      final vars = Map<String, dynamic>.from(args[0] as Map);
+                      ref.read(simulationContextProvider.notifier).update(
+                        experimentId: widget.experiment.id,
+                        experimentName: widget.experiment.title,
+                        subject: widget.experiment.subject,
+                        provider: widget.experiment.provider,
+                        variables: vars,
+                        currentState: 'Running',
+                      );
+                    }
+                  },
+                );
+              },
               onProgressChanged: (_, progress) {
                 if (mounted) {
                   setState(() => _progress = progress / 100);
@@ -146,6 +165,11 @@ class _ExperimentPlayerScreenState
               },
               onLoadStart: (_, _) {
                 if (mounted) setState(() => _loadError = null);
+              },
+              onLoadStop: (controller, url) {
+                controller.evaluateJavascript(
+                  source: 'if(typeof window.postState === "function"){ window.postState(); }',
+                );
               },
               onReceivedError: (_, request, error) {
                 if (request.isForMainFrame != true || !mounted) return;
