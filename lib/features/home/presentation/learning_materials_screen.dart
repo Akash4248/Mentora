@@ -18,8 +18,7 @@ import '../data/local/study_note_repository.dart';
 import 'pdf_viewer_screen.dart';
 import 'video_player_screen.dart';
 
-const String _repoTextbooksPath = '/home/akash/Desktop/IDP/TEXTBOOKS';
-const String _repoVideosPath = '/home/akash/Desktop/IDP/VIDEOS';
+
 const List<String> _androidTextbookRootCandidates = <String>[
   '/storage/emulated/0/TEXTBOOKS',
   '/storage/emulated/0/textbooks',
@@ -358,11 +357,9 @@ class _LearningMaterialsScreenState extends State<LearningMaterialsScreen>
 
   Future<void> _syncRepoMediaToDb() async {
     final textbookRoots = <String>{
-      _repoTextbooksPath,
       ..._androidTextbookRootCandidates,
     };
     final videoRoots = <String>{
-      _repoVideosPath,
       ..._androidVideoRootCandidates,
     };
 
@@ -835,10 +832,18 @@ class _TextbooksTabState extends State<_TextbooksTab> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
-              Text(
-                'Install content packs into app storage to make PDFs, videos, quizzes, and other materials available offline.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey.shade700),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.download_rounded),
+                label: const Text('Manage & Sync Content Packs'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4F46E5),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () {
+                  Navigator.of(context).pushNamed('/content_packs');
+                },
               ),
             ],
           ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+import 'package:offline_tutor_app/core/utils/youtube_utils.dart';
 
 import '../../course/domain/curriculum_models.dart';
 import '../../course/domain/course_tree.dart';
@@ -491,32 +492,9 @@ class _YouTubeDashboardInlinePlayerCardState extends State<_YouTubeDashboardInli
   bool _isPlayingInline = false;
   YoutubePlayerController? _youtubeController;
 
-  String _extractYouTubeId(String rawUrl) {
-    final uri = Uri.tryParse(rawUrl);
-    String? id;
-    if (uri != null) {
-      if (uri.queryParameters.containsKey('v')) {
-        id = uri.queryParameters['v'];
-      } else if (uri.host.contains('youtu.be') && uri.pathSegments.isNotEmpty) {
-        id = uri.pathSegments.first;
-      } else if (uri.pathSegments.contains('embed') && uri.pathSegments.isNotEmpty) {
-        id = uri.pathSegments.last;
-      }
-    }
-    if (id == null || id.isEmpty) {
-      final trimmed = rawUrl.trim();
-      if (RegExp(r'^[a-zA-Z0-9_-]{11}$').hasMatch(trimmed)) {
-        id = trimmed;
-      }
-    }
-    if (id == null || id.isEmpty || !RegExp(r'^[a-zA-Z0-9_-]{11}$').hasMatch(id)) {
-      return 'M7lc1UVf-VE';
-    }
-    return id;
-  }
-
   void _startInlinePlayback() {
-    final videoId = _extractYouTubeId(widget.videoUrl);
+    final videoId = YouTubeUtils.extractYouTubeId(widget.videoUrl);
+    if (videoId == null) return;
     print('[VIDEO_DEBUG] Initializing inline YoutubePlayerController for videoId "$videoId"');
     _youtubeController?.close();
     _youtubeController = YoutubePlayerController.fromVideoId(

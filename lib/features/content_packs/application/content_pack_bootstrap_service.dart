@@ -35,13 +35,6 @@ class ContentPackBootstrapService {
             importedAt: DateTime.now().millisecondsSinceEpoch,
           ),
           MediaResource(
-            mediaType: 'video',
-            title: 'Basic Science Overview',
-            localPath: 'assets/demo_video.mp4',
-            sizeBytes: 1024,
-            importedAt: DateTime.now().millisecondsSinceEpoch,
-          ),
-          MediaResource(
             mediaType: 'resource',
             title: 'Interactive Activities',
             localPath: 'assets/activities.zip',

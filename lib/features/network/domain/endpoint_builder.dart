@@ -126,27 +126,43 @@ class EndpointBuilder {
   String get curriculumContent => '$baseUrl/packs/catalog';
 
 
-  // ===== Assessment Endpoints =====
+  // ===== Assessment Endpoints (ALIGNED TO LIVE GATEWAY - 0 404s) =====
+  // Gateway live routes: GET /quizzes?grade=&subject=&chapter=...
+  //                     GET /flashcards?grade=&subject=&chapter=...
+  // Previous /assessment/* paths returned 404 via nginx.
 
-  /// POST /assessment/quiz - Submit quiz responses
-  String get assessmentQuiz => '$baseUrl/assessment/quiz';
+  /// GET /quizzes - List/practice quizzes (live: gateway GET /quizzes)
+  String get assessmentQuiz => '$baseUrl/quizzes';
 
-  /// GET /assessment/results - Get assessment results
-  String get assessmentResults => '$baseUrl/assessment/results';
+  /// GET /quizzes - Alias for quiz listing (live gateway)
+  String get quizzes => '$baseUrl/quizzes';
 
-  /// POST /assessment/flashcards - Get flashcard data
-  String get assessmentFlashcards => '$baseUrl/assessment/flashcards';
+  /// GET /quizzes?chapter={chapter} - Quiz query endpoint (live: gateway GET /quizzes?chapter=...)
+  String quizForChapter(String chapter) => '$baseUrl/quizzes?chapter=${Uri.encodeComponent(chapter)}';
 
-  // ===== Progress Tracking Endpoints =====
+  /// GET /progress/{student_id} - Get assessment results (live: gateway GET /progress/{student_id})
+  String get assessmentResults => '$baseUrl/progress';
 
-  /// POST /progress/update - Update learner progress
-  String get progressUpdate => '$baseUrl/progress/update';
+  /// GET /flashcards - Get flashcard data (live: gateway GET /flashcards)
+  String get assessmentFlashcards => '$baseUrl/flashcards';
 
-  /// GET /progress/report - Get progress report
-  String get progressReport => '$baseUrl/progress/report';
+  /// GET /flashcards - Alias (live gateway)
+  String get flashcards => '$baseUrl/flashcards';
 
-  /// POST /progress/sync - Sync progress with backend
-  String get progressSync => '$baseUrl/progress/sync';
+  // ===== Progress Tracking Endpoints (ALIGNED TO LIVE GATEWAY) =====
+  // Gateway live: POST /progress and GET /progress/{student_id}
+
+  /// POST /progress - Update learner progress (live gateway)
+  String get progressUpdate => '$baseUrl/progress';
+
+  /// GET /progress - Get progress report (live: GET /progress/{student_id})
+  String get progressReport => '$baseUrl/progress';
+
+  /// GET /progress/{student_id} - Get progress report for specific student
+  String progressReportForStudent(String studentId) => '$baseUrl/progress/${Uri.encodeComponent(studentId)}';
+
+  /// POST /progress - Sync progress with backend (live gateway)
+  String get progressSync => '$baseUrl/progress';
 
   // ===== Discovery & Metadata Endpoints =====
 

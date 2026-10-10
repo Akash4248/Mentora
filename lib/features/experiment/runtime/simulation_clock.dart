@@ -6,6 +6,7 @@ class SimulationClock extends ChangeNotifier {
 
   double get elapsedTime => _elapsedTime;
   bool get isRunning => _isRunning;
+  bool get isPaused => !_isRunning;
 
   void tick(double dt) {
     if (_isRunning) {

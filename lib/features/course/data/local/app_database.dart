@@ -124,6 +124,10 @@ class AppDatabase {
         }
         if (oldVersion < 20) {
           await _createRagV2FtsArtifacts(db);
+          await db.execute('''
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_chapter_video_unique
+            ON chapter_video_resources(chapter_id, video_id);
+          ''');
         }
       },
     );
@@ -614,6 +618,11 @@ class AppDatabase {
     await db.execute('''
       CREATE INDEX IF NOT EXISTS idx_chapter_video_chapter_id
       ON chapter_video_resources(chapter_id);
+    ''');
+
+    await db.execute('''
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_chapter_video_unique
+      ON chapter_video_resources(chapter_id, video_id);
     ''');
   }
 }

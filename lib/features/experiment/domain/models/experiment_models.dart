@@ -40,6 +40,20 @@ class ExperimentManifest {
     required this.createdAt,
     required this.updatedAt,
   });
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'description': description,
+        'subject': subject,
+        'grade': grade,
+        'chapter': chapter,
+        'topic': topic,
+        'difficulty': difficulty.name,
+        'requiredSensors': requiredSensors,
+        'steps': steps.map((s) => {'id': s.id, 'title': s.title, 'description': s.description, 'expectedOutcome': s.expectedOutcome, 'order': s.order}).toList(),
+        'estimatedDurationMinutes': estimatedDurationMinutes,
+      };
 }
 
 class ExperimentStep {

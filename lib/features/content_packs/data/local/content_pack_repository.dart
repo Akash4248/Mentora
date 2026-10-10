@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -60,6 +61,14 @@ class ContentPackRepository {
 
   Future<List<ContentPackItem>> listItemsByKind(String kind) async {
     final db = await _database.database;
+    if (kind.toLowerCase() == 'pdf') {
+      final rows = await db.query(
+        'material_pack_items',
+        where: "kind IN ('pdf', 'textbook', 'document') OR LOWER(absolute_path) LIKE '%.pdf'",
+        orderBy: 'grade ASC, subject ASC, medium ASC, order_index ASC',
+      );
+      return rows.map((row) => ContentPackItem.fromMap(row)).toList();
+    }
     final rows = await db.query(
       'material_pack_items',
       where: 'kind = ?',
@@ -67,6 +76,175 @@ class ContentPackRepository {
       orderBy: 'grade ASC, subject ASC, medium ASC, order_index ASC',
     );
     return rows.map((row) => ContentPackItem.fromMap(row)).toList();
+  }
+
+  Future<ContentPackItem?> findPdfItemForChapter({
+    String? chapterTitle,
+    String? subject,
+    int? grade,
+    String? packId,
+  }) async {
+    final db = await _database.database;
+    var query = "WHERE (kind IN ('pdf', 'textbook', 'document') OR LOWER(absolute_path) LIKE '%.pdf')";
+    final args = <Object?>[];
+
+    if (packId != null && packId.isNotEmpty) {
+      query += " AND pack_id = ?";
+      args.add(packId);
+    }
+    if (grade != null) {
+      query += " AND (grade = ? OR grade IS NULL)";
+      args.add(grade);
+    }
+
+    final rows = await db.rawQuery(
+      'SELECT * FROM material_pack_items $query ORDER BY order_index ASC',
+      args,
+    );
+    final items = rows.map((r) => ContentPackItem.fromMap(r)).toList();
+
+    // 1. Exact or substring match on title/chapterId
+    if (chapterTitle != null && chapterTitle.isNotEmpty) {
+      final clean = chapterTitle.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
+      for (final item in items) {
+        final itemTitle = item.title.toLowerCase();
+        final chapId = (item.chapterId ?? '').toLowerCase();
+        if (itemTitle.contains(clean) || chapId.contains(clean) || clean.contains(itemTitle)) {
+          if (File(item.absolutePath).existsSync()) return item;
+        }
+      }
+    }
+
+    // 2. Return first existing PDF file for the grade/pack
+    for (final item in items) {
+      if (File(item.absolutePath).existsSync()) return item;
+    }
+
+    // 3. Fallback check installed pack root directories for source.pdf
+    final packs = await listInstalledPacks();
+    for (final pack in packs) {
+      if (grade != null && pack.gradeMin != grade && pack.gradeMax != grade) continue;
+      final pdfFile = File(p.join(pack.rootPath, 'source.pdf'));
+      if (pdfFile.existsSync()) {
+        return ContentPackItem(
+          packId: pack.packId,
+          kind: 'pdf',
+          title: pack.title,
+          relativePath: 'source.pdf',
+          absolutePath: pdfFile.path,
+          sizeBytes: pdfFile.existsSync() ? pdfFile.lengthSync() : 0,
+          orderIndex: 0,
+          grade: pack.gradeMin,
+          subject: pack.subject,
+          medium: pack.medium,
+        );
+      }
+    }
+    return null;
+  }
+
+  Future<List<Map<String, dynamic>>> findFlashcardsForChapter({
+    String? chapterTitle,
+    String? subject,
+    int? grade,
+    String? packId,
+  }) async {
+    final db = await _database.database;
+    final rows = await db.rawQuery(
+      "SELECT * FROM material_pack_items WHERE (kind = 'flashcard' OR LOWER(relative_path) LIKE '%flashcards.json')",
+    );
+    var items = rows.map((r) => ContentPackItem.fromMap(r)).toList();
+
+    if (packId != null && packId.isNotEmpty) {
+      items = items.where((i) => i.packId == packId).toList();
+    }
+    if (grade != null) {
+      items = items.where((i) => i.grade == null || i.grade == grade).toList();
+    }
+    if (subject != null && subject.isNotEmpty) {
+      final sLower = subject.toLowerCase();
+      items = items.where((i) => i.subject == null || i.subject!.toLowerCase().contains(sLower)).toList();
+    }
+
+    if (chapterTitle != null && chapterTitle.isNotEmpty) {
+      final clean = chapterTitle.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
+      if (clean.isNotEmpty) {
+        final matching = items.where((i) {
+          final itemTitle = i.title.toLowerCase();
+          final chapId = (i.chapterId ?? '').toLowerCase();
+          final rel = i.relativePath.toLowerCase();
+          return itemTitle.contains(clean) || chapId.contains(clean) || rel.contains(clean) || clean.contains(itemTitle);
+        }).toList();
+
+        if (matching.isNotEmpty) {
+          items = matching;
+        }
+      }
+    }
+
+    for (final item in items) {
+      final file = File(item.absolutePath);
+      if (file.existsSync()) {
+        try {
+          final content = await file.readAsString();
+          final List<dynamic> decoded = jsonDecode(content);
+          return decoded.whereType<Map>().map((m) => Map<String, dynamic>.from(m)).toList();
+        } catch (_) {}
+      }
+    }
+    return const [];
+  }
+
+  Future<List<Map<String, dynamic>>> findQuizQuestionsForChapter({
+    String? chapterTitle,
+    String? subject,
+    int? grade,
+    String? packId,
+  }) async {
+    final db = await _database.database;
+    final rows = await db.rawQuery(
+      "SELECT * FROM material_pack_items WHERE (kind = 'quiz' OR LOWER(relative_path) LIKE '%quizzes.json')",
+    );
+    var items = rows.map((r) => ContentPackItem.fromMap(r)).toList();
+
+    if (packId != null && packId.isNotEmpty) {
+      items = items.where((i) => i.packId == packId).toList();
+    }
+    if (grade != null) {
+      items = items.where((i) => i.grade == null || i.grade == grade).toList();
+    }
+    if (subject != null && subject.isNotEmpty) {
+      final sLower = subject.toLowerCase();
+      items = items.where((i) => i.subject == null || i.subject!.toLowerCase().contains(sLower)).toList();
+    }
+
+    if (chapterTitle != null && chapterTitle.isNotEmpty) {
+      final clean = chapterTitle.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
+      if (clean.isNotEmpty) {
+        final matching = items.where((i) {
+          final itemTitle = i.title.toLowerCase();
+          final chapId = (i.chapterId ?? '').toLowerCase();
+          final rel = i.relativePath.toLowerCase();
+          return itemTitle.contains(clean) || chapId.contains(clean) || rel.contains(clean) || clean.contains(itemTitle);
+        }).toList();
+
+        if (matching.isNotEmpty) {
+          items = matching;
+        }
+      }
+    }
+
+    for (final item in items) {
+      final file = File(item.absolutePath);
+      if (file.existsSync()) {
+        try {
+          final content = await file.readAsString();
+          final List<dynamic> decoded = jsonDecode(content);
+          return decoded.whereType<Map>().map((m) => Map<String, dynamic>.from(m)).toList();
+        } catch (_) {}
+      }
+    }
+    return const [];
   }
 
   Future<void> upsertPack({

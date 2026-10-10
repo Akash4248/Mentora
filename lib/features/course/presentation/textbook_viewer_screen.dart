@@ -225,7 +225,7 @@ class _TextbookViewerScreenState extends State<TextbookViewerScreen> {
                 ),
               ),
               onPressed: () {
-                Navigator.pop(context);
+                Navigator.of(context).pushNamed('/content_packs');
               },
             ),
           ],

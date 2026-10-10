@@ -172,7 +172,7 @@ class VideoResourceRepository {
     print('[VideoResourceRepository] Saved ${videos.length} video URLs to SQLite for Grade $grade.');
   }
 
-  Future<List<ChapterVideoResource>> getVideosForChapter(String chapterId, {int grade = 9}) async {
+  Future<List<ChapterVideoResource>> getVideosForChapter(String chapterId, {required int grade}) async {
     await ensureSeedVideosForGrade(grade);
     final db = await _database.database;
 
@@ -184,22 +184,26 @@ class VideoResourceRepository {
     );
 
     if (rows.isEmpty) {
-      final sanitized = chapterId.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '%');
-      rows = await db.query(
-        'chapter_video_resources',
-        where: 'grade = ? AND (chapter_id LIKE ? OR chapter_title LIKE ?)',
-        whereArgs: <Object?>[grade, '%$sanitized%', '%$sanitized%'],
-        orderBy: 'rank ASC',
-      );
-    }
+      final keywords = chapterId
+          .split(RegExp(r'[^a-zA-Z0-9]+'))
+          .where((k) => k.isNotEmpty && k.length > 2 && k != 'ch' && k != 'chapter' && !RegExp(r'^\d+$').hasMatch(k))
+          .toList();
 
-    if (rows.isEmpty) {
-      rows = await db.query(
-        'chapter_video_resources',
-        where: 'grade = ?',
-        whereArgs: <Object?>[grade],
-        orderBy: 'rank ASC',
-      );
+      if (keywords.isNotEmpty) {
+        final likeClause = keywords.map((_) => '(chapter_id LIKE ? OR chapter_title LIKE ?)').join(' AND ');
+        final likeArgs = <Object?>[grade];
+        for (final kw in keywords) {
+          likeArgs.add('%$kw%');
+          likeArgs.add('%$kw%');
+        }
+
+        rows = await db.query(
+          'chapter_video_resources',
+          where: 'grade = ? AND ($likeClause)',
+          whereArgs: likeArgs,
+          orderBy: 'rank ASC',
+        );
+      }
     }
 
     return rows.map((r) => ChapterVideoResource.fromMap(r)).toList();

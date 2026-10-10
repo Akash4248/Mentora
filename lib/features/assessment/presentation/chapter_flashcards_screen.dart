@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/idp_colors.dart';
 import '../../../core/theme/idp_typography.dart';
+import '../../content_packs/data/local/content_pack_repository.dart';
 import '../../educational/data/educational_repository.dart';
 import '../../educational/models/educational_models.dart';
 
@@ -43,6 +44,26 @@ class _ChapterFlashcardsScreenState extends State<ChapterFlashcardsScreen> {
     var list = await EducationalRepository.getFlashcardsByChapterId(widget.chapterId);
     if (list.isEmpty) {
       list = await EducationalRepository.getFlashcardsByChapterTitle(widget.chapterTitle);
+    }
+    if (list.isEmpty) {
+      final packFlashcards = await ContentPackRepository().findFlashcardsForChapter(
+        chapterTitle: widget.chapterTitle,
+        subject: widget.subjectName,
+        grade: widget.grade,
+      );
+      if (packFlashcards.isNotEmpty) {
+        var idx = 1;
+        list = packFlashcards.map<FlashcardModel>((m) {
+          final term = (m['term'] ?? m['front'] ?? m['title'] ?? 'Concept').toString();
+          final def = (m['definition'] ?? m['back'] ?? m['explanation'] ?? '').toString();
+          return FlashcardModel(
+            chapterId: widget.chapterId,
+            term: term,
+            definition: def,
+            sequenceNumber: idx++,
+          );
+        }).toList();
+      }
     }
     if (mounted) {
       setState(() {

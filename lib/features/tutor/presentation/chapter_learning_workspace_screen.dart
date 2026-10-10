@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+import 'package:offline_tutor_app/core/utils/youtube_utils.dart';
 import '../../network/services/mentora_backend_client.dart';
 import '../../chat/presentation/formatted_text_widget.dart';
 import 'dart:async';
@@ -20,6 +21,7 @@ import '../../assessment/data/local/quiz_result_repository.dart';
 import '../../assessment/domain/quiz_result.dart';
 import '../../progress/data/local/progress_repository.dart';
 import '../../../config/app_environment.dart';
+import '../../content_packs/data/local/content_pack_repository.dart';
 
 class ChapterLearningWorkspaceScreen extends StatefulWidget {
   final String chapterTitle;
@@ -105,9 +107,28 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
   double _simGravity = 9.8;
   bool _simIsPlaying = true;
 
+  // Tab 2 PDF state
+  String _resolvedPdfPath = '';
+
   // Tab 3 Video state
   Map<String, dynamic>? _videoData;
-  bool _islEnabled = false;
+
+  void _initYoutubeControllerForVideo(String? rawUrl) {
+    if (!_isWebViewSupported || rawUrl == null || rawUrl.isEmpty) return;
+    final extractedId = YouTubeUtils.extractYouTubeId(rawUrl);
+    if (extractedId == null || extractedId == _activeVideoId) return;
+
+    _youtubeController?.close();
+    _activeVideoId = extractedId;
+    _youtubeController = YoutubePlayerController.fromVideoId(
+      videoId: extractedId,
+      autoPlay: false,
+      params: const YoutubePlayerParams(
+        showControls: true,
+        showFullscreenButton: true,
+      ),
+    );
+  }
 
   // Tab 4 Quiz state
   Map<String, dynamic>? _quizData;
@@ -192,24 +213,55 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
       final localVideos = await localRepo.getVideosForChapter(_activeChapterTitle, grade: _activeGrade);
       print('[VIDEO_DEBUG] Workspace: Found ${localVideos.length} local SQLite videos for "$_activeChapterTitle"');
       if (localVideos.isNotEmpty) {
-        playlistItems = localVideos.map((v) => {
-          'id': v.videoId,
-          'youtubeId': v.videoId,
-          'videoUrl': v.videoUrl,
-          'title': v.videoTitle,
-          'channel': v.channelName,
-          'duration': '${(v.durationSeconds / 60).round()}:00',
-          'description': v.description,
+        playlistItems = localVideos.map((v) {
+          final m = v.durationSeconds ~/ 60;
+          final s = v.durationSeconds % 60;
+          final dur = m >= 60
+              ? '${m ~/ 60}:${(m % 60).toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}'
+              : '$m:${s.toString().padLeft(2, '0')}';
+          return {
+            'id': v.videoId,
+            'youtubeId': v.videoId,
+            'videoUrl': v.videoUrl,
+            'title': v.videoTitle,
+            'channel': v.channelName,
+            'duration': dur,
+            'description': v.description,
+          };
         }).toList();
       }
     } catch (e) {
       print('[VIDEO_DEBUG] Workspace: Error querying VideoResourceRepository: $e');
     }
 
+    final pdfItem = await ContentPackRepository().findPdfItemForChapter(
+      chapterTitle: _activeChapterTitle,
+      subject: _activeSubjectName,
+      grade: _activeGrade,
+    );
+    final installedQuizQs = await ContentPackRepository().findQuizQuestionsForChapter(
+      chapterTitle: _activeChapterTitle,
+      subject: _activeSubjectName,
+      grade: _activeGrade,
+    );
+
     if (mounted) {
       setState(() {
         _simData = sim;
-        _quizData = quiz;
+        if (pdfItem != null && File(pdfItem.absolutePath).existsSync()) {
+          _resolvedPdfPath = pdfItem.absolutePath;
+        }
+        if (installedQuizQs.isNotEmpty) {
+          _quizData = {
+            'chapter': _activeChapterTitle,
+            'title': 'NCERT Practice Quiz: $_activeChapterTitle',
+            'totalQuestions': installedQuizQs.length,
+            'userMastery': 0,
+            'questions': installedQuizQs,
+          };
+        } else {
+          _quizData = quiz;
+        }
         if (playlistItems.isNotEmpty) {
           _videoData = {
             'chapter': _activeChapterTitle,
@@ -220,6 +272,9 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
         } else {
           _videoData = video;
         }
+        final currentVid = _videoData?['currentVideo'] as Map<String, dynamic>?;
+        final heroUrl = currentVid?['videoUrl']?.toString() ?? currentVid?['youtubeId']?.toString();
+        _initYoutubeControllerForVideo(heroUrl);
       });
     }
   }
@@ -552,7 +607,7 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
 
           // TAB 2: TEXTBOOK PDF VIEWER
           TextbookViewerScreen(
-            pdfPath: '/storage/emulated/0/Android/data/org.mentora.app/files/packs/$_activeChapterTitle/source.pdf',
+            pdfPath: _resolvedPdfPath,
             chapterTitle: _activeChapterTitle,
             subjectName: _activeSubjectName,
             grade: _activeGrade,
@@ -561,7 +616,7 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
 
           // TAB 3: CHAPTER FLASHCARDS DECK
           ChapterFlashcardsScreen(
-            chapterId: 1,
+            chapterId: _activeChapterTitle.hashCode.abs(),
             chapterTitle: _activeChapterTitle,
             subjectName: _activeSubjectName,
             grade: _activeGrade,
@@ -802,30 +857,6 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
     );
   }
 
-  String _extractYouTubeId(String rawUrl) {
-    final uri = Uri.tryParse(rawUrl);
-    String? id;
-    if (uri != null) {
-      if (uri.queryParameters.containsKey('v')) {
-        id = uri.queryParameters['v'];
-      } else if (uri.host.contains('youtu.be') && uri.pathSegments.isNotEmpty) {
-        id = uri.pathSegments.first;
-      } else if (uri.pathSegments.contains('embed') && uri.pathSegments.isNotEmpty) {
-        id = uri.pathSegments.last;
-      }
-    }
-    if (id == null || id.isEmpty) {
-      final trimmed = rawUrl.trim();
-      if (RegExp(r'^[a-zA-Z0-9_-]{11}$').hasMatch(trimmed)) {
-        id = trimmed;
-      }
-    }
-    if (id == null || id.isEmpty || !RegExp(r'^[a-zA-Z0-9_-]{11}$').hasMatch(id)) {
-      return 'M7lc1UVf-VE';
-    }
-    return id;
-  }
-
   // STITCH TAB 3: YOUTUBE VIDEO LECTURE WATCH SCREEN
   Widget _buildWatchTab() {
     const primaryIndigo = Color(0xFF4F46E5);
@@ -833,20 +864,17 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
     final currentVideo = _videoData?['currentVideo'] as Map<String, dynamic>?;
 
     final heroTitle = currentVideo?['title']?.toString() ?? 'NCERT Class $_activeGrade $_activeSubjectName: $_activeChapterTitle';
-    final heroUrl = currentVideo?['videoUrl']?.toString() ?? currentVideo?['youtubeId']?.toString() ?? 'https://www.youtube.com/watch?v=ZBalWWHYFQc';
-    final videoId = YoutubePlayerController.convertUrlToId(heroUrl) ?? _extractYouTubeId(heroUrl);
+    final heroUrl = currentVideo?['videoUrl']?.toString() ?? currentVideo?['youtubeId']?.toString();
+    final videoId = heroUrl != null ? YouTubeUtils.extractYouTubeId(heroUrl) : null;
 
-    if (_isWebViewSupported && (_youtubeController == null || _activeVideoId != videoId)) {
-      _youtubeController?.close();
-      _activeVideoId = videoId;
-      _youtubeController = YoutubePlayerController.fromVideoId(
-        videoId: videoId,
-        autoPlay: false,
-        params: const YoutubePlayerParams(
-          showControls: true,
-          showFullscreenButton: true,
-        ),
-      );
+    if (_isWebViewSupported && videoId != null && _youtubeController == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _youtubeController == null) {
+          setState(() {
+            _initYoutubeControllerForVideo(heroUrl);
+          });
+        }
+      });
     }
 
     return SingleChildScrollView(
@@ -872,7 +900,7 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
               ),
               child: Column(
                 children: [
-                  _isWebViewSupported
+                  _isWebViewSupported && _youtubeController != null
                       ? YoutubePlayer(
                           controller: _youtubeController!,
                         )
@@ -895,15 +923,17 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              const SizedBox(height: 12),
-                              ElevatedButton.icon(
-                                onPressed: () {
-                                  final uri = Uri.tryParse(heroUrl);
-                                  if (uri != null) launchUrl(uri);
-                                },
-                                icon: const Icon(Icons.open_in_browser, size: 16),
-                                label: const Text('Open Lecture Video in Browser'),
-                              ),
+                              if (heroUrl != null && heroUrl.isNotEmpty) ...[
+                                const SizedBox(height: 12),
+                                ElevatedButton.icon(
+                                  onPressed: () {
+                                    final uri = Uri.tryParse(heroUrl);
+                                    if (uri != null) launchUrl(uri);
+                                  },
+                                  icon: const Icon(Icons.open_in_browser, size: 16),
+                                  label: const Text('Open Lecture Video in Browser'),
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -931,24 +961,10 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
           ),
           const SizedBox(height: 16),
 
-          // TITLE & ISL TOGGLE ROW
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  'NCERT Class $_activeGrade $_activeSubjectName: $_activeChapterTitle',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A)),
-                ),
-              ),
-              FilterChip(
-                label: Text('ISL Track', style: TextStyle(color: _islEnabled ? Colors.white : primaryIndigo, fontWeight: FontWeight.bold, fontSize: 11)),
-                selected: _islEnabled,
-                selectedColor: primaryIndigo,
-                backgroundColor: const Color(0xFFEEF2FF),
-                onSelected: (val) => setState(() => _islEnabled = val),
-              ),
-            ],
+          // TITLE ROW
+          Text(
+            'NCERT Class $_activeGrade $_activeSubjectName: $_activeChapterTitle',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A)),
           ),
           const SizedBox(height: 16),
 
@@ -957,7 +973,7 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
           const SizedBox(height: 8),
           ...playlist.map((item) {
             final itemTitle = item['title']?.toString() ?? 'Video Chapter';
-            final itemUrl = item['videoUrl']?.toString() ?? item['youtubeId']?.toString() ?? 'https://www.youtube.com/watch?v=ZBalWWHYFQc';
+            final itemUrl = item['videoUrl']?.toString() ?? item['youtubeId']?.toString() ?? '';
             final itemDuration = item['duration']?.toString() ?? '10:00';
             final itemChannel = item['channel']?.toString() ?? 'NCERT';
 
@@ -968,6 +984,7 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
               child: ListTile(
                 onTap: () {
                   print('[VIDEO_DEBUG] Tapped Workspace Playlist Item "$itemTitle". Launching VideoPlayerScreen with URL "$itemUrl"');
+                  _initYoutubeControllerForVideo(itemUrl);
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (context) => VideoPlayerScreen(

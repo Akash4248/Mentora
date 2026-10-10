@@ -18,6 +18,9 @@ import '../../course/data/local/app_database.dart';
 import '../../rag/application/pdf_extraction_service.dart';
 import '../../rag/data/local/rag_repository.dart';
 import '../../rag/data/local/rag_repository_v2.dart';
+import '../../network/domain/backend_config.dart';
+import '../../network/data/backend_api_service.dart';
+import '../data/educational_repository.dart';
 import '../models/educational_models.dart';
 import '../domain/pack_sync_entry.dart';
 
@@ -67,6 +70,27 @@ class SyncManager {
         );
         return await _loadOfflineFallbackPacks(grade);
       }
+
+      try {
+        final backendConfig = BackendConfig.fromEnvironment() ?? BackendConfig(baseUrl: RuntimeBackendUrl().current, apiKey: '');
+        final backendService = BackendApiService(config: backendConfig);
+        final catalog = await ContentPackSyncService().fetchCatalogFromBackend(backendService);
+        final packs = catalog.packs
+            .map((item) => PackSyncEntry(
+                  packId: item.packId,
+                  version: item.version.toString(),
+                  subject: item.subject,
+                  grade: item.gradeMin,
+                  sizeBytes: 1500000,
+                  downloadUrl: item.archiveUrl.toString(),
+                ))
+            .where((entry) => grade == null || entry.grade == grade)
+            .toList();
+
+        if (packs.isNotEmpty) {
+          return packs;
+        }
+      } catch (_) {}
 
       final catalogUrls = await ContentPackSyncService().discoverCatalogUrls();
       if (catalogUrls.isNotEmpty) {
@@ -623,10 +647,72 @@ class PackDownloadOperation implements SyncOperation {
                 rawText: text,
               );
               chunksImported++;
-            } else if (item.kind == 'quiz') {
-              quizzesImported++;
-            } else if (item.kind == 'flashcard') {
-              flashcardsImported++;
+            } else if (item.kind == 'quiz' || item.relativePath.endsWith('quizzes.json')) {
+              try {
+                final jsonStr = await File(item.absolutePath).readAsString();
+                final decoded = jsonDecode(jsonStr);
+                if (decoded is List) {
+                  final chapIdInt = int.tryParse(effectiveChapterId) ?? 1;
+                  final quizId = await EducationalRepository.insertQuiz(QuizModel(
+                    chapterId: chapIdInt,
+                    title: item.title.isNotEmpty ? item.title : 'Chapter Practice Quiz',
+                    sequenceNumber: 1,
+                    questions: const [],
+                  ));
+                  for (var idx = 0; idx < decoded.length; idx++) {
+                    final q = decoded[idx];
+                    if (q is Map) {
+                      final questionText = (q['question'] ?? q['prompt'] ?? q['title'] ?? '').toString();
+                      if (questionText.isNotEmpty) {
+                        final rawOptions = q['options'] ?? q['choices'] ?? [];
+                        final options = rawOptions is List
+                            ? rawOptions.map((o) => o.toString()).toList()
+                            : <String>[];
+                        final correctAnswer = (q['correctAnswer'] ?? q['answer'] ?? q['correct'] ?? '').toString();
+                        final explanation = q['explanation']?.toString();
+                        final type = (q['type'] ?? 'mcq').toString();
+
+                        await EducationalRepository.insertQuizQuestion(QuizQuestion(
+                          quizId: quizId,
+                          sequenceNumber: idx + 1,
+                          question: questionText,
+                          type: type,
+                          options: options,
+                          correctAnswer: correctAnswer,
+                          explanation: explanation,
+                        ));
+                        quizzesImported++;
+                      }
+                    }
+                  }
+                }
+              } catch (qErr) {
+                print('[PACK] QUIZ_INGEST_ERROR=$qErr packId=$packId');
+              }
+            } else if (item.kind == 'flashcard' || item.relativePath.endsWith('flashcards.json')) {
+              try {
+                final jsonStr = await File(item.absolutePath).readAsString();
+                final decoded = jsonDecode(jsonStr);
+                if (decoded is List) {
+                  final chapIdInt = int.tryParse(effectiveChapterId) ?? 1;
+                  for (var idx = 0; idx < decoded.length; idx++) {
+                    final fc = decoded[idx];
+                    if (fc is Map) {
+                      final term = (fc['term'] ?? fc['front'] ?? fc['title'] ?? 'Concept').toString();
+                      final def = (fc['definition'] ?? fc['back'] ?? fc['explanation'] ?? '').toString();
+                      await EducationalRepository.insertFlashcard(FlashcardModel(
+                        chapterId: chapIdInt,
+                        term: term,
+                        definition: def,
+                        sequenceNumber: idx + 1,
+                      ));
+                      flashcardsImported++;
+                    }
+                  }
+                }
+              } catch (fcErr) {
+                print('[PACK] FLASHCARD_INGEST_ERROR=$fcErr packId=$packId');
+              }
             }
           }
           print('[PACK] CHUNKS_IMPORTED=$chunksImported packId=$packId');
@@ -658,25 +744,15 @@ class PackDownloadOperation implements SyncOperation {
         if (await file.exists()) {
           await file.delete();
         }
-      } else {
+      } catch (e) {
         AppEnvironment.log(
           'SYNC',
-          '[PackDownloadOp] Download failed for $packId: ${response.statusCode}',
+          '[PackDownloadOp] Error downloading $packId: $e',
         );
-        print(
-          '[PACK] DOWNLOAD_FAILED packId=$packId statusCode=${response.statusCode}',
-        );
-        throw Exception('HTTP ${response.statusCode}');
+        print('[PACK] DOWNLOAD_FAILED packId=$packId error=$e');
+        rethrow;
       }
-    } catch (e) {
-      AppEnvironment.log(
-        'SYNC',
-        '[PackDownloadOp] Error downloading $packId: $e',
-      );
-      print('[PACK] DOWNLOAD_FAILED packId=$packId error=$e');
-      rethrow;
     }
-  }
 
   @override
   SyncOperation withRetry({int maxAttempts = 3}) {

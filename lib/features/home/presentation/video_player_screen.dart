@@ -7,6 +7,7 @@ import 'package:video_player/video_player.dart';
 import 'package:offline_tutor_app/core/theme/idp_theme.dart';
 import 'package:offline_tutor_app/core/theme/idp_colors.dart';
 import 'package:offline_tutor_app/core/theme/idp_typography.dart';
+import 'package:offline_tutor_app/core/utils/youtube_utils.dart';
 
 /// Screen to play educational videos with playback controls
 class VideoPlayerScreen extends StatefulWidget {
@@ -34,37 +35,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   double _playbackSpeed = 1.0;
   String? _initError;
 
-  bool get _isYouTube =>
-      widget.videoUrl.contains('youtube.com') ||
-      widget.videoUrl.contains('youtu.be') ||
-      RegExp(r'^[a-zA-Z0-9_-]{11}$').hasMatch(widget.videoUrl.trim());
-
-  String _extractYouTubeId(String rawUrl) {
-    final uri = Uri.tryParse(rawUrl);
-    String? id;
-    if (uri != null) {
-      if (uri.queryParameters.containsKey('v')) {
-        id = uri.queryParameters['v'];
-      } else if (uri.host.contains('youtu.be') && uri.pathSegments.isNotEmpty) {
-        id = uri.pathSegments.first;
-      } else if (uri.pathSegments.contains('embed') && uri.pathSegments.isNotEmpty) {
-        id = uri.pathSegments.last;
-      }
-    }
-
-    if (id == null || id.isEmpty) {
-      final trimmed = rawUrl.trim();
-      if (RegExp(r'^[a-zA-Z0-9_-]{11}$').hasMatch(trimmed)) {
-        id = trimmed;
-      }
-    }
-
-    if (id == null || id.isEmpty || !RegExp(r'^[a-zA-Z0-9_-]{11}$').hasMatch(id)) {
-      return 'M7lc1UVf-VE';
-    }
-
-    return id;
-  }
+  bool get _isYouTube => YouTubeUtils.isYouTubeUrl(widget.videoUrl);
 
   @override
   void initState() {
@@ -76,7 +47,15 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     print('[VIDEO_DEBUG] Initializing VideoPlayerScreen for title: "${widget.title}", URL: "${widget.videoUrl}", isYouTube: $_isYouTube');
     try {
       if (_isYouTube) {
-        final videoId = _extractYouTubeId(widget.videoUrl);
+        final videoId = YouTubeUtils.extractYouTubeId(widget.videoUrl);
+        if (videoId == null) {
+          if (mounted) {
+            setState(() {
+              _initError = 'Invalid or unparseable YouTube URL.';
+            });
+          }
+          return;
+        }
         print('[VIDEO_DEBUG] Initializing YoutubePlayerController for videoId: "$videoId"');
         _youtubeController = YoutubePlayerController.fromVideoId(
           videoId: videoId,
@@ -322,7 +301,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'OfflineTutor',
+                        'Mentora',
                         style: IDPTypography.headlineLgMobile.copyWith(color: IDPColors.primary),
                       ),
                       Row(
