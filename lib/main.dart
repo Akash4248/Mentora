@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:offline_tutor_app/l10n/app_localizations.dart';
+import 'package:mentora/l10n/app_localizations.dart';
 
 import 'bootstrap/critical_bootstrap.dart';
 import 'bootstrap/startup_coordinator.dart';
@@ -114,7 +114,32 @@ class OfflineTutorApp extends StatelessWidget {
           onUnknownRoute: (settings) {
             debugPrint('[ROUTE] Unknown route requested: ${settings.name}');
             return MaterialPageRoute(
-              builder: (context) => const MentoraHomeScreen(),
+              builder: (context) => Scaffold(
+                appBar: AppBar(title: const Text('Page not found')),
+                body: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.search_off_outlined, size: 48),
+                      const SizedBox(height: 12),
+                      Text('No page for "${settings.name}".',
+                          style: const TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.pushAndRemoveUntil(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const MentoraHomeScreen()),
+                            (route) => false,
+                          );
+                        },
+                        child: const Text('Back to Home'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             );
           },
         );

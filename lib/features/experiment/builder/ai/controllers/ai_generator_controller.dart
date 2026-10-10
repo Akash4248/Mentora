@@ -5,7 +5,7 @@ import '../repositories/ai_experiment_repository.dart';
 import '../../data/repositories/experiment_manifest_repository.dart';
 import '../../validation/manifest_sanitizer.dart';
 import '../../../analytics/telemetry_service.dart';
-import 'package:offline_tutor_app/features/language/services/language_service.dart';
+import 'package:mentora/features/language/services/language_service.dart';
 
 class AiGeneratorController extends ChangeNotifier {
   final AiExperimentRepository _aiRepository;

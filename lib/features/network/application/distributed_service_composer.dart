@@ -1,4 +1,4 @@
-import 'package:offline_tutor_app/features/chat/data/tutor_inference_gateway.dart';
+import 'package:mentora/features/chat/data/tutor_inference_gateway.dart';
 
 import '../../../config/app_environment.dart';
 import '../data/backend_api_service.dart';

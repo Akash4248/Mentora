@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:offline_tutor_app/l10n/app_localizations.dart';
+import 'package:mentora/l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:offline_tutor_app/core/theme/idp_colors.dart';
-import 'package:offline_tutor_app/core/theme/idp_theme.dart';
-import 'package:offline_tutor_app/core/theme/idp_typography.dart';
+import 'package:mentora/core/theme/idp_colors.dart';
+import 'package:mentora/core/theme/idp_theme.dart';
+import 'package:mentora/core/theme/idp_typography.dart';
 import 'grade_sync_screen.dart';
 import 'dart:ui';
 

@@ -30,3 +30,11 @@ class RuntimeProfileManager {
     return profile == RuntimeProfile.physics;
   }
 }
+
+/// Gate for the ~3MB Forge2D physics engine (`ExperimentFlameGame`).
+/// Only call the Flame/Forge2D loader when this returns true; all other
+/// profiles use the lightweight Behavior/Effect math engine.
+class RuntimePhysicsGate {
+  static bool shouldUsePhysics(RuntimeProfile profile) =>
+      RuntimeProfileManager.requiresPhysicsEngine(profile);
+}

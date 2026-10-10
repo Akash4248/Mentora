@@ -5,10 +5,12 @@ import 'base_experiment_runtime.dart';
 import 'runtime_event.dart';
 import 'playground/engine/simulation_playground_engine.dart';
 
+@deprecated
 class SimulationRuntime extends BaseExperimentRuntime {
   final SimulationPlaygroundEngine _playgroundEngine = SimulationPlaygroundEngine();
   StreamSubscription? _playgroundSubscription;
 
+  @deprecated
   SimulationRuntime(super.plan);
 
   @override

@@ -11,7 +11,7 @@ class OfflineSpeechService {
   factory OfflineSpeechService() => _instance;
   OfflineSpeechService._internal();
 
-  static const MethodChannel _ttsChannel = MethodChannel('offline_tutor_app/tts');
+  static const MethodChannel _ttsChannel = MethodChannel('mentora/tts');
   final PlatformTutorInferenceGateway _llmGateway = PlatformTutorInferenceGateway();
 
   bool _isSpeaking = false;

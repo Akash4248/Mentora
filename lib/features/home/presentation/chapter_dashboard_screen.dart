@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
-import 'package:offline_tutor_app/core/utils/youtube_utils.dart';
+import 'package:mentora/core/utils/youtube_utils.dart';
 
 import '../../course/domain/curriculum_models.dart';
 import '../../course/domain/course_tree.dart';

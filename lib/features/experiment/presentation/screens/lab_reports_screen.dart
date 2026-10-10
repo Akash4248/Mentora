@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:offline_tutor_app/core/theme/idp_theme.dart';
+import 'package:mentora/core/theme/idp_theme.dart';
 
 class LabReportsScreen extends StatelessWidget {
   const LabReportsScreen({super.key});

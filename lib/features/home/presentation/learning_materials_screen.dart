@@ -356,12 +356,23 @@ class _LearningMaterialsScreenState extends State<LearningMaterialsScreen>
   }
 
   Future<void> _syncRepoMediaToDb() async {
-    final textbookRoots = <String>{
-      ..._androidTextbookRootCandidates,
-    };
-    final videoRoots = <String>{
-      ..._androidVideoRootCandidates,
-    };
+    // App-private dirs first (work on iOS/desktop + scoped storage);
+    // legacy absolute /storage paths below are Android-only fallbacks.
+    final textbookRoots = <String>{};
+    final videoRoots = <String>{};
+    try {
+      final docs = await getApplicationDocumentsDirectory();
+      textbookRoots.add(p.join(docs.path, 'content_packs'));
+      textbookRoots.add(p.join(docs.path, 'TEXTBOOKS'));
+      videoRoots.add(p.join(docs.path, 'VIDEOS'));
+      final ext = await getExternalStorageDirectory();
+      if (ext != null) {
+        textbookRoots.add(p.join(ext.path, 'TEXTBOOKS'));
+        videoRoots.add(p.join(ext.path, 'VIDEOS'));
+      }
+    } catch (_) {}
+    textbookRoots.addAll(_androidTextbookRootCandidates);
+    videoRoots.addAll(_androidVideoRootCandidates);
 
     if (Platform.isAndroid) {
       textbookRoots.addAll(

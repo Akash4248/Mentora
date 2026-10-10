@@ -1,9 +1,13 @@
 import 'dart:math' as math;
 
-/// Evaluates simple math expressions from blueprint JSON strings.
+// ignore: deprecated_member_use
+import 'package:math_expressions/math_expressions.dart';
+
+/// Evaluates math expressions from blueprint JSON strings using the shared
+/// `math_expressions` scientific library (same engine as the calculator).
 ///
-/// Supported operations: +  -  *  /  ()  sqrt()  abs()  pi  e
-/// Variable substitution: any word matching a key in [vars] is replaced.
+/// Supported: + - * / ^ % () sqrt() abs() sin/cos/tan/ln/log, pi, e,
+/// word-boundary variable substitution (no `temperature` → `t...` corruption).
 ///
 /// Examples:
 ///   FormulaEvaluator.evaluate('sqrt(9.81 / var_length)', {'var_length': 2.0})
@@ -12,6 +16,8 @@ import 'dart:math' as math;
 ///   FormulaEvaluator.evaluate('2 * pi * sqrt(var_length / 9.81)', {'var_length': 1.0})
 ///   → 2.006
 class FormulaEvaluator {
+  static final Parser _parser = Parser();
+
   /// Evaluate [expression] with variable values substituted from [vars].
   /// Returns the computed double, or [defaultValue] if evaluation fails.
   static double evaluate(
@@ -20,114 +26,42 @@ class FormulaEvaluator {
     double defaultValue = 0.0,
   }) {
     try {
-      // 1. Substitute known variables longest-first to avoid partial matches
       var expr = expression.trim();
+      if (expr.isEmpty) return defaultValue;
+
+      // 1. Substitute variables longest-first with word boundaries so
+      // `var` never corrupts `var_length`, and `e` never corrupts `exp`.
       final sorted = vars.keys.toList()
         ..sort((a, b) => b.length.compareTo(a.length));
       for (final key in sorted) {
-        expr = expr.replaceAll(key, vars[key].toString());
+        if (key.isEmpty) continue;
+        expr = expr.replaceAll(
+          RegExp(r'\b' + RegExp.escape(key) + r'\b'),
+          '(${vars[key].toString()})',
+        );
       }
 
-      // 2. Replace named constants
-      expr = expr.replaceAll('pi', math.pi.toString());
-      expr = expr.replaceAll('e', math.e.toString());
-      expr = expr.replaceAll('g', '9.81'); // gravitational constant shorthand
+      // 2. Named constants with word boundaries.
+      expr = expr.replaceAll(
+          RegExp(r'\bpi\b'), '(${math.pi.toString()})');
+      expr = expr.replaceAll(
+          RegExp(r'\be\b'), '(${math.e.toString()})');
+      expr = expr.replaceAll(RegExp(r'\bg\b'), '(9.81)');
 
-      // 3. Evaluate
-      return _eval(expr);
+      // 3. Evaluate via scientific library.
+      // ignore: deprecated_member_use
+      final parsed = _parser.parse(expr);
+      final cm = ContextModel();
+      // ignore: deprecated_member_use
+      final value = parsed.evaluate(EvaluationType.REAL, cm);
+      if (value is num) {
+        final d = value.toDouble();
+        if (d.isNaN || d.isInfinite) return defaultValue;
+        return d;
+      }
+      return defaultValue;
     } catch (_) {
       return defaultValue;
     }
   }
-
-  // ── Recursive descent parser ───────────────────────────────────────────────
-
-  static double _eval(String expr) {
-    final parser = _Parser(expr.replaceAll(' ', ''));
-    return parser.parseExpression();
-  }
-}
-
-class _Parser {
-  final String _input;
-  int _pos = 0;
-
-  _Parser(this._input);
-
-  double parseExpression() {
-    var result = parseTerm();
-    while (_pos < _input.length) {
-      if (_current == '+') {
-        _pos++;
-        result += parseTerm();
-      } else if (_current == '-') {
-        _pos++;
-        result -= parseTerm();
-      } else {
-        break;
-      }
-    }
-    return result;
-  }
-
-  double parseTerm() {
-    var result = parseFactor();
-    while (_pos < _input.length) {
-      if (_current == '*') {
-        _pos++;
-        result *= parseFactor();
-      } else if (_current == '/') {
-        _pos++;
-        final divisor = parseFactor();
-        result = divisor != 0 ? result / divisor : 0;
-      } else {
-        break;
-      }
-    }
-    return result;
-  }
-
-  double parseFactor() {
-    // Unary minus
-    if (_pos < _input.length && _current == '-') {
-      _pos++;
-      return -parseFactor();
-    }
-
-    // Parentheses
-    if (_pos < _input.length && _current == '(') {
-      _pos++; // consume '('
-      final result = parseExpression();
-      if (_pos < _input.length && _current == ')') _pos++;
-      return result;
-    }
-
-    // Functions: sqrt(...), abs(...)
-    if (_input.startsWith('sqrt(', _pos)) {
-      _pos += 5;
-      final arg = parseExpression();
-      if (_pos < _input.length && _current == ')') _pos++;
-      return math.sqrt(arg < 0 ? 0 : arg);
-    }
-    if (_input.startsWith('abs(', _pos)) {
-      _pos += 4;
-      final arg = parseExpression();
-      if (_pos < _input.length && _current == ')') _pos++;
-      return arg.abs();
-    }
-
-    // Number
-    final start = _pos;
-    if (_pos < _input.length && (_current == '.' || _isDigit(_current))) {
-      while (_pos < _input.length && (_isDigit(_current) || _current == '.')) {
-        _pos++;
-      }
-      return double.tryParse(_input.substring(start, _pos)) ?? 0.0;
-    }
-
-    return 0.0;
-  }
-
-  String get _current => _pos < _input.length ? _input[_pos] : '';
-  bool _isDigit(String c) => c.codeUnitAt(0) >= 48 && c.codeUnitAt(0) <= 57;
 }

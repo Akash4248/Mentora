@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:offline_tutor_app/l10n/app_localizations.dart';
+import 'package:mentora/l10n/app_localizations.dart';
 
 import '../../tutor/models/conversation_state.dart';
 import '../models/voice_state.dart';

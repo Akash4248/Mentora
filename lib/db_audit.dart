@@ -4,7 +4,9 @@ import 'package:sqflite/sqflite.dart';
 void main() async {
   sqfliteFfiInit();
   var databaseFactory = databaseFactoryFfi;
-  final dbPath = '/home/akash/Desktop/IDP/offline_tutor_app/.dart_tool/sqflite_common_ffi/databases/offline_tutor_stage1.db';
+  // Resolve via sqflite path — never a hard-coded dev-machine absolute path.
+  final databasesPath = await getDatabasesPath();
+  final dbPath = '$databasesPath/offline_tutor_stage1.db';
   final db = await databaseFactory.openDatabase(dbPath);
 
   print('[DB_VERIFY] ==== SQLITE AUDIT ====');

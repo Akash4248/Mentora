@@ -17,7 +17,7 @@ class AppDatabase {
 
     _database = await openDatabase(
       fullPath,
-      version: 20,
+      version: 21,
       singleInstance: true,
       onConfigure: (db) async {
         // Enable WAL for better concurrent read performance (write-heavy workloads)
@@ -129,10 +129,40 @@ class AppDatabase {
             ON chapter_video_resources(chapter_id, video_id);
           ''');
         }
+        if (oldVersion < 21) {
+          // Rebuild v2 FTS as FTS5 (was FTS4-only → bm25() threw).
+          // Triggers are recreated by the helper; backfill existing rows.
+          await db.execute('DROP TRIGGER IF EXISTS trig_rag_chunks_v2_ai');
+          await db.execute('DROP TRIGGER IF EXISTS trig_rag_chunks_v2_au');
+          await db.execute('DROP TRIGGER IF EXISTS trig_rag_chunks_v2_ad');
+          await db.execute('DROP TABLE IF EXISTS rag_chunks_v2_fts');
+          await _createRagV2FtsArtifacts(db);
+          try {
+            await db.execute('''
+              INSERT INTO rag_chunks_v2_fts(id, chapter_id, content)
+              SELECT id, chapter_id, content FROM rag_chunks_v2
+            ''');
+          } catch (_) {}
+          await db.execute('''
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_chapter_video_unique
+            ON chapter_video_resources(chapter_id, video_id);
+          ''');
+        }
       },
     );
 
     return _database!;
+  }
+
+  Future<void> close() async {
+    await _database?.close();
+    _database = null;
+  }
+
+  Future<void> delete() async {
+    final dbPath = await getDatabasesPath();
+    await close();
+    await deleteDatabase(path.join(dbPath, 'offline_tutor_stage1.db'));
   }
 
   Future<void> _createBaseTables(Database db) async {
@@ -255,11 +285,24 @@ class AppDatabase {
   }
 
   Future<void> _createRagV2FtsArtifacts(Database db) async {
+    // Prefer FTS5 (bm25 ranking used by HybridRetrievalService); fall back to
+    // FTS4 on old Android SQLite builds. Retrieval code already try/catches.
     try {
       await db.execute('''
-        CREATE VIRTUAL TABLE IF NOT EXISTS rag_chunks_v2_fts 
-        USING fts4(id UNINDEXED, chapter_id UNINDEXED, content)
+        CREATE VIRTUAL TABLE IF NOT EXISTS rag_chunks_v2_fts
+        USING fts5(id UNINDEXED, chapter_id UNINDEXED, content, tokenize='unicode61')
       ''');
+    } catch (_) {
+      try {
+        await db.execute('''
+          CREATE VIRTUAL TABLE IF NOT EXISTS rag_chunks_v2_fts
+          USING fts4(id, chapter_id, content)
+        ''');
+      } catch (e) {
+        print('[FTS] AppDatabase RAG_V2_FTS_STATUS=degraded error=$e');
+        return;
+      }
+    }
 
       await db.execute('''
         CREATE TRIGGER IF NOT EXISTS trig_rag_chunks_v2_ai
@@ -288,9 +331,6 @@ class AppDatabase {
         END;
       ''');
       print('[FTS] AppDatabase RAG_V2_FTS_STATUS=ok');
-    } catch (e) {
-      print('[FTS] AppDatabase RAG_V2_FTS_STATUS=degraded error=$e');
-    }
   }
 
   Future<void> _createEmbeddingMetadataTable(Database db) async {

@@ -21,6 +21,7 @@ import '../data/local/p2p_security_settings_repository.dart';
 import '../data/local/trusted_peer_repository.dart';
 import '../data/p2p_bundle_service.dart';
 import '../data/p2p_channel_service.dart';
+import '../data/p2p_transport_selector.dart';
 import 'widgets/qr_bootstrap_sheet.dart';
 import '../../shared/application/offline_error_taxonomy.dart';
 
@@ -45,6 +46,9 @@ class P2PScreen extends StatefulWidget {
 class _P2PScreenState extends State<P2PScreen> {
   final BackendDiscoveryService _classroomConnection = BackendDiscoveryService();
   final P2PChannelService _service = P2PChannelService();
+  // Best-transport routing: Nearby Connections primary, legacy LAN fallback.
+  final P2pTransportSelector _transport = P2pTransportSelector();
+  String? _transportNote;
   final P2PBundleService _bundleService = P2PBundleService(
     ragRepository: RagRepository(),
   );
@@ -83,13 +87,27 @@ class _P2PScreenState extends State<P2PScreen> {
     super.initState();
     _classroomConnection.addListener(_onClassroomConnectionChanged);
     _startTelemetryPolling();
+    _transport.addListener(_onTransportChanged);
+    // Bring up best transport first (Nearby), then load lists.
+    _transport.ensureInit(userName: 'Mentora-Peer').whenComplete(() {
+      if (mounted) _refresh();
+    });
     _refresh();
+  }
+
+  void _onTransportChanged() {
+    if (!mounted) return;
+    setState(() {
+      _transportNote = _transport.lastFallbackReason;
+    });
   }
 
   @override
   void dispose() {
     _telemetryTimer?.cancel();
     _classroomConnection.removeListener(_onClassroomConnectionChanged);
+    _transport.removeListener(_onTransportChanged);
+    _transport.shutdown();
     _sharedSecretController.dispose();
     super.dispose();
   }
@@ -125,9 +143,11 @@ class _P2PScreenState extends State<P2PScreen> {
     });
 
     try {
+      // Best transport first (may fall back to legacy LAN internally).
+      await _transport.ensureInit(userName: 'Mentora-Peer');
       final status = await _service.getStatus();
       final telemetry = await _service.getTransferTelemetry();
-      final peers = await _service.listPeers();
+      final peers = await _transport.discoverPeers();
       final received = await _service.listReceivedBundles();
       final pendingIncoming = await _service.listPendingIncomingTransfers();
       final rawChapters = await widget.courseRepository.getAllChapters(
@@ -189,6 +209,7 @@ class _P2PScreenState extends State<P2PScreen> {
         _status = status;
         _telemetry = telemetry;
         _peers = peers;
+        _transportNote = _transport.lastFallbackReason;
         _receivedBundles = received;
         _pendingIncomingTransfers = pendingIncoming;
         _chapters = chapters;
@@ -517,14 +538,24 @@ Version: ${pack.version}
         throw Exception('Bundle size (${(fileSize / (1024 * 1024)).toStringAsFixed(1)} MB) exceeds maximum 50MB limit.');
       }
 
-      final sendResult = await _service.sendBundle(
-        address: peer.address,
+      // Nearby primary, legacy LAN fallback handled inside the selector.
+      final sendResult = await _transport.sendToPeer(
+        peer: peer,
         filePath: exportedPath,
       );
 
       if (!mounted) return;
+      if (!sendResult.ok) {
+        throw Exception(sendResult.message);
+      }
+      final fallbackNote = _transport.lastFallbackReason;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Successfully sent $bundleLabel: ${sendResult.message}')),
+        SnackBar(
+          content: Text(
+            'Successfully sent $bundleLabel: ${sendResult.message}'
+            '${fallbackNote != null ? '\nNote: $fallbackNote' : ''}',
+          ),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
@@ -782,6 +813,33 @@ Version: ${pack.version}
                   fontSize: 12,
                 ),
               ),
+            const SizedBox(width: 8),
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                _transport.activeTransport == P2pTransport.nearby
+                    ? 'Nearby'
+                    : 'LAN fallback',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            if (_transportNote != null) ...[
+              const SizedBox(width: 6),
+              const Tooltip(
+                message: 'Transport fallback active — see details',
+                child: Icon(Icons.info_outline,
+                    size: 14, color: Colors.white70),
+              ),
+            ],
           ],
         ),
       ),

@@ -35,6 +35,15 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
+/**
+ * Legacy LAN/Wi-Fi-Direct transport (raw TCP 45888 + UDP 45889 discovery via
+ * Android's built-in WifiP2pManager).
+ *
+ * Preferred path for new code is Google Nearby Connections
+ * (Dart: NearbyP2PService, P2P_CLUSTER — encrypted, chunked, no custom crypto).
+ * This manager stays only for devices without Play services. Do not add new
+ * custom encryption here — route through Nearby first.
+ */
 class P2PManager(private val context: Context) {
     companion object {
         private const val TCP_PORT = 45888

@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
-import 'package:offline_tutor_app/core/utils/youtube_utils.dart';
+import 'package:mentora/core/utils/youtube_utils.dart';
 import '../../network/services/mentora_backend_client.dart';
 import '../../chat/presentation/formatted_text_widget.dart';
 import 'dart:async';
@@ -177,6 +177,20 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
 
   String get _sessionId =>
       'session_grade${_activeGrade}_${_activeSubjectName.replaceAll(' ', '_')}_${_activeChapterTitle.replaceAll(' ', '_')}';
+
+  /// Deterministic 31-bit FNV-1a of grade|subject|title. Stable across
+  /// restarts (unlike [Object.hashCode]), so quiz/flashcard rows keyed by
+  /// this id survive app kills.
+  int get _stableChapterId {
+    const fnvPrime = 0x01000193;
+    var hash = 0x811C9DC5;
+    final key = '$_activeGrade|${_activeSubjectName.toLowerCase().trim()}|${_activeChapterTitle.toLowerCase().trim()}';
+    for (var i = 0; i < key.length; i++) {
+      hash ^= key.codeUnitAt(i);
+      hash = (hash * fnvPrime) & 0x7FFFFFFF;
+    }
+    return hash;
+  }
 
   Future<void> _loadTabResources() async {
     print('[VIDEO_DEBUG] Workspace: Loading resources for chapter: "$_activeChapterTitle" (Grade $_activeGrade $_activeSubjectName)');
@@ -615,8 +629,11 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
           ),
 
           // TAB 3: CHAPTER FLASHCARDS DECK
+          // Stable cross-restart id (Dart String.hashCode is randomized per
+          // run — never use it for persisted keys). Flashcards also fall back
+          // to title lookup, so this is belt-and-braces.
           ChapterFlashcardsScreen(
-            chapterId: _activeChapterTitle.hashCode.abs(),
+            chapterId: _stableChapterId,
             chapterTitle: _activeChapterTitle,
             subjectName: _activeSubjectName,
             grade: _activeGrade,

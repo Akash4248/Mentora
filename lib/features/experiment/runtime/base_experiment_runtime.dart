@@ -8,6 +8,10 @@ import 'runtime_event.dart';
 import 'runtime_metrics.dart';
 import 'runtime_session.dart';
 
+/// DEPRECATED Stack B shim. Canonical runtime is [RuntimeWorld].
+/// Kept only for the (currently unreachable) [ExperimentExecutionOrchestrator];
+/// do not use in new code.
+@deprecated
 abstract class BaseExperimentRuntime {
   final ExperimentExecutionPlan plan;
   

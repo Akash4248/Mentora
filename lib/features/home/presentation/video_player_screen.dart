@@ -4,10 +4,10 @@ import 'dart:ui'; // For ImageFilter
 import 'package:flutter/material.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'package:video_player/video_player.dart';
-import 'package:offline_tutor_app/core/theme/idp_theme.dart';
-import 'package:offline_tutor_app/core/theme/idp_colors.dart';
-import 'package:offline_tutor_app/core/theme/idp_typography.dart';
-import 'package:offline_tutor_app/core/utils/youtube_utils.dart';
+import 'package:mentora/core/theme/idp_theme.dart';
+import 'package:mentora/core/theme/idp_colors.dart';
+import 'package:mentora/core/theme/idp_typography.dart';
+import 'package:mentora/core/utils/youtube_utils.dart';
 
 /// Screen to play educational videos with playback controls
 class VideoPlayerScreen extends StatefulWidget {

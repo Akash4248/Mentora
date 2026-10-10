@@ -39,6 +39,12 @@ import '../visual_presets/registry/visual_preset_registry.dart';
 import '../visualization_first/runtime/runtime_visualization_state.dart';
 import '../visualization_first/runtime/visualization_runtime_coordinator.dart';
 
+/// Canonical experiment runtime (Stack A). Stack B
+/// (`BaseExperimentRuntime` shells) is deprecated — route all new code here.
+/// Physics (Forge2D via `ExperimentFlameGame`) must only load when
+/// [RuntimeProfileManager.requiresPhysicsEngine] is true; see
+/// `RuntimePhysicsGate.shouldUsePhysics` in `runtime_profiles.dart`.
+/// Lifecycle mirrors `ExperimentRuntime` (start/pause/resume/stop + [exportResults]).
 class RuntimeWorld {
   late final VariableStore variables;
   late final RuntimeExperimentStateManager experimentState;
@@ -301,6 +307,20 @@ class RuntimeWorld {
 
   Future<RuntimeSession?> recoverySession() {
     return sessions.recoveryForExperiment(experimentState.state.experimentId);
+  }
+
+  /// Export a portable snapshot (observations + measurements + state).
+  Future<Map<String, dynamic>> exportResults() async {
+    final snapshot = createSnapshot();
+    return {
+      'experimentId': experimentState.state.experimentId,
+      'variables': snapshot.variables,
+      'objectStates': snapshot.objectStates,
+      'measurementsCount': snapshot.measurementsCount,
+      'observationsCount': snapshot.observationsCount,
+      'status': snapshot.state.status.name,
+      'profile': profile.name,
+    };
   }
 
   void dispose() {

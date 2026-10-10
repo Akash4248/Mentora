@@ -138,6 +138,12 @@ class P2PTransferTelemetrySnapshot {
   final P2PTransferTelemetry? receive;
 }
 
+/// Transport policy: prefer Android built-in Google Nearby Connections
+/// ([NearbyP2PService], P2P_CLUSTER — BT + WiFi, encrypted, chunked file
+/// payloads with progress) for peer transfer; this raw LAN-TCP channel
+/// (`offline_tutor/p2p` → `P2PManager.kt`) is the legacy fallback for
+/// devices without Google Play services. New code must use Nearby first
+/// and only fall back here when `NearbyP2PService` is unavailable.
 class P2PChannelService {
   static const MethodChannel _channel = MethodChannel('offline_tutor/p2p');
 

@@ -6,7 +6,11 @@ import 'simulation_runtime.dart';
 import 'hybrid_runtime.dart';
 import 'observation_runtime.dart';
 
+/// DEPRECATED: Stack B factory. Prefer `RuntimeLoader.loadFromManifest`
+/// + [RuntimeWorld] directly. Kept for the legacy orchestrator only.
+@deprecated
 class RuntimeFactory {
+  @deprecated
   static BaseExperimentRuntime createRuntime(ExperimentExecutionPlan plan) {
     switch (plan.selectedMode) {
       case ExperimentExecutionMode.sensor:

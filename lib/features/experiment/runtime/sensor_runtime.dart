@@ -6,10 +6,12 @@ import 'runtime_event.dart';
 import 'sensors/sensor_manager.dart';
 import 'sensors/sensor_type.dart';
 
+@deprecated
 class SensorRuntime extends BaseExperimentRuntime {
   final SensorManager _sensorManager = SensorManager();
   StreamSubscription? _measurementSubscription;
 
+  @deprecated
   SensorRuntime(super.plan);
 
   @override

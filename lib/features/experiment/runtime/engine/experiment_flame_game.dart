@@ -5,6 +5,9 @@ import '../runtime_world.dart';
 import 'flame_object_components.dart';
 import '../runtime_object_factory.dart';
 
+/// Lazy-only physics engine (~3MB Forge2D). Do NOT instantiate directly —
+/// gate via `RuntimePhysicsGate.shouldUsePhysics(world.profile)` first.
+/// Non-physics profiles must use the Behavior/Effect math engine instead.
 class ExperimentFlameGame extends Forge2DGame {
   final RuntimeWorld runtimeWorld;
 

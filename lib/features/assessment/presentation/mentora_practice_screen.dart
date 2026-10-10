@@ -1,14 +1,18 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/theme/idp_colors.dart';
 import '../../network/services/mentora_backend_client.dart';
 import '../../home/presentation/mentora_home_screen.dart';
-import '../data/local/quiz_result_repository.dart';
-import '../domain/quiz_result.dart';
-import '../../progress/data/local/progress_repository.dart';
 import '../../../config/app_environment.dart';
 
+/// Grade-aware Practice hub: lists ALL chapters of the active grade,
+/// grouped by subject. Tapping a chapter opens [ChapterLearningWorkspaceScreen]
+/// at the Flashcards (2) or Quiz (5) tab.
+///
+/// Offline-first: chapters come from [MentoraBackendClient.getChaptersForSubject]
+/// (local DB first, network only if empty). No RAG code is touched here.
 class MentoraPracticeScreen extends StatefulWidget {
-  const MentoraPracticeScreen({Key? key}) : super(key: key);
+  const MentoraPracticeScreen({super.key});
 
   @override
   State<MentoraPracticeScreen> createState() => _MentoraPracticeScreenState();
@@ -16,85 +20,113 @@ class MentoraPracticeScreen extends StatefulWidget {
 
 class _MentoraPracticeScreenState extends State<MentoraPracticeScreen> {
   final MentoraBackendClient _client = MentoraBackendClient();
-  String _selectedSubject = 'Physics';
-  String _selectedDifficulty = 'Medium';
-  Map<String, dynamic>? _quizData;
-  bool _isLoading = true;
-  int _currentQuestionIndex = 0;
-  int? _selectedOption;
-  bool _showExplanation = false;
 
-  String get _activeChapterId {
-    switch (_selectedSubject) {
-      case 'Chemistry':
-        return 'ch_chem_1';
-      case 'Biology':
-        return 'ch_bio_1';
-      case 'Mathematics':
-        return 'ch_math_1';
-      case 'Physics':
-      default:
-        return 'Motion';
-    }
-  }
+  int _activeGrade = 9;
+  List<Map<String, dynamic>> _subjects = [];
+  Map<String, List<Map<String, dynamic>>> _chaptersBySubject = {};
+  String _subjectFilter = 'All';
+  bool _isLoading = true;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    _loadPracticeQuestions();
+    _loadGradeAndChapters();
   }
 
-  Future<void> _loadPracticeQuestions() async {
-    setState(() => _isLoading = true);
-    final data = await _client.getQuizForChapter(_activeChapterId);
-    setState(() {
-      _quizData = data;
-      _isLoading = false;
-    });
+  Future<void> _loadGradeAndChapters() async {
+    if (mounted && _chaptersBySubject.isEmpty) setState(() => _isLoading = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final grade = prefs.getInt('selected_grade') ?? 9;
+      final subjects = await _client.getSubjectsForGrade(grade);
+
+      // Parallel chapter fetch per subject (cached inside client).
+      final entries = await Future.wait(
+        subjects.map((s) async {
+          final name = (s['name'] ?? '').toString();
+          final chapters =
+              await _client.getChaptersForSubject(name, grade: grade);
+          return MapEntry(name, chapters);
+        }),
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _activeGrade = grade;
+        _subjects = subjects;
+        _chaptersBySubject = Map.fromEntries(entries);
+        _error = null;
+      });
+    } catch (e) {
+      AppEnvironment.log('PRACTICE', 'Failed loading grade chapters: $e');
+      if (mounted) setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  List<String> get _subjectNames =>
+      _chaptersBySubject.keys.toList()..sort();
+
+  Map<String, List<Map<String, dynamic>>> get _visibleGroups {
+    if (_subjectFilter == 'All') return _chaptersBySubject;
+    final list = _chaptersBySubject[_subjectFilter];
+    if (list == null) return const {};
+    return {_subjectFilter: list};
+  }
+
+  int get _totalChapters => _chaptersBySubject.values
+      .fold<int>(0, (sum, list) => sum + list.length);
+
+  void _openChapter(
+    String subject,
+    String chapterTitle,
+    int tabIndex,
+  ) {
+    Navigator.pushNamed(
+      context,
+      '/chapter_workspace',
+      arguments: {
+        'chapterTitle': chapterTitle,
+        'subjectName': subject,
+        'grade': _activeGrade,
+        'initialTabIndex': tabIndex,
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    const primaryIndigo = Color(0xFF4F46E5);
-    const slateBg = Color(0xFFF8FAFC);
-    const cardBg = Color(0xFFFFFFFF);
-    const borderColor = Color(0xFFE2E8F0);
-
-    final questions = List<Map<String, dynamic>>.from(_quizData?['questions'] ?? []);
-    final currentQ = questions.isNotEmpty ? questions[_currentQuestionIndex] : null;
-
     return Scaffold(
-      backgroundColor: slateBg,
+      backgroundColor: IDPColors.background,
       appBar: AppBar(
-        backgroundColor: cardBg,
+        backgroundColor: IDPColors.surface,
         elevation: 0.5,
-        title: const Column(
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Practice & Assessment Studio', style: TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.bold, fontSize: 16)),
-            Text('NCERT Class 9-12 Adaptive Question Bank', style: TextStyle(color: Color(0xFF64748B), fontSize: 11)),
+            const Text('Practice & Assessment Studio',
+                style: TextStyle(
+                    color: IDPColors.textPrimary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16)),
+            Text('Grade $_activeGrade • ${_subjects.length} subjects • $_totalChapters chapters',
+                style: const TextStyle(
+                    color: IDPColors.textSecondary, fontSize: 11)),
           ],
         ),
-        iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
+        iconTheme: const IconThemeData(color: IDPColors.textPrimary),
         actions: [
           IconButton(
-            icon: const Icon(Icons.home_rounded, color: primaryIndigo),
+            icon: const Icon(Icons.home_rounded, color: IDPColors.primary),
             tooltip: 'Home Dashboard',
             onPressed: () {
               Navigator.pushAndRemoveUntil(
                 context,
-                MaterialPageRoute(builder: (_) => const MentoraHomeScreen(initialTabIndex: 0)),
-                (route) => false,
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings_rounded, color: Color(0xFF64748B)),
-            tooltip: 'Settings',
-            onPressed: () {
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (_) => const MentoraHomeScreen(initialTabIndex: 4)),
+                MaterialPageRoute(
+                    builder: (_) =>
+                        const MentoraHomeScreen(initialTabIndex: 0)),
                 (route) => false,
               );
             },
@@ -102,230 +134,264 @@ class _MentoraPracticeScreenState extends State<MentoraPracticeScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: primaryIndigo))
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // SUBJECT & DIFFICULTY FILTER CHIPS
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _loadGradeAndChapters,
+              child: _error != null && _totalChapters == 0
+                  ? ListView(
+                      padding: const EdgeInsets.all(24),
                       children: [
-                        _buildFilterChip('Physics', _selectedSubject == 'Physics', () {
-                          setState(() => _selectedSubject = 'Physics');
-                          _loadPracticeQuestions();
-                        }),
-                        const SizedBox(width: 8),
-                        _buildFilterChip('Chemistry', _selectedSubject == 'Chemistry', () {
-                          setState(() => _selectedSubject = 'Chemistry');
-                          _loadPracticeQuestions();
-                        }),
-                        const SizedBox(width: 8),
-                        _buildFilterChip('Biology', _selectedSubject == 'Biology', () {
-                          setState(() => _selectedSubject = 'Biology');
-                          _loadPracticeQuestions();
-                        }),
-                        const SizedBox(width: 8),
-                        _buildFilterChip('Mathematics', _selectedSubject == 'Mathematics', () {
-                          setState(() => _selectedSubject = 'Mathematics');
-                          _loadPracticeQuestions();
-                        }),
+                        const Icon(Icons.cloud_off_outlined,
+                            size: 48, color: IDPColors.textHint),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Could not load chapters.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          _error ?? '',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                              color: IDPColors.textSecondary, fontSize: 12),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: _loadGradeAndChapters,
+                          child: const Text('Retry'),
+                        ),
                       ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  if (currentQ != null) ...[
-                    // PRACTICE QUESTION CARD
-                    Card(
-                      elevation: 0,
-                      color: cardBg,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: const BorderSide(color: borderColor)),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                    )
+                  : _totalChapters == 0
+                      ? ListView(
+                          padding: const EdgeInsets.all(24),
                           children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Flexible(
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFEEF2FF),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Text(
-                                      'Question ${_currentQuestionIndex + 1}/${questions.length}',
-                                      style: const TextStyle(color: primaryIndigo, fontWeight: FontWeight.bold, fontSize: 11),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                                  decoration: BoxDecoration(color: const Color(0xFFFEF3C7), borderRadius: BorderRadius.circular(6)),
-                                  child: const Text('Difficulty: Medium', style: TextStyle(color: Color(0xFFD97706), fontWeight: FontWeight.bold, fontSize: 11)),
-                                ),
-                              ],
-                            ),
+                            const Icon(Icons.menu_book_outlined,
+                                size: 48, color: IDPColors.textHint),
                             const SizedBox(height: 12),
                             Text(
-                              currentQ['question'] as String,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A), height: 1.4),
+                              'No chapters for Grade $_activeGrade yet.',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 6),
+                            const Text(
+                              'Sync packs in Settings → Manage Content, then pull to refresh.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  color: IDPColors.textSecondary,
+                                  fontSize: 12),
                             ),
                           ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // OPTIONS LIST
-                    ...List.generate((currentQ['options'] as List).length, (idx) {
-                      final optionText = currentQ['options'][idx] as String;
-                      final isSelected = _selectedOption == idx;
-                      final isCorrect = currentQ['correctIndex'] == idx;
-
-                      Color bg = cardBg;
-                      Color border = borderColor;
-                      if (_showExplanation) {
-                        if (isCorrect) {
-                          bg = const Color(0xFFECFDF5);
-                          border = const Color(0xFF10B981);
-                        } else if (isSelected) {
-                          bg = const Color(0xFFFEF2F2);
-                          border = const Color(0xFFEF4444);
-                        }
-                      } else if (isSelected) {
-                        bg = const Color(0xFFEEF2FF);
-                        border = primaryIndigo;
-                      }
-
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 10),
-                        decoration: BoxDecoration(
-                          color: bg,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: border, width: isSelected ? 1.5 : 1.0),
-                        ),
-                        child: ListTile(
-                          onTap: () {
-                            if (!_showExplanation) {
-                              setState(() => _selectedOption = idx);
-                            }
-                          },
-                          leading: CircleAvatar(
-                            radius: 14,
-                            backgroundColor: isSelected ? primaryIndigo : const Color(0xFFF1F5F9),
-                            child: Text(
-                              String.fromCharCode(65 + idx),
-                              style: TextStyle(color: isSelected ? Colors.white : const Color(0xFF0F172A), fontSize: 12, fontWeight: FontWeight.bold),
+                        )
+                      : CustomScrollView(
+                          slivers: [
+                            SliverToBoxAdapter(
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                    16, 16, 16, 8),
+                                child: SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: Row(
+                                    children: [
+                                      _filterChip('All'),
+                                      const SizedBox(width: 8),
+                                      for (final name in _subjectNames) ...[
+                                        _filterChip(name),
+                                        const SizedBox(width: 8),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ),
                             ),
-                          ),
-                          title: Text(optionText, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                        ),
-                      );
-                    }),
-
-                    const SizedBox(height: 12),
-
-                    if (!_showExplanation && _selectedOption != null)
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            setState(() => _showExplanation = true);
-                            final chapterId = _activeChapterId;
-                            final isCorrect = _selectedOption == currentQ['correctIndex'];
-                            final answers = <int, int>{_currentQuestionIndex: _selectedOption ?? 0};
-
-                            unawaited(
-                              QuizResultRepository()
-                                  .saveResult(
-                                    QuizResult(
-                                      chapterId: chapterId,
-                                      score: isCorrect ? 1 : 0,
-                                      totalQuestions: 1,
-                                      answers: answers,
-                                      attemptedAt: DateTime.now(),
-                                    ),
-                                  )
-                                  .catchError((e) {
-                                    AppEnvironment.log('QUIZ', 'Failed saving quiz result: $e');
-                                    return -1;
-                                  }),
-                            );
-                            unawaited(
-                              ProgressRepository()
-                                  .recordQuestionAsked(chapterId: chapterId)
-                                  .catchError((e) => AppEnvironment.log('PROGRESS', 'Failed recording question: $e')),
-                            );
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: primaryIndigo,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                          child: const Text('Check Answer', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                        ),
-                      ),
-
-                    if (_showExplanation) ...[
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF8FAFC),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFCBD5E1)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('💡 Step-by-Step Solution:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                            const SizedBox(height: 4),
-                            Text(currentQ['explanation'] as String, style: const TextStyle(fontSize: 13, color: Color(0xFF334155))),
+                            for (final entry in _visibleGroups.entries)
+                              SliverToBoxAdapter(
+                                child: Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                      16, 12, 16, 4),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          entry.key,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 15,
+                                            color: IDPColors.textPrimary,
+                                          ),
+                                        ),
+                                      ),
+                                      Container(
+                                        padding:
+                                            const EdgeInsets.symmetric(
+                                                horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color:
+                                              IDPColors.surfaceContainerLow,
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                          border: Border.all(
+                                              color: IDPColors.border),
+                                        ),
+                                        child: Text(
+                                          '${entry.value.length} chapters',
+                                          style: const TextStyle(
+                                              fontSize: 11,
+                                              color: IDPColors
+                                                  .textSecondary),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            for (final entry in _visibleGroups.entries)
+                              SliverList(
+                                delegate: SliverChildBuilderDelegate(
+                                  (context, index) {
+                                    final ch = entry.value[index];
+                                    return _chapterCard(
+                                        entry.key, index, ch);
+                                  },
+                                  childCount: entry.value.length,
+                                ),
+                              ),
+                            const SliverToBoxAdapter(
+                                child: SizedBox(height: 24)),
                           ],
                         ),
-                      ),
-                      const SizedBox(height: 14),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            setState(() {
-                              _currentQuestionIndex = (_currentQuestionIndex + 1) % questions.length;
-                              _selectedOption = null;
-                              _showExplanation = false;
-                            });
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: primaryIndigo,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                          child: const Text('Next Question', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                        ),
-                      ),
-                    ],
-                  ],
-                ],
-              ),
             ),
     );
   }
 
-  Widget _buildFilterChip(String label, bool isSelected, VoidCallback onTap) {
-    const primaryIndigo = Color(0xFF4F46E5);
+  Widget _filterChip(String label) {
+    final selected = _subjectFilter == label;
     return ChoiceChip(
-      label: Text(label, style: TextStyle(color: isSelected ? Colors.white : primaryIndigo, fontWeight: FontWeight.bold, fontSize: 12)),
-      selected: isSelected,
-      selectedColor: primaryIndigo,
-      backgroundColor: const Color(0xFFEEF2FF),
-      onSelected: (_) => onTap(),
+      label: Text(label,
+          style: TextStyle(
+              color: selected ? Colors.white : IDPColors.primary,
+              fontWeight: FontWeight.bold,
+              fontSize: 12)),
+      selected: selected,
+      selectedColor: IDPColors.primary,
+      backgroundColor: IDPColors.primaryContainer,
+      onSelected: (_) => setState(() => _subjectFilter = label),
+    );
+  }
+
+  Widget _chapterCard(
+      String subject, int index, Map<String, dynamic> ch) {
+    final title = (ch['title'] ?? 'Chapter ${index + 1}').toString();
+    final status = (ch['status'] ?? 'not_started').toString();
+    final duration = (ch['duration'] ?? '').toString();
+    final isCompleted = status == 'completed';
+    final isInProgress = status == 'in_progress';
+
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+      color: IDPColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: isInProgress ? IDPColors.primary : IDPColors.border,
+          width: isInProgress ? 1.5 : 1.0,
+        ),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _openChapter(subject, title, 5), // Quiz tab
+        child: Padding(
+          padding: const EdgeInsets.all(14.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: isCompleted
+                          ? IDPColors.success
+                          : (isInProgress
+                              ? IDPColors.primary
+                              : IDPColors.textHint),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                        '${index + 1}',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                  ),
+                  if (duration.isNotEmpty)
+                    Text(duration,
+                        style: const TextStyle(
+                            fontSize: 11,
+                            color: IDPColors.textSecondary)),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _pill(Icons.style_outlined, 'Flashcards',
+                      () => _openChapter(subject, title, 2)),
+                  _pill(Icons.quiz_outlined, 'Quiz',
+                      () => _openChapter(subject, title, 5)),
+                  _pill(Icons.menu_book_outlined, 'Textbook',
+                      () => _openChapter(subject, title, 1)),
+                  _pill(Icons.chat_bubble_outline, 'Ask AI',
+                      () => _openChapter(subject, title, 0)),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _pill(IconData icon, String label, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: IDPColors.primaryContainer,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: IDPColors.primary),
+            const SizedBox(width: 4),
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: IDPColors.primary)),
+          ],
+        ),
+      ),
     );
   }
 }

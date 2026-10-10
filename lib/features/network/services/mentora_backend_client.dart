@@ -446,6 +446,70 @@ class MentoraBackendClient {
     }
   }
 
+  // Live practice APIs (query-param, NOT path-param). Offline-first: [] on failure.
+  // Does NOT touch any RAG code — pure gateway GET /quizzes|/flashcards.
+  Future<List<Map<String, dynamic>>> getLiveQuizzes({
+    required int grade,
+    required String subject,
+    required String chapter,
+    String? topic,
+  }) async {
+    try {
+      final response = await _client.get(
+        '/quizzes',
+        queryParameters: {
+          'grade': grade,
+          'subject': subject,
+          'chapter': chapter,
+          if (topic != null && topic.isNotEmpty) 'topic': topic,
+        },
+        options: Options(
+          sendTimeout: const Duration(seconds: 3),
+          receiveTimeout: const Duration(seconds: 15),
+        ),
+      );
+      if (response.statusCode == 200) {
+        final data = response.data;
+        final List raw = data is List
+            ? data
+            : (data is Map && data['items'] is List ? data['items'] as List : const []);
+        return raw.whereType<Map>().map((m) => Map<String, dynamic>.from(m)).toList();
+      }
+    } on DioException catch (_) {}
+    return const [];
+  }
+
+  Future<List<Map<String, dynamic>>> getLiveFlashcards({
+    required int grade,
+    required String subject,
+    required String chapter,
+    String? topic,
+  }) async {
+    try {
+      final response = await _client.get(
+        '/flashcards',
+        queryParameters: {
+          'grade': grade,
+          'subject': subject,
+          'chapter': chapter,
+          if (topic != null && topic.isNotEmpty) 'topic': topic,
+        },
+        options: Options(
+          sendTimeout: const Duration(seconds: 3),
+          receiveTimeout: const Duration(seconds: 15),
+        ),
+      );
+      if (response.statusCode == 200) {
+        final data = response.data;
+        final List raw = data is List
+            ? data
+            : (data is Map && data['items'] is List ? data['items'] as List : const []);
+        return raw.whereType<Map>().map((m) => Map<String, dynamic>.from(m)).toList();
+      }
+    } on DioException catch (_) {}
+    return const [];
+  }
+
   String _colorForSubject(String name) {
     final lower = name.toLowerCase();
     if (lower.contains('physic')) return '0xFF4F46E5';

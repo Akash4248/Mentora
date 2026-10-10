@@ -102,11 +102,13 @@ class ConnectivityService {
     }
   }
 
-  /// Probe backend connectivity with latency
+  /// Probe backend connectivity with latency.
+  /// The Pi/backend socket is the PRIMARY signal (classroom AP has no WAN,
+  /// so the `probeHost` internet lookup must never gate Pi reachability).
   Future<ConnectivitySnapshot> probeBackend({
     required String backendUrl,
   }) async {
-    final isOnline = await isConnected();
+    final isOnline = await isConnected(backendUrl: backendUrl);
     if (!isOnline) {
       return ConnectivitySnapshot.offline();
     }
@@ -135,7 +137,7 @@ class ConnectivityService {
   Future<ConnectivitySnapshot> getSnapshot({
     String? backendUrl,
   }) async {
-    final isOnline = await isConnected();
+    final isOnline = await isConnected(backendUrl: backendUrl);
 
     if (!isOnline) {
       return ConnectivitySnapshot.offline();

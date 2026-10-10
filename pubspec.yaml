@@ -1,5 +1,5 @@
-name: offline_tutor_app
-description: "Separate offline AI tutor app scaffold with course-first architecture"
+name: mentora
+description: "Mentora offline-first AI tutor for Grades 5-12 (NCERT)"
 publish_to: 'none'
 version: 0.1.0+1
 
