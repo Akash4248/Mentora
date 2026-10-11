@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/experiment_state/runtime_experiment_status.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/runtime_loader.dart';
+import 'package:mentora/features/experiment/runtime/experiment_state/runtime_experiment_status.dart';
+import 'package:mentora/features/experiment/runtime/runtime_loader.dart';
 
 void main() {
   group('runtime experiment state', () {

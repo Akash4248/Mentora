@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/blueprints/loader/blueprint_loader.dart';
-import 'package:offline_tutor_app/features/experiment/blueprints/registry/built_in_blueprints.dart';
+import 'package:mentora/features/experiment/blueprints/loader/blueprint_loader.dart';
+import 'package:mentora/features/experiment/blueprints/registry/built_in_blueprints.dart';
 
 void main() {
   test('built-in blueprints load from current experiment templates', () {

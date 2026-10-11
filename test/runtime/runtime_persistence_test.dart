@@ -1,10 +1,10 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/measurements/runtime_measurement.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/persistence/runtime_autosave_manager.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/persistence/runtime_session_repository.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/runtime_world.dart';
+import 'package:mentora/features/experiment/runtime/measurements/runtime_measurement.dart';
+import 'package:mentora/features/experiment/runtime/persistence/runtime_autosave_manager.dart';
+import 'package:mentora/features/experiment/runtime/persistence/runtime_session_repository.dart';
+import 'package:mentora/features/experiment/runtime/runtime_world.dart';
 
 void main() {
   group('runtime persistence', () {

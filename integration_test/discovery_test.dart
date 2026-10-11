@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:offline_tutor_app/features/network/application/pi_hub_discovery_coordinator.dart';
+import 'package:mentora/features/network/application/pi_hub_discovery_coordinator.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();

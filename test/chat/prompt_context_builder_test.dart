@@ -1,11 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/chat/application/conversation_context_builder.dart';
-import 'package:offline_tutor_app/features/chat/application/prompt_budget_manager.dart';
-import 'package:offline_tutor_app/features/chat/application/reasoning_output_filter.dart';
-import 'package:offline_tutor_app/features/chat/application/streaming_output_normalizer.dart';
-import 'package:offline_tutor_app/features/chat/application/tutor_prompt_builder.dart';
-import 'package:offline_tutor_app/features/chat/domain/tutor_message.dart';
-import 'package:offline_tutor_app/features/course/domain/course_tree.dart';
+import 'package:mentora/features/chat/application/conversation_context_builder.dart';
+import 'package:mentora/features/chat/application/prompt_budget_manager.dart';
+import 'package:mentora/features/chat/application/reasoning_output_filter.dart';
+import 'package:mentora/features/chat/application/streaming_output_normalizer.dart';
+import 'package:mentora/features/chat/application/tutor_prompt_builder.dart';
+import 'package:mentora/features/chat/domain/tutor_message.dart';
+import 'package:mentora/features/course/domain/course_tree.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {

@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:offline_tutor_app/features/network/application/classroom_presence_coordinator.dart';
-import 'package:offline_tutor_app/features/network/application/multi_device_recovery_manager.dart';
-import 'package:offline_tutor_app/features/network/application/sync_queue_balancer.dart';
+import 'package:mentora/features/network/application/classroom_presence_coordinator.dart';
+import 'package:mentora/features/network/application/multi_device_recovery_manager.dart';
+import 'package:mentora/features/network/application/sync_queue_balancer.dart';
 
 void main() {
   test('classroom presence tracks devices', () {

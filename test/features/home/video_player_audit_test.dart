@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:offline_tutor_app/core/utils/youtube_utils.dart';
-import 'package:offline_tutor_app/features/home/data/local/video_resource_repository.dart';
+import 'package:mentora/core/utils/youtube_utils.dart';
+import 'package:mentora/features/home/data/local/video_resource_repository.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/builder/templates/experiment_templates.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/runtime_loader.dart';
+import 'package:mentora/features/experiment/builder/templates/experiment_templates.dart';
+import 'package:mentora/features/experiment/runtime/runtime_loader.dart';
 
 void main() {
   group('Visualization-first runtime integration', () {

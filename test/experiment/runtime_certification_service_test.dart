@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/application/runtime_certification_service.dart';
+import 'package:mentora/features/experiment/application/runtime_certification_service.dart';
 
 void main() {
   test('certifies all built-in experiment templates', () {

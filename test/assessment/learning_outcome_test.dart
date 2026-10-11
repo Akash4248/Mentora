@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/assessment/analytics/assessment_analytics.dart';
-import 'package:offline_tutor_app/features/experiment/assessment/engine/learning_outcome_evaluator.dart';
-import 'package:offline_tutor_app/features/experiment/assessment/models/assessment_result.dart';
-import 'package:offline_tutor_app/features/experiment/assessment/models/learning_outcome.dart';
-import 'package:offline_tutor_app/features/experiment/assessment/models/learning_outcome_result.dart';
+import 'package:mentora/features/experiment/assessment/analytics/assessment_analytics.dart';
+import 'package:mentora/features/experiment/assessment/engine/learning_outcome_evaluator.dart';
+import 'package:mentora/features/experiment/assessment/models/assessment_result.dart';
+import 'package:mentora/features/experiment/assessment/models/learning_outcome.dart';
+import 'package:mentora/features/experiment/assessment/models/learning_outcome_result.dart';
 
 void main() {
   test('Score 80 percent produces achieved outcome', () {

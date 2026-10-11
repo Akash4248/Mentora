@@ -1,12 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/guided_runtime/conditions/task_completion_condition.dart';
-import 'package:offline_tutor_app/features/experiment/guided_runtime/engine/guided_experiment_engine.dart';
-import 'package:offline_tutor_app/features/experiment/guided_runtime/models/experiment_mission.dart';
-import 'package:offline_tutor_app/features/experiment/guided_runtime/models/experiment_question.dart';
-import 'package:offline_tutor_app/features/experiment/guided_runtime/models/experiment_task.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/runtime_event.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/runtime_profiles.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/runtime_world.dart';
+import 'package:mentora/features/experiment/guided_runtime/conditions/task_completion_condition.dart';
+import 'package:mentora/features/experiment/guided_runtime/engine/guided_experiment_engine.dart';
+import 'package:mentora/features/experiment/guided_runtime/models/experiment_mission.dart';
+import 'package:mentora/features/experiment/guided_runtime/models/experiment_question.dart';
+import 'package:mentora/features/experiment/guided_runtime/models/experiment_task.dart';
+import 'package:mentora/features/experiment/runtime/runtime_event.dart';
+import 'package:mentora/features/experiment/runtime/runtime_profiles.dart';
+import 'package:mentora/features/experiment/runtime/runtime_world.dart';
 
 void main() {
   test('Task1 complete activates Task2', () async {

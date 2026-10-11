@@ -3,16 +3,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:offline_tutor_app/features/network/application/pi_hub_discovery_coordinator.dart';
-import 'package:offline_tutor_app/features/network/application/backend_url_manager.dart';
-import 'package:offline_tutor_app/features/network/domain/backend_config.dart';
-import 'package:offline_tutor_app/features/network/data/backend_api_service.dart';
-import 'package:offline_tutor_app/features/educational/application/sync_manager.dart';
-import 'package:offline_tutor_app/features/rag/data/local/rag_repository.dart';
-import 'package:offline_tutor_app/config/app_environment.dart';
-import 'package:offline_tutor_app/features/course/data/local/app_database.dart';
+import 'package:mentora/features/network/application/pi_hub_discovery_coordinator.dart';
+import 'package:mentora/features/network/application/backend_url_manager.dart';
+import 'package:mentora/features/network/domain/backend_config.dart';
+import 'package:mentora/features/network/data/backend_api_service.dart';
+import 'package:mentora/features/educational/application/sync_manager.dart';
+import 'package:mentora/features/rag/data/local/rag_repository.dart';
+import 'package:mentora/config/app_environment.dart';
+import 'package:mentora/features/course/data/local/app_database.dart';
 import 'package:sqflite/sqflite.dart';
-import 'package:offline_tutor_app/features/network/domain/runtime_backend_url.dart';
+import 'package:mentora/features/network/domain/runtime_backend_url.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();

@@ -1,10 +1,10 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/chat/application/reasoning_output_filter.dart';
-import 'package:offline_tutor_app/features/chat/data/linux_tutor_inference_gateway.dart';
-import 'package:offline_tutor_app/features/chat/data/local/linux_llm_config_service.dart';
-import 'package:offline_tutor_app/features/network/services/mentora_backend_client.dart';
+import 'package:mentora/features/chat/application/reasoning_output_filter.dart';
+import 'package:mentora/features/chat/data/linux_tutor_inference_gateway.dart';
+import 'package:mentora/features/chat/data/local/linux_llm_config_service.dart';
+import 'package:mentora/features/network/services/mentora_backend_client.dart';
 
 @Timeout(Duration(minutes: 2))
 void main() {

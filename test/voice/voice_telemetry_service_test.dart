@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:offline_tutor_app/features/voice/services/voice_telemetry_service.dart';
+import 'package:mentora/features/voice/services/voice_telemetry_service.dart';
 
 void main() {
   group('VoiceTelemetryService', () {

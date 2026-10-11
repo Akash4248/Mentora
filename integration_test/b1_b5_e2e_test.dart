@@ -4,9 +4,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:offline_tutor_app/main.dart' as app;
-import 'package:offline_tutor_app/features/language/providers/language_provider.dart';
-import 'package:offline_tutor_app/features/language/models/app_language.dart';
+import 'package:mentora/main.dart' as app;
+import 'package:mentora/features/language/providers/language_provider.dart';
+import 'package:mentora/features/language/models/app_language.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();

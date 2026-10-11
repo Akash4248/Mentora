@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/assessment/models/assessment_result.dart';
-import 'package:offline_tutor_app/features/experiment/assessment/rubrics/assessment_rubric.dart';
-import 'package:offline_tutor_app/features/experiment/assessment/rubrics/rubric_grader.dart';
-import 'package:offline_tutor_app/features/experiment/investigation/models/experiment_trial.dart';
+import 'package:mentora/features/experiment/assessment/models/assessment_result.dart';
+import 'package:mentora/features/experiment/assessment/rubrics/assessment_rubric.dart';
+import 'package:mentora/features/experiment/assessment/rubrics/rubric_grader.dart';
+import 'package:mentora/features/experiment/investigation/models/experiment_trial.dart';
 
 void main() {
   test('RubricGrader combines trial completion and question accuracy', () {

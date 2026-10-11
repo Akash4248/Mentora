@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/network/data/backend_availability_cache.dart';
-import 'package:offline_tutor_app/features/network/services/mentora_backend_client.dart';
+import 'package:mentora/features/network/data/backend_availability_cache.dart';
+import 'package:mentora/features/network/services/mentora_backend_client.dart';
 
 void main() {
   setUp(() {

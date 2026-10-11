@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:offline_tutor_app/features/language/models/app_language.dart';
-import 'package:offline_tutor_app/features/language/services/language_service.dart';
-import 'package:offline_tutor_app/features/language/providers/language_provider.dart';
+import 'package:mentora/features/language/models/app_language.dart';
+import 'package:mentora/features/language/services/language_service.dart';
+import 'package:mentora/features/language/providers/language_provider.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

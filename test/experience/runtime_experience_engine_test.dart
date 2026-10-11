@@ -1,13 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/experience/engine/runtime_experience_engine.dart';
-import 'package:offline_tutor_app/features/experiment/experience/models/completion_condition.dart';
-import 'package:offline_tutor_app/features/experiment/experience/models/experiment_step.dart';
-import 'package:offline_tutor_app/features/experiment/experience/models/runtime_experience.dart';
-import 'package:offline_tutor_app/features/experiment/experience/models/step_type.dart';
-import 'package:offline_tutor_app/features/experiment/experience/services/experience_progress_calculator.dart';
-import 'package:offline_tutor_app/features/experiment/experience/services/runtime_label_formatter.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/runtime_event.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/runtime_event_bus.dart';
+import 'package:mentora/features/experiment/experience/engine/runtime_experience_engine.dart';
+import 'package:mentora/features/experiment/experience/models/completion_condition.dart';
+import 'package:mentora/features/experiment/experience/models/experiment_step.dart';
+import 'package:mentora/features/experiment/experience/models/runtime_experience.dart';
+import 'package:mentora/features/experiment/experience/models/step_type.dart';
+import 'package:mentora/features/experiment/experience/services/experience_progress_calculator.dart';
+import 'package:mentora/features/experiment/experience/services/runtime_label_formatter.dart';
+import 'package:mentora/features/experiment/runtime/runtime_event.dart';
+import 'package:mentora/features/experiment/runtime/runtime_event_bus.dart';
 
 void main() {
   test('progress calculator returns 0 to 100 percent', () {

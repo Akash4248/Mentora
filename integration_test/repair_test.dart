@@ -3,12 +3,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:offline_tutor_app/features/network/application/pi_hub_discovery_coordinator.dart';
-import 'package:offline_tutor_app/features/network/application/backend_url_manager.dart';
-import 'package:offline_tutor_app/features/network/domain/backend_config.dart';
-import 'package:offline_tutor_app/features/network/data/backend_api_service.dart';
-import 'package:offline_tutor_app/features/educational/application/sync_manager.dart';
-import 'package:offline_tutor_app/config/app_environment.dart';
+import 'package:mentora/features/network/application/pi_hub_discovery_coordinator.dart';
+import 'package:mentora/features/network/application/backend_url_manager.dart';
+import 'package:mentora/features/network/domain/backend_config.dart';
+import 'package:mentora/features/network/data/backend_api_service.dart';
+import 'package:mentora/features/educational/application/sync_manager.dart';
+import 'package:mentora/config/app_environment.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();

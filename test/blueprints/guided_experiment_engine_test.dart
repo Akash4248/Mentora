@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/blueprints/experience/guided_experiment_engine.dart';
-import 'package:offline_tutor_app/features/experiment/blueprints/registry/built_in_blueprints.dart';
+import 'package:mentora/features/experiment/blueprints/experience/guided_experiment_engine.dart';
+import 'package:mentora/features/experiment/blueprints/registry/built_in_blueprints.dart';
 
 void main() {
   test('observation progress updates completion percent', () {

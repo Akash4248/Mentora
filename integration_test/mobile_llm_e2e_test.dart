@@ -1,13 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:offline_tutor_app/features/chat/application/reasoning_output_filter.dart';
-import 'package:offline_tutor_app/features/chat/application/conversation_memory_harness.dart';
-import 'package:offline_tutor_app/features/chat/data/local/chat_session_repository.dart';
-import 'package:offline_tutor_app/features/chat/data/local/chat_memory_policy_repository.dart';
-import 'package:offline_tutor_app/features/chat/domain/tutor_message.dart';
-import 'package:offline_tutor_app/features/course/data/local/app_database.dart';
-import 'package:offline_tutor_app/features/network/services/mentora_backend_client.dart';
-import 'package:offline_tutor_app/main.dart' as app;
+import 'package:mentora/features/chat/application/reasoning_output_filter.dart';
+import 'package:mentora/features/chat/application/conversation_memory_harness.dart';
+import 'package:mentora/features/chat/data/local/chat_session_repository.dart';
+import 'package:mentora/features/chat/data/local/chat_memory_policy_repository.dart';
+import 'package:mentora/features/chat/domain/tutor_message.dart';
+import 'package:mentora/features/course/data/local/app_database.dart';
+import 'package:mentora/features/network/services/mentora_backend_client.dart';
+import 'package:mentora/main.dart' as app;
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();

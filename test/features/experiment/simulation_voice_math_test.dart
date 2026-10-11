@@ -1,15 +1,15 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:offline_tutor_app/features/experiment/assessment/analytics/assessment_analytics.dart';
-import 'package:offline_tutor_app/features/experiment/assessment/engine/assessment_engine.dart';
-import 'package:offline_tutor_app/features/experiment/assessment/models/assessment_question.dart';
-import 'package:offline_tutor_app/features/experiment/assessment/models/assessment_result.dart';
-import 'package:offline_tutor_app/features/experiment/assessment/models/experiment_assessment.dart';
-import 'package:offline_tutor_app/features/experiment/assessment/rubrics/assessment_rubric.dart';
-import 'package:offline_tutor_app/features/experiment/assessment/rubrics/rubric_grader.dart';
-import 'package:offline_tutor_app/features/experiment/investigation/models/experiment_trial.dart';
-import 'package:offline_tutor_app/features/experiment/presentation/runtime_workspace/runtime_orientation_lock.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/observations/runtime_observation.dart';
+import 'package:mentora/features/experiment/assessment/analytics/assessment_analytics.dart';
+import 'package:mentora/features/experiment/assessment/engine/assessment_engine.dart';
+import 'package:mentora/features/experiment/assessment/models/assessment_question.dart';
+import 'package:mentora/features/experiment/assessment/models/assessment_result.dart';
+import 'package:mentora/features/experiment/assessment/models/experiment_assessment.dart';
+import 'package:mentora/features/experiment/assessment/rubrics/assessment_rubric.dart';
+import 'package:mentora/features/experiment/assessment/rubrics/rubric_grader.dart';
+import 'package:mentora/features/experiment/investigation/models/experiment_trial.dart';
+import 'package:mentora/features/experiment/presentation/runtime_workspace/runtime_orientation_lock.dart';
+import 'package:mentora/features/experiment/runtime/observations/runtime_observation.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/guided_runtime/models/experiment_question.dart';
+import 'package:mentora/features/experiment/guided_runtime/models/experiment_question.dart';
 
 void main() {
   test('Question validates answer case-insensitively', () {

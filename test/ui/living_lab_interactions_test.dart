@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/experience/lab_v2/interactions/cause_effect_overlay.dart';
-import 'package:offline_tutor_app/features/experiment/experience/lab_v2/interactions/experiment_activity_feed.dart';
-import 'package:offline_tutor_app/features/experiment/experience/lab_v2/interactions/experiment_narrator.dart';
-import 'package:offline_tutor_app/features/experiment/experience/lab_v2/interactions/insight_card.dart';
-import 'package:offline_tutor_app/features/experiment/experience/lab_v2/interactions/journey_progress.dart';
-import 'package:offline_tutor_app/features/experiment/experience/lab_v2/interactions/simulation_environment.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/runtime_event.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/runtime_event_bus.dart';
+import 'package:mentora/features/experiment/experience/lab_v2/interactions/cause_effect_overlay.dart';
+import 'package:mentora/features/experiment/experience/lab_v2/interactions/experiment_activity_feed.dart';
+import 'package:mentora/features/experiment/experience/lab_v2/interactions/experiment_narrator.dart';
+import 'package:mentora/features/experiment/experience/lab_v2/interactions/insight_card.dart';
+import 'package:mentora/features/experiment/experience/lab_v2/interactions/journey_progress.dart';
+import 'package:mentora/features/experiment/experience/lab_v2/interactions/simulation_environment.dart';
+import 'package:mentora/features/experiment/runtime/runtime_event.dart';
+import 'package:mentora/features/experiment/runtime/runtime_event_bus.dart';
 
 void main() {
   testWidgets('control events create visible cause-effect feedback', (

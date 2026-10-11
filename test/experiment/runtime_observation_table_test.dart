@@ -1,12 +1,12 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/objects/renderers/runtime_object_renderer_registry.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/observations/table_behavior.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/observations/table_renderer.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/models/runtime_object_layout.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/models/runtime_object_state.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/runtime_loader.dart';
+import 'package:mentora/features/experiment/runtime/objects/renderers/runtime_object_renderer_registry.dart';
+import 'package:mentora/features/experiment/runtime/observations/table_behavior.dart';
+import 'package:mentora/features/experiment/runtime/observations/table_renderer.dart';
+import 'package:mentora/features/experiment/runtime/models/runtime_object_layout.dart';
+import 'package:mentora/features/experiment/runtime/models/runtime_object_state.dart';
+import 'package:mentora/features/experiment/runtime/runtime_loader.dart';
 
 void main() {
   group('runtime observation and table system', () {

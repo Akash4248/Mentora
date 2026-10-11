@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/presentation/runtime_workspace/runtime_orientation_lock.dart';
-import 'package:offline_tutor_app/features/experiment/presentation/runtime_workspace/runtime_toolbar.dart';
-import 'package:offline_tutor_app/features/experiment/presentation/runtime_workspace/runtime_view_mode.dart';
-import 'package:offline_tutor_app/features/experiment/presentation/runtime_workspace/runtime_workspace.dart';
-import 'package:offline_tutor_app/features/experiment/presentation/runtime_workspace/runtime_workspace_layout_manager.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/models/runtime_object_layout.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/models/runtime_object_state.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/object_registry.dart';
+import 'package:mentora/features/experiment/presentation/runtime_workspace/runtime_orientation_lock.dart';
+import 'package:mentora/features/experiment/presentation/runtime_workspace/runtime_toolbar.dart';
+import 'package:mentora/features/experiment/presentation/runtime_workspace/runtime_view_mode.dart';
+import 'package:mentora/features/experiment/presentation/runtime_workspace/runtime_workspace.dart';
+import 'package:mentora/features/experiment/presentation/runtime_workspace/runtime_workspace_layout_manager.dart';
+import 'package:mentora/features/experiment/runtime/models/runtime_object_layout.dart';
+import 'package:mentora/features/experiment/runtime/models/runtime_object_state.dart';
+import 'package:mentora/features/experiment/runtime/object_registry.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

@@ -1,3 +1,5 @@
+import 'content_structure_heuristics.dart';
+
 class PdfStructuredBlock {
   const PdfStructuredBlock({
     required this.type,
@@ -78,21 +80,19 @@ class PdfStructureExtractionService {
   }
 
   static String _classifyLine(String line) {
-    final lower = line.toLowerCase();
-
     if (_looksLikeHeading(line)) {
       return 'heading';
     }
 
-    if (_looksLikeFigureCaption(lower)) {
+    if (ContentStructureHeuristics.isFigureCaption(line)) {
       return 'figure_caption';
     }
 
-    if (_looksLikeTableRow(line)) {
+    if (ContentStructureHeuristics.isTableRow(line)) {
       return 'table';
     }
 
-    if (_looksLikeFormulaRegion(line)) {
+    if (ContentStructureHeuristics.isFormulaRegion(line)) {
       return 'formula_region';
     }
 
@@ -107,24 +107,7 @@ class PdfStructureExtractionService {
     return shortEnough && noTerminalPunctuation && startsUpper && words.length <= 12;
   }
 
-  static bool _looksLikeFigureCaption(String lower) {
-    return lower.startsWith('figure ') ||
-        lower.startsWith('fig. ') ||
-        lower.startsWith('diagram ') ||
-        lower.startsWith('image ');
-  }
-
-  static bool _looksLikeTableRow(String line) {
-    final hasPipes = line.contains('|');
-    final multipleSpaces = RegExp(r'\s{2,}').hasMatch(line);
-    final hasTab = line.contains('\t');
-    final tokenCount = line.split(RegExp(r'\s+')).where((e) => e.isNotEmpty).length;
-    return tokenCount >= 3 && (hasPipes || hasTab || multipleSpaces);
-  }
-
-  static bool _looksLikeFormulaRegion(String line) {
-    final formulaSymbols = RegExp(r'[=+\-*/^<>()]').allMatches(line).length;
-    final digits = RegExp(r'\d').allMatches(line).length;
-    return formulaSymbols >= 2 && digits >= 1;
-  }
+  // Figure/table/formula detectors live in ContentStructureHeuristics
+  // (shared with SemanticChunkingService). Heading stays local: block
+  // classification needs stricter thresholds than section splitting.
 }

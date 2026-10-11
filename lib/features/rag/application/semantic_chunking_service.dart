@@ -1,5 +1,6 @@
 import '../application/formula_extractor.dart';
 import '../domain/chunk_v2.dart';
+import 'content_structure_heuristics.dart';
 
 /// Intelligently chunks text by logical sections (definitions, examples, proofs)
 /// rather than fixed paragraph/character boundaries
@@ -168,21 +169,14 @@ class SemanticChunkingService {
         : sections;
   }
 
-  static bool _looksLikeFigureCaption(String line) {
-    final lower = line.toLowerCase();
-    return lower.startsWith('figure ') ||
-        lower.startsWith('fig. ') ||
-        lower.startsWith('diagram ') ||
-        lower.startsWith('image ');
-  }
+  // Figure/table detectors live in ContentStructureHeuristics (shared with
+  // PdfStructureExtractionService). Header stays local: section splitting
+  // needs looser thresholds than block classification.
+  static bool _looksLikeFigureCaption(String line) =>
+      ContentStructureHeuristics.isFigureCaption(line);
 
-  static bool _looksLikeTableRow(String line) {
-    final hasPipe = line.contains('|');
-    final hasTab = line.contains('\t');
-    final hasMultiSpacing = RegExp(r'\s{2,}').hasMatch(line);
-    final tokenCount = line.split(RegExp(r'\s+')).where((e) => e.isNotEmpty).length;
-    return tokenCount >= 3 && (hasPipe || hasTab || hasMultiSpacing);
-  }
+  static bool _looksLikeTableRow(String line) =>
+      ContentStructureHeuristics.isTableRow(line);
 
   /// Detect if line looks like a section header
   static bool _looksLikeHeader(String line) {

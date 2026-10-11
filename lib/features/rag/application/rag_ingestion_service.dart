@@ -202,8 +202,6 @@ class RagIngestionService {
     return (text.length / 4).ceil();
   }
 
-  /// Initialize vocabulary from chapter for semantic search (no-op)
-  Future<void> initializeChapterSemantics(String chapterId) async {}
 }
 
 /// Result of ingestion operation

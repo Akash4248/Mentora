@@ -624,10 +624,7 @@ class PackDownloadOperation implements SyncOperation {
               final decoded = jsonDecode(jsonStr);
               if (decoded is List && decoded.isNotEmpty) {
                 print('[RAG] INDEX_FOUND');
-                await RagRepository().ingestPrecomputedChunks(
-                  chapterId: effectiveChapterId,
-                  chunks: decoded,
-                );
+                // Single v2 write path (RagRepository is a v2 facade now).
                 await RagRepositoryV2().insertBackendChunks(
                   chapterId: effectiveChapterId,
                   backendChunks: decoded,

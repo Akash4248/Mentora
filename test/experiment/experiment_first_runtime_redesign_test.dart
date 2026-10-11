@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/builder/templates/experiment_templates.dart';
-import 'package:offline_tutor_app/features/experiment/experience/lab_v2/stage/experiment_asset_registry.dart';
-import 'package:offline_tutor_app/features/experiment/experience/lab_v2/stage/scene_definition_resolver.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/runtime_loader.dart';
+import 'package:mentora/features/experiment/builder/templates/experiment_templates.dart';
+import 'package:mentora/features/experiment/experience/lab_v2/stage/experiment_asset_registry.dart';
+import 'package:mentora/features/experiment/experience/lab_v2/stage/scene_definition_resolver.dart';
+import 'package:mentora/features/experiment/runtime/runtime_loader.dart';
 
 void main() {
   group('Experiment-first runtime redesign', () {

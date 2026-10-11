@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/experience/scenes/scene_definition_v3.dart';
-import 'package:offline_tutor_app/features/experiment/experience/engine/runtime_experience_engine.dart';
-import 'package:offline_tutor_app/features/experiment/experience/lab_v2/widgets/instrument_controls.dart';
-import 'package:offline_tutor_app/features/experiment/experience/models/runtime_experience.dart';
-import 'package:offline_tutor_app/features/experiment/experience/workspace/lab_workspace_analytics.dart';
-import 'package:offline_tutor_app/features/experiment/experience/workspace/runtime_lab_workspace.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/runtime_loader.dart';
+import 'package:mentora/features/experiment/experience/scenes/scene_definition_v3.dart';
+import 'package:mentora/features/experiment/experience/engine/runtime_experience_engine.dart';
+import 'package:mentora/features/experiment/experience/lab_v2/widgets/instrument_controls.dart';
+import 'package:mentora/features/experiment/experience/models/runtime_experience.dart';
+import 'package:mentora/features/experiment/experience/workspace/lab_workspace_analytics.dart';
+import 'package:mentora/features/experiment/experience/workspace/runtime_lab_workspace.dart';
+import 'package:mentora/features/experiment/runtime/runtime_loader.dart';
 
 void main() {
   testWidgets('instrument controls update slider state', (tester) async {

@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/assessment/models/experiment_lab_report.dart';
-import 'package:offline_tutor_app/features/experiment/assessment/reports/report_exporter.dart';
+import 'package:mentora/features/experiment/assessment/models/experiment_lab_report.dart';
+import 'package:mentora/features/experiment/assessment/reports/report_exporter.dart';
 
 void main() {
   test('ReportExporter creates JSON and PDF bytes', () {

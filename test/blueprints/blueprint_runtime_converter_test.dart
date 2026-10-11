@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/blueprints/loader/blueprint_runtime_converter.dart';
-import 'package:offline_tutor_app/features/experiment/blueprints/registry/built_in_blueprints.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/runtime_loader.dart';
+import 'package:mentora/features/experiment/blueprints/loader/blueprint_runtime_converter.dart';
+import 'package:mentora/features/experiment/blueprints/registry/built_in_blueprints.dart';
+import 'package:mentora/features/experiment/runtime/runtime_loader.dart';
 
 void main() {
   test('blueprint converts to runtime manifest', () {

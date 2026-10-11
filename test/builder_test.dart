@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/builder/validation/builder_validation_test.dart';
+import 'package:mentora/features/experiment/builder/validation/builder_validation_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {

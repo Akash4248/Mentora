@@ -1,13 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/builder/templates/experiment_templates.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/models/runtime_object_layout.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/models/runtime_object_state.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/objects/behavior/runtime_object_behavior_registry.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/objects/renderers/runtime_object_renderer_registry.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/objects/runtime_object_lifecycle_manager.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/objects/schema/runtime_object_schema_registry.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/runtime_event_bus.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/runtime_loader.dart';
+import 'package:mentora/features/experiment/builder/templates/experiment_templates.dart';
+import 'package:mentora/features/experiment/runtime/models/runtime_object_layout.dart';
+import 'package:mentora/features/experiment/runtime/models/runtime_object_state.dart';
+import 'package:mentora/features/experiment/runtime/objects/behavior/runtime_object_behavior_registry.dart';
+import 'package:mentora/features/experiment/runtime/objects/renderers/runtime_object_renderer_registry.dart';
+import 'package:mentora/features/experiment/runtime/objects/runtime_object_lifecycle_manager.dart';
+import 'package:mentora/features/experiment/runtime/objects/schema/runtime_object_schema_registry.dart';
+import 'package:mentora/features/experiment/runtime/runtime_event_bus.dart';
+import 'package:mentora/features/experiment/runtime/runtime_loader.dart';
 
 void main() {
   const p0ObjectTypes = [

@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/p2p/application/p2p_secret_bootstrap_service.dart';
+import 'package:mentora/features/p2p/application/p2p_secret_bootstrap_service.dart';
 
 void main() {
   group('P2PSecretBootstrapService Hardened Crypto Tests', () {

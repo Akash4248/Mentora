@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/runtime_loader.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/runtime_analytics.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/runtime_event.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/simulation/actors/runtime_actor_registry.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/simulation/bindings/runtime_visual_binding_engine.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/simulation/canvas/runtime_simulation_canvas.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/simulation/renderers/runtime_canvas_renderer.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/runtime_event_bus.dart';
+import 'package:mentora/features/experiment/runtime/runtime_loader.dart';
+import 'package:mentora/features/experiment/runtime/runtime_analytics.dart';
+import 'package:mentora/features/experiment/runtime/runtime_event.dart';
+import 'package:mentora/features/experiment/runtime/simulation/actors/runtime_actor_registry.dart';
+import 'package:mentora/features/experiment/runtime/simulation/bindings/runtime_visual_binding_engine.dart';
+import 'package:mentora/features/experiment/runtime/simulation/canvas/runtime_simulation_canvas.dart';
+import 'package:mentora/features/experiment/runtime/simulation/renderers/runtime_canvas_renderer.dart';
+import 'package:mentora/features/experiment/runtime/runtime_event_bus.dart';
 
 void main() {
   test('actor registry creates generic actor types only', () {

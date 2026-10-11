@@ -1,11 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/investigation/analytics/investigation_analytics.dart';
-import 'package:offline_tutor_app/features/experiment/investigation/comparison/trial_comparator.dart';
-import 'package:offline_tutor_app/features/experiment/investigation/conclusions/conclusion_generator.dart';
-import 'package:offline_tutor_app/features/experiment/investigation/models/experiment_trial.dart';
-import 'package:offline_tutor_app/features/experiment/investigation/predictions/prediction_store.dart';
-import 'package:offline_tutor_app/features/experiment/investigation/trials/experiment_trial_manager.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/runtime_loader.dart';
+import 'package:mentora/features/experiment/investigation/analytics/investigation_analytics.dart';
+import 'package:mentora/features/experiment/investigation/comparison/trial_comparator.dart';
+import 'package:mentora/features/experiment/investigation/conclusions/conclusion_generator.dart';
+import 'package:mentora/features/experiment/investigation/models/experiment_trial.dart';
+import 'package:mentora/features/experiment/investigation/predictions/prediction_store.dart';
+import 'package:mentora/features/experiment/investigation/trials/experiment_trial_manager.dart';
+import 'package:mentora/features/experiment/runtime/runtime_loader.dart';
 
 void main() {
   test('trial creation starts and saves a trial', () {

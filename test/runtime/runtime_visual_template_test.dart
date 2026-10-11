@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/runtime_loader.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/visual_templates/registry/runtime_visual_template_registry.dart';
+import 'package:mentora/features/experiment/runtime/runtime_loader.dart';
+import 'package:mentora/features/experiment/runtime/visual_templates/registry/runtime_visual_template_registry.dart';
 
 void main() {
   test('registry resolves object types to visual templates', () {

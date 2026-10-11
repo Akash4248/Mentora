@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/tutor/application/knowledge_gap_resolver.dart';
+import 'package:mentora/features/tutor/application/knowledge_gap_resolver.dart';
 
 void main() {
   group('KnowledgeGapResolver Tests', () {

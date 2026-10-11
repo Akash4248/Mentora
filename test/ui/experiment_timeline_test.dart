@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/experience/workspace/experiment_timeline.dart';
+import 'package:mentora/features/experiment/experience/workspace/experiment_timeline.dart';
 
 void main() {
   testWidgets('experiment timeline renders workflow labels', (tester) async {

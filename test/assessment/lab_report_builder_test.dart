@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/assessment/analytics/assessment_analytics.dart';
-import 'package:offline_tutor_app/features/experiment/assessment/reports/lab_report_builder.dart';
-import 'package:offline_tutor_app/features/experiment/guided_runtime/models/experiment_mission.dart';
-import 'package:offline_tutor_app/features/experiment/investigation/models/experiment_trial.dart';
+import 'package:mentora/features/experiment/assessment/analytics/assessment_analytics.dart';
+import 'package:mentora/features/experiment/assessment/reports/lab_report_builder.dart';
+import 'package:mentora/features/experiment/guided_runtime/models/experiment_mission.dart';
+import 'package:mentora/features/experiment/investigation/models/experiment_trial.dart';
 
 void main() {
   test('LabReportBuilder includes mission, trials, and conclusion', () {

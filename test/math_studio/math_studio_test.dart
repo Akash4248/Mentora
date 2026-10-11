@@ -2,7 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:math_expressions/math_expressions.dart';
 import 'package:vector_math/vector_math_64.dart' as vector;
-import 'package:offline_tutor_app/features/math_studio/domain/saved_exploration.dart';
+import 'package:mentora/features/math_studio/domain/saved_exploration.dart';
 
 void main() {
   group('Math Studio Symbolic Parser Tests', () {

@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/assessment/analytics/assessment_analytics.dart';
-import 'package:offline_tutor_app/features/experiment/assessment/engine/assessment_engine.dart';
-import 'package:offline_tutor_app/features/experiment/assessment/models/assessment_question.dart';
-import 'package:offline_tutor_app/features/experiment/assessment/models/experiment_assessment.dart';
+import 'package:mentora/features/experiment/assessment/analytics/assessment_analytics.dart';
+import 'package:mentora/features/experiment/assessment/engine/assessment_engine.dart';
+import 'package:mentora/features/experiment/assessment/models/assessment_question.dart';
+import 'package:mentora/features/experiment/assessment/models/experiment_assessment.dart';
 
 void main() {
   test('Assessment questions calculate score and pass state', () {

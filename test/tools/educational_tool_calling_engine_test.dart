@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/chat/application/educational_tool_calling_engine.dart';
+import 'package:mentora/features/chat/application/educational_tool_calling_engine.dart';
 
 void main() {
   group('EducationalToolCallingEngine Tests', () {

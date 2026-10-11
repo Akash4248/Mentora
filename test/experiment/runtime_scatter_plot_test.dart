@@ -1,19 +1,19 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/engine/display_object_components.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/measurements/runtime_measurement.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/measurements/runtime_measurement_store.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/models/runtime_object_layout.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/models/runtime_object_state.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/objects/behavior/runtime_object_behavior_registry.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/objects/renderers/runtime_object_renderer_registry.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/runtime_loader.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/runtime_object_factory.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/runtime_validator.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/scatter/scatter_plot_behavior.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/scatter/scatter_plot_renderer.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/scatter/scatter_plot_state.dart';
+import 'package:mentora/features/experiment/runtime/engine/display_object_components.dart';
+import 'package:mentora/features/experiment/runtime/measurements/runtime_measurement.dart';
+import 'package:mentora/features/experiment/runtime/measurements/runtime_measurement_store.dart';
+import 'package:mentora/features/experiment/runtime/models/runtime_object_layout.dart';
+import 'package:mentora/features/experiment/runtime/models/runtime_object_state.dart';
+import 'package:mentora/features/experiment/runtime/objects/behavior/runtime_object_behavior_registry.dart';
+import 'package:mentora/features/experiment/runtime/objects/renderers/runtime_object_renderer_registry.dart';
+import 'package:mentora/features/experiment/runtime/runtime_loader.dart';
+import 'package:mentora/features/experiment/runtime/runtime_object_factory.dart';
+import 'package:mentora/features/experiment/runtime/runtime_validator.dart';
+import 'package:mentora/features/experiment/runtime/scatter/scatter_plot_behavior.dart';
+import 'package:mentora/features/experiment/runtime/scatter/scatter_plot_renderer.dart';
+import 'package:mentora/features/experiment/runtime/scatter/scatter_plot_state.dart';
 
 void main() {
   group('runtime scatter plot', () {

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:offline_tutor_app/features/language/models/app_language.dart';
-import 'package:offline_tutor_app/features/tutor/models/conversation_message.dart';
-import 'package:offline_tutor_app/features/tutor/widgets/conversation_bubble.dart';
+import 'package:mentora/features/language/models/app_language.dart';
+import 'package:mentora/features/tutor/models/conversation_message.dart';
+import 'package:mentora/features/tutor/widgets/conversation_bubble.dart';
 
 void main() {
   group('ConversationBubble', () {

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/chat/application/markdown_format_normalizer.dart';
+import 'package:mentora/features/chat/application/markdown_format_normalizer.dart';
 
 void main() {
   group('MarkdownFormatNormalizer', () {

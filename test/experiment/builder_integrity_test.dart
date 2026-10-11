@@ -1,16 +1,16 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/builder/controllers/experiment_builder_controller.dart';
-import 'package:offline_tutor_app/features/experiment/builder/data/api/experiment_manifest_api_service.dart';
-import 'package:offline_tutor_app/features/experiment/builder/data/repositories/experiment_manifest_repository.dart';
-import 'package:offline_tutor_app/features/experiment/builder/models/builder_object.dart';
-import 'package:offline_tutor_app/features/experiment/builder/models/builder_rule.dart';
-import 'package:offline_tutor_app/features/experiment/builder/models/builder_variable.dart';
-import 'package:offline_tutor_app/features/experiment/builder/storage/builder_draft.dart';
-import 'package:offline_tutor_app/features/experiment/builder/storage/builder_draft_manager.dart';
-import 'package:offline_tutor_app/features/experiment/builder/storage/builder_draft_repository.dart';
-import 'package:offline_tutor_app/features/experiment/builder/templates/experiment_templates.dart';
-import 'package:offline_tutor_app/features/experiment/builder/validation/builder_validator.dart';
-import 'package:offline_tutor_app/features/network/domain/backend_config.dart';
+import 'package:mentora/features/experiment/builder/controllers/experiment_builder_controller.dart';
+import 'package:mentora/features/experiment/builder/data/api/experiment_manifest_api_service.dart';
+import 'package:mentora/features/experiment/builder/data/repositories/experiment_manifest_repository.dart';
+import 'package:mentora/features/experiment/builder/models/builder_object.dart';
+import 'package:mentora/features/experiment/builder/models/builder_rule.dart';
+import 'package:mentora/features/experiment/builder/models/builder_variable.dart';
+import 'package:mentora/features/experiment/builder/storage/builder_draft.dart';
+import 'package:mentora/features/experiment/builder/storage/builder_draft_manager.dart';
+import 'package:mentora/features/experiment/builder/storage/builder_draft_repository.dart';
+import 'package:mentora/features/experiment/builder/templates/experiment_templates.dart';
+import 'package:mentora/features/experiment/builder/validation/builder_validator.dart';
+import 'package:mentora/features/network/domain/backend_config.dart';
 
 void main() {
   test('all built-in templates have valid references', () {

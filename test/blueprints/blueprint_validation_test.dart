@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/blueprints/registry/built_in_blueprints.dart';
-import 'package:offline_tutor_app/features/experiment/blueprints/validation/blueprint_validator.dart';
+import 'package:mentora/features/experiment/blueprints/registry/built_in_blueprints.dart';
+import 'package:mentora/features/experiment/blueprints/validation/blueprint_validator.dart';
 
 void main() {
   test('built-in blueprints pass validation', () {

@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/runtime_loader.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/runtime_event.dart';
+import 'package:mentora/features/experiment/runtime/runtime_loader.dart';
+import 'package:mentora/features/experiment/runtime/runtime_event.dart';
 
 void main() {
   group('Runtime rule system', () {

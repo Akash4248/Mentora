@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/investigation/analytics/investigation_analytics.dart';
-import 'package:offline_tutor_app/features/experiment/investigation/conclusions/conclusion_engine.dart';
-import 'package:offline_tutor_app/features/experiment/investigation/models/experiment_trial.dart';
+import 'package:mentora/features/experiment/investigation/analytics/investigation_analytics.dart';
+import 'package:mentora/features/experiment/investigation/conclusions/conclusion_engine.dart';
+import 'package:mentora/features/experiment/investigation/models/experiment_trial.dart';
 
 void main() {
   test('ConclusionEngine generates deterministic trend conclusion', () {

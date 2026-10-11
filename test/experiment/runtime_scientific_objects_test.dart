@@ -2,23 +2,23 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/engine/display_object_components.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/measurements/runtime_measurement.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/measurements/runtime_measurement_store.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/objects/behavior/runtime_object_behavior_registry.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/objects/renderers/runtime_object_renderer_registry.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/runtime_loader.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/runtime_object_factory.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/scientific/bar_chart_behavior.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/scientific/bar_chart_renderer.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/scientific/oscilloscope_behavior.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/scientific/oscilloscope_renderer.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/scientific/runtime_multi_binding.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/scientific/spectrum_analyzer_behavior.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/scientific/spectrum_analyzer_renderer.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/scientific/vector_visualizer_behavior.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/scientific/vector_visualizer_renderer.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/variable_store.dart';
+import 'package:mentora/features/experiment/runtime/engine/display_object_components.dart';
+import 'package:mentora/features/experiment/runtime/measurements/runtime_measurement.dart';
+import 'package:mentora/features/experiment/runtime/measurements/runtime_measurement_store.dart';
+import 'package:mentora/features/experiment/runtime/objects/behavior/runtime_object_behavior_registry.dart';
+import 'package:mentora/features/experiment/runtime/objects/renderers/runtime_object_renderer_registry.dart';
+import 'package:mentora/features/experiment/runtime/runtime_loader.dart';
+import 'package:mentora/features/experiment/runtime/runtime_object_factory.dart';
+import 'package:mentora/features/experiment/runtime/scientific/bar_chart_behavior.dart';
+import 'package:mentora/features/experiment/runtime/scientific/bar_chart_renderer.dart';
+import 'package:mentora/features/experiment/runtime/scientific/oscilloscope_behavior.dart';
+import 'package:mentora/features/experiment/runtime/scientific/oscilloscope_renderer.dart';
+import 'package:mentora/features/experiment/runtime/scientific/runtime_multi_binding.dart';
+import 'package:mentora/features/experiment/runtime/scientific/spectrum_analyzer_behavior.dart';
+import 'package:mentora/features/experiment/runtime/scientific/spectrum_analyzer_renderer.dart';
+import 'package:mentora/features/experiment/runtime/scientific/vector_visualizer_behavior.dart';
+import 'package:mentora/features/experiment/runtime/scientific/vector_visualizer_renderer.dart';
+import 'package:mentora/features/experiment/runtime/variable_store.dart';
 
 void main() {
   group('runtime scientific objects', () {

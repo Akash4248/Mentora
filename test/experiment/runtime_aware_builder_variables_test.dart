@@ -1,11 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/builder/models/builder_object.dart';
-import 'package:offline_tutor_app/features/experiment/builder/models/builder_scene.dart';
-import 'package:offline_tutor_app/features/experiment/builder/models/builder_variable.dart';
-import 'package:offline_tutor_app/features/experiment/builder/models/experiment_builder_state.dart';
-import 'package:offline_tutor_app/features/experiment/builder/storage/builder_draft.dart';
-import 'package:offline_tutor_app/features/experiment/builder/validation/builder_validator.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/runtime_loader.dart';
+import 'package:mentora/features/experiment/builder/models/builder_object.dart';
+import 'package:mentora/features/experiment/builder/models/builder_scene.dart';
+import 'package:mentora/features/experiment/builder/models/builder_variable.dart';
+import 'package:mentora/features/experiment/builder/models/experiment_builder_state.dart';
+import 'package:mentora/features/experiment/builder/storage/builder_draft.dart';
+import 'package:mentora/features/experiment/builder/validation/builder_validator.dart';
+import 'package:mentora/features/experiment/runtime/runtime_loader.dart';
 
 void main() {
   group('runtime-aware builder variables', () {

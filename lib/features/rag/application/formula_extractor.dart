@@ -170,8 +170,4 @@ class FormulaExtractor {
     return result;
   }
 
-  /// Convert tagged formulas back to original text
-  static String untagFormulas(String text) {
-    return text.replaceAll(RegExp(r'<formula[^>]*>(.+?)</formula>'), r'$1');
-  }
 }

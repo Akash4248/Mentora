@@ -1,11 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/builder/templates/experiment_templates.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/bindings/runtime_binding_engine.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/bindings/runtime_binding_registry.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/object_registry.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/runtime_event_bus.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/runtime_loader.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/variable_store.dart';
+import 'package:mentora/features/experiment/builder/templates/experiment_templates.dart';
+import 'package:mentora/features/experiment/runtime/bindings/runtime_binding_engine.dart';
+import 'package:mentora/features/experiment/runtime/bindings/runtime_binding_registry.dart';
+import 'package:mentora/features/experiment/runtime/object_registry.dart';
+import 'package:mentora/features/experiment/runtime/runtime_event_bus.dart';
+import 'package:mentora/features/experiment/runtime/runtime_loader.dart';
+import 'package:mentora/features/experiment/runtime/variable_store.dart';
 
 void main() {
   group('RuntimeBindingEngine', () {

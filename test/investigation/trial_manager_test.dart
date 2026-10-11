@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/investigation/analytics/investigation_analytics.dart';
-import 'package:offline_tutor_app/features/experiment/investigation/trials/experiment_trial_manager.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/runtime_loader.dart';
+import 'package:mentora/features/experiment/investigation/analytics/investigation_analytics.dart';
+import 'package:mentora/features/experiment/investigation/trials/experiment_trial_manager.dart';
+import 'package:mentora/features/experiment/runtime/runtime_loader.dart';
 
 void main() {
   test('Start Trial then Save Trial stores a completed trial', () {

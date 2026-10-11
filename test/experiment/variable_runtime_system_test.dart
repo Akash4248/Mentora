@@ -1,11 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/models/runtime_variable.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/models/variable_source.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/models/variable_update_strategy.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/runtime_event_bus.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/runtime_loader.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/variable_store.dart';
-import 'package:offline_tutor_app/features/experiment/builder/templates/experiment_templates.dart';
+import 'package:mentora/features/experiment/runtime/models/runtime_variable.dart';
+import 'package:mentora/features/experiment/runtime/models/variable_source.dart';
+import 'package:mentora/features/experiment/runtime/models/variable_update_strategy.dart';
+import 'package:mentora/features/experiment/runtime/runtime_event_bus.dart';
+import 'package:mentora/features/experiment/runtime/runtime_loader.dart';
+import 'package:mentora/features/experiment/runtime/variable_store.dart';
+import 'package:mentora/features/experiment/builder/templates/experiment_templates.dart';
 
 void main() {
   group('RuntimeVariable', () {

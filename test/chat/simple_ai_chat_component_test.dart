@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/chat/application/simple_ai_chat_component.dart';
+import 'package:mentora/features/chat/application/simple_ai_chat_component.dart';
 
 void main() {
   group('SimpleAiChatComponent', () {

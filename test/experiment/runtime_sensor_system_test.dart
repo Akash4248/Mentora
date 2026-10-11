@@ -1,16 +1,16 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/graphs/line_graph_behavior.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/runtime_loader.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/sensors/models/runtime_sensor_type.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/sensors/runtime_sensor_manager.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/sensors/sensor_measurement.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/sensors/sensor_provider.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/sensors/sensor_registry.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/sensors/sensor_type.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/variable_store.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/runtime_event_bus.dart';
+import 'package:mentora/features/experiment/runtime/graphs/line_graph_behavior.dart';
+import 'package:mentora/features/experiment/runtime/runtime_loader.dart';
+import 'package:mentora/features/experiment/runtime/sensors/models/runtime_sensor_type.dart';
+import 'package:mentora/features/experiment/runtime/sensors/runtime_sensor_manager.dart';
+import 'package:mentora/features/experiment/runtime/sensors/sensor_measurement.dart';
+import 'package:mentora/features/experiment/runtime/sensors/sensor_provider.dart';
+import 'package:mentora/features/experiment/runtime/sensors/sensor_registry.dart';
+import 'package:mentora/features/experiment/runtime/sensors/sensor_type.dart';
+import 'package:mentora/features/experiment/runtime/variable_store.dart';
+import 'package:mentora/features/experiment/runtime/runtime_event_bus.dart';
 
 void main() {
   group('runtime sensor system', () {

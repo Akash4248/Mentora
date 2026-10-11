@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/network/domain/backend_url_utils.dart';
-import 'package:offline_tutor_app/features/network/services/mentora_backend_client.dart';
+import 'package:mentora/features/network/domain/backend_url_utils.dart';
+import 'package:mentora/features/network/services/mentora_backend_client.dart';
 
 void main() {
   group('BackendUrlUtils Normalization Tests', () {

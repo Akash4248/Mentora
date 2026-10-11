@@ -2,12 +2,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-import 'package:offline_tutor_app/features/network/application/classroom_session_manager.dart';
-import 'package:offline_tutor_app/features/network/application/deferred_sync_manager.dart';
-import 'package:offline_tutor_app/features/network/application/offline_recovery_coordinator.dart';
-import 'package:offline_tutor_app/features/network/application/offline_state_persistence.dart';
-import 'package:offline_tutor_app/features/network/application/pack_version_manager.dart';
-import 'package:offline_tutor_app/features/network/application/incremental_sync_coordinator.dart';
+import 'package:mentora/features/network/application/classroom_session_manager.dart';
+import 'package:mentora/features/network/application/deferred_sync_manager.dart';
+import 'package:mentora/features/network/application/offline_recovery_coordinator.dart';
+import 'package:mentora/features/network/application/offline_state_persistence.dart';
+import 'package:mentora/features/network/application/pack_version_manager.dart';
+import 'package:mentora/features/network/application/incremental_sync_coordinator.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

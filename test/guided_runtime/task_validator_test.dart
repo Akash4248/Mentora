@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/guided_runtime/conditions/task_completion_condition.dart';
-import 'package:offline_tutor_app/features/experiment/guided_runtime/engine/task_validator.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/runtime_profiles.dart';
-import 'package:offline_tutor_app/features/experiment/runtime/runtime_world.dart';
+import 'package:mentora/features/experiment/guided_runtime/conditions/task_completion_condition.dart';
+import 'package:mentora/features/experiment/guided_runtime/engine/task_validator.dart';
+import 'package:mentora/features/experiment/runtime/runtime_profiles.dart';
+import 'package:mentora/features/experiment/runtime/runtime_world.dart';
 
 void main() {
   test('VariableReachedValueCondition completes when value reaches target', () {

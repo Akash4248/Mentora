@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/guided_runtime/engine/task_progress_tracker.dart';
+import 'package:mentora/features/experiment/guided_runtime/engine/task_progress_tracker.dart';
 
 void main() {
   test('Mission progress uses completed tasks over total tasks', () {

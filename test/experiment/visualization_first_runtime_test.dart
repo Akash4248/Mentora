@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/visualization_first/visualization_first.dart';
+import 'package:mentora/features/experiment/visualization_first/visualization_first.dart';
 
 void main() {
   group('Visualization-first runtime profiles', () {
