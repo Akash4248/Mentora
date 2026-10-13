@@ -169,7 +169,19 @@ class _MathStudio3DLabScreenState extends State<MathStudio3DLabScreen> {
                     }
 
                     if (_useGeoGebra) {
-                      return const GeogebraEmbeddedView(initialApp: '3d');
+                      return GeogebraEmbeddedView(
+                        initialApp: '3d',
+                        onOfflineFallback: () {
+                          if (!mounted || !_useGeoGebra) return;
+                          setState(() => _useGeoGebra = false);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                  'GeoGebra needs internet — switched to the offline 3D canvas.'),
+                            ),
+                          );
+                        },
+                      );
                     }
 
                     final canvasWidget = MathStudio3DCanvas(

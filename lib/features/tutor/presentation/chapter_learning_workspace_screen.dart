@@ -23,6 +23,7 @@ import '../../assessment/domain/quiz_result.dart';
 import '../../progress/data/local/progress_repository.dart';
 import '../../../config/app_environment.dart';
 import '../../content_packs/data/local/content_pack_repository.dart';
+import '../../assessment/application/quiz_question_loader.dart';
 import '../../chat/data/local/chat_memory_policy_repository.dart';
 import '../../chat/presentation/widgets/chat_memory_policy_sheet.dart';
 
@@ -60,6 +61,26 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
 
   YoutubePlayerController? _youtubeController;
   String? _activeVideoId;
+  bool _islOnly = false;
+
+  static const _islKeywords = [
+    'isl',
+    'sign language',
+    'sign-language',
+    'signlang',
+    'indian sign',
+    'deaf',
+  ];
+
+  /// A video counts as ISL when its metadata mentions sign language.
+  /// There is no separate ISL catalog yet — this filters the real playlist
+  /// instead of showing a dead toggle.
+  static bool _isIslVideo(Map<String, dynamic> item) {
+    final haystack =
+        '${item['title'] ?? ''} ${item['channel'] ?? ''} ${item['description'] ?? ''}'
+            .toLowerCase();
+    return _islKeywords.any(haystack.contains);
+  }
 
   @override
   void initState() {
@@ -297,10 +318,11 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
       subject: _activeSubjectName,
       grade: _activeGrade,
     );
-    final installedQuizQs = await ContentPackRepository().findQuizQuestionsForChapter(
-      chapterTitle: _activeChapterTitle,
-      subject: _activeSubjectName,
+    // Single canonical loader: installed pack → live backend → offline mock.
+    final loaderQs = await QuizQuestionLoader.load(
       grade: _activeGrade,
+      subject: _activeSubjectName,
+      chapterTitle: _activeChapterTitle,
     );
 
     if (mounted) {
@@ -309,13 +331,13 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
         if (pdfItem != null && File(pdfItem.absolutePath).existsSync()) {
           _resolvedPdfPath = pdfItem.absolutePath;
         }
-        if (installedQuizQs.isNotEmpty) {
+        if (loaderQs.isNotEmpty) {
           _quizData = {
             'chapter': _activeChapterTitle,
             'title': 'NCERT Practice Quiz: $_activeChapterTitle',
-            'totalQuestions': installedQuizQs.length,
+            'totalQuestions': loaderQs.length,
             'userMastery': 0,
-            'questions': installedQuizQs,
+            'questions': loaderQs,
           };
         } else {
           _quizData = quiz;
@@ -1059,9 +1081,38 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
           const SizedBox(height: 16),
 
           // PLAYLIST SECTION
-          const Text('📚 Playlist Chapters', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+          Row(
+            children: [
+              const Expanded(
+                child: Text('📚 Playlist Chapters',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              ),
+              FilterChip(
+                label: const Text('ISL 🤟', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                selected: _islOnly,
+                onSelected: (value) => setState(() => _islOnly = value),
+                tooltip: 'Show only Indian Sign Language videos',
+              ),
+            ],
+          ),
           const SizedBox(height: 8),
-          ...playlist.map((item) {
+          if (_islOnly &&
+              !playlist.any((item) => _isIslVideo(item))) ...[
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFBEB),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFFDE68A)),
+              ),
+              child: const Text(
+                'No sign-language videos for this chapter yet. Showing all videos below — turn ISL off to browse.',
+                style: TextStyle(fontSize: 13, color: Color(0xFF92400E)),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+          ...playlist.where((item) => !_islOnly || _isIslVideo(item)).map((item) {
             final itemTitle = item['title']?.toString() ?? 'Video Chapter';
             final itemUrl = item['videoUrl']?.toString() ?? item['youtubeId']?.toString() ?? '';
             final itemDuration = item['duration']?.toString() ?? '10:00';
@@ -1089,7 +1140,24 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
                 leading: const CircleAvatar(backgroundColor: Color(0xFFEEF2FF), child: Icon(Icons.play_circle_fill, color: primaryIndigo, size: 20)),
                 title: Text(itemTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                 subtitle: Text(itemChannel, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
-                trailing: Text(itemDuration, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                trailing: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(itemDuration, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                    if (_isIslVideo(item))
+                      Container(
+                        margin: const EdgeInsets.only(top: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFECFDF5),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text('ISL 🤟',
+                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF059669))),
+                      ),
+                  ],
+                ),
               ),
             );
           }).toList(),

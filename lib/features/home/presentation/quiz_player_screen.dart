@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import '../../course/domain/curriculum_models.dart';
+import '../../assessment/application/quiz_question_loader.dart';
 import '../../assessment/data/local/quiz_result_repository.dart';
 import '../../assessment/domain/quiz_result.dart';
 
@@ -73,8 +74,26 @@ class _QuizPlayerScreenState extends State<QuizPlayerScreen> {
     try {
       final List<QuizQuestion> parsedQuestions = [];
 
+      // 0. Canonical loader first: installed pack → live backend → mock.
+      try {
+        final canonical = await QuizQuestionLoader.load(
+          grade: widget.chapter.grade,
+          subject: widget.chapter.subject,
+          chapterTitle: widget.chapter.title,
+        );
+        for (final q in canonical) {
+          final opts = List<String>.from(q['options'] as List? ?? []);
+          parsedQuestions.add(QuizQuestion(
+            question: (q['question'] ?? '').toString(),
+            correctAnswer: (q['explanation'] ?? '').toString(),
+            options: opts,
+            correctIndex: (q['correctIndex'] as num?)?.toInt() ?? 0,
+          ));
+        }
+      } catch (_) {}
+
       // 1. Try local content pack quizzes.json
-      if (widget.chapter.rootPath.isNotEmpty) {
+      if (parsedQuestions.isEmpty && widget.chapter.rootPath.isNotEmpty) {
         final quizPath = p.join(widget.chapter.rootPath, 'quizzes.json');
         final file = File(quizPath);
         if (await file.exists()) {

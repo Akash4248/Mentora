@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -7,12 +8,18 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/theme/idp_colors.dart';
 import '../../../../core/theme/idp_typography.dart';
 
+/// Online GeoGebra embed. There is no offline bundle (the web app is tens of
+/// MB and versioned upstream); offline graphing is the native 3D canvas.
+/// This widget pre-checks connectivity so offline devices skip the doomed
+/// load, and reports [onOfflineFallback] so the parent auto-switches.
 class GeogebraEmbeddedView extends StatefulWidget {
   final String initialApp;
+  final VoidCallback? onOfflineFallback;
 
   const GeogebraEmbeddedView({
     super.key,
     this.initialApp = '3d',
+    this.onOfflineFallback,
   });
 
   @override
@@ -23,6 +30,36 @@ class _GeogebraEmbeddedViewState extends State<GeogebraEmbeddedView> {
   InAppWebViewController? _webViewController;
   bool _isLoading = true;
   bool _hasError = false;
+  bool _fallbackNotified = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _precheckConnectivity();
+  }
+
+  Future<void> _precheckConnectivity() async {
+    try {
+      final results = await Connectivity().checkConnectivity();
+      final offline = results.isEmpty ||
+          results.every((r) => r == ConnectivityResult.none);
+      if (offline && mounted) {
+        setState(() {
+          _isLoading = false;
+          _hasError = true;
+        });
+        _notifyFallback();
+      }
+    } catch (_) {}
+  }
+
+  void _notifyFallback() {
+    if (_fallbackNotified) return;
+    _fallbackNotified = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      widget.onOfflineFallback?.call();
+    });
+  }
 
   bool get _isWebViewSupported =>
       !kIsWeb &&
@@ -144,6 +181,7 @@ class _GeogebraEmbeddedViewState extends State<GeogebraEmbeddedView> {
                   _isLoading = false;
                   _hasError = true;
                 });
+                _notifyFallback();
               },
             ),
 
@@ -182,16 +220,27 @@ class _GeogebraEmbeddedViewState extends State<GeogebraEmbeddedView> {
                         style: TextStyle(color: IDPColors.onSurfaceVariant),
                       ),
                       const SizedBox(height: 16),
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.refresh_rounded),
-                        label: const Text('Retry Web Connection'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: IDPColors.primary,
-                          foregroundColor: Colors.white,
-                        ),
-                        onPressed: () {
-                          _webViewController?.reload();
-                        },
+                      Wrap(
+                        spacing: 12,
+                        alignment: WrapAlignment.center,
+                        children: [
+                          ElevatedButton.icon(
+                            icon: const Icon(Icons.refresh_rounded),
+                            label: const Text('Retry Web Connection'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: IDPColors.primary,
+                              foregroundColor: Colors.white,
+                            ),
+                            onPressed: () {
+                              _webViewController?.reload();
+                            },
+                          ),
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.view_in_ar_rounded),
+                            label: const Text('Use Offline Canvas'),
+                            onPressed: () => _notifyFallback(),
+                          ),
+                        ],
                       ),
                     ],
                   ),

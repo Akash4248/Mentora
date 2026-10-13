@@ -372,8 +372,10 @@ class _LearningMaterialsScreenState extends State<LearningMaterialsScreen>
         videoRoots.add(p.join(ext.path, 'VIDEOS'));
       }
     } catch (_) {}
-    textbookRoots.addAll(_androidTextbookRootCandidates);
-    videoRoots.addAll(_androidVideoRootCandidates);
+    if (Platform.isAndroid) {
+      textbookRoots.addAll(_androidTextbookRootCandidates);
+      videoRoots.addAll(_androidVideoRootCandidates);
+    }
 
     if (Platform.isAndroid) {
       textbookRoots.addAll(
