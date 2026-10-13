@@ -115,7 +115,7 @@ class _AlgebraBalanceWorkspaceState extends State<AlgebraBalanceWorkspace>
                     Text(
                       '${_leftXCount}x + $_leftUnits  =  ${_rightXCount > 0 ? '${_rightXCount}x + ' : ''}$_rightUnits',
                       style: IDPTypography.titleSmall.copyWith(
-                        color: const Color(0xFF4F46E5),
+                        color: IDPColors.primary,
                         fontWeight: FontWeight.bold,
                         fontSize: 20,
                       ),
@@ -219,7 +219,7 @@ class _AlgebraBalanceWorkspaceState extends State<AlgebraBalanceWorkspace>
                   width: 28,
                   height: 28,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF4F46E5),
+                    color: IDPColors.primary,
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: const Center(
@@ -299,7 +299,7 @@ class _BalanceScalePainter extends CustomPainter {
       ..lineTo(center.dx + 40, center.dy + 40)
       ..close();
 
-    final fillPaint = Paint()..color = const Color(0xFF4F46E5).withValues(alpha: 0.3);
+    final fillPaint = Paint()..color = IDPColors.primary.withValues(alpha: 0.3);
     canvas.drawPath(base, fillPaint);
     canvas.drawPath(base, paint);
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/idp_colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../network/services/mentora_backend_client.dart';
 
@@ -68,7 +69,7 @@ class _MentoraHomeScreenState extends State<MentoraHomeScreen> {
       final intColor = int.tryParse(hex, radix: 16);
       if (intColor != null) return Color(intColor);
     }
-    return const Color(0xFF4F46E5);
+    return IDPColors.primary;
   }
 
   IconData _parseIcon(dynamic iconVal) {
@@ -102,7 +103,7 @@ class _MentoraHomeScreenState extends State<MentoraHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const primaryIndigo = Color(0xFF4F46E5);
+    const primaryIndigo = IDPColors.primary;
 
     return Scaffold(
       body: IndexedStack(
@@ -166,7 +167,7 @@ class _MentoraHomeScreenState extends State<MentoraHomeScreen> {
   }
 
   Widget _buildHomeTab(BuildContext context) {
-    const primaryIndigo = Color(0xFF4F46E5);
+    const primaryIndigo = IDPColors.primary;
     const slateBg = Color(0xFFF8FAFC);
     const cardBg = Color(0xFFFFFFFF);
     const borderColor = Color(0xFFE2E8F0);
@@ -238,7 +239,7 @@ class _MentoraHomeScreenState extends State<MentoraHomeScreen> {
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [Color(0xFF4F46E5), Color(0xFF6366F1)],
+                  colors: [IDPColors.primary, Color(0xFF6366F1)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),

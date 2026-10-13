@@ -55,7 +55,7 @@ class _TextbookViewerScreenState extends State<TextbookViewerScreen> {
                   ),
                 ],
               ),
-              backgroundColor: const Color(0xFF4F46E5),
+              backgroundColor: IDPColors.primary,
               foregroundColor: Colors.white,
               elevation: 0,
               actions: [
@@ -123,7 +123,7 @@ class _TextbookViewerScreenState extends State<TextbookViewerScreen> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          CircularProgressIndicator(color: Color(0xFF4F46E5)),
+                          CircularProgressIndicator(color: IDPColors.primary),
                           SizedBox(height: 12),
                           Text(
                             'Loading NCERT Textbook PDF...',
@@ -217,7 +217,7 @@ class _TextbookViewerScreenState extends State<TextbookViewerScreen> {
               icon: const Icon(Icons.download_rounded),
               label: const Text('Sync Offline Packs'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF4F46E5),
+                backgroundColor: IDPColors.primary,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 shape: RoundedRectangleBorder(

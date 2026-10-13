@@ -5,7 +5,6 @@ import 'package:mentora/core/utils/youtube_utils.dart';
 
 import '../../course/domain/curriculum_models.dart';
 import '../../course/domain/course_tree.dart';
-import '../../chat/presentation/chapter_chat_screen.dart';
 import 'pdf_chapter_reader_screen.dart';
 import 'quiz_player_screen.dart';
 import 'chapter_summary_screen.dart';
@@ -205,31 +204,15 @@ class _ChapterDashboardScreenState extends State<ChapterDashboardScreen> {
               icon: Icons.chat_bubble_rounded,
               colors: [const Color(0xFF8B5CF6), const Color(0xFF6D28D9)],
               onTap: () {
-                // Map to legacy models to pass to ChapterChatScreen
-                final legacyCourse = Course(
-                  id: 'grade_${widget.chapter.grade}',
-                  name: 'Grade ${widget.chapter.grade}',
-                );
-                final legacySubject = Subject(
-                  id: 'sub_${widget.subject.name.toLowerCase()}',
-                  courseId: legacyCourse.id,
-                  name: widget.subject.name,
-                );
-                final legacyChapter = Chapter(
-                  id: widget.chapter.packId,
-                  subjectId: legacySubject.id,
-                  title: widget.chapter.title,
-                  summary: widget.chapter.summary,
-                );
-
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => ChapterChatScreen(
-                      course: legacyCourse,
-                      subject: legacySubject,
-                      chapter: legacyChapter,
-                    ),
-                  ),
+                // Canonical chat: chapter workspace, Chat tab (index 0).
+                Navigator.of(context).pushNamed(
+                  '/chapter_workspace',
+                  arguments: {
+                    'chapterTitle': widget.chapter.title,
+                    'subjectName': widget.subject.name,
+                    'grade': widget.chapter.grade,
+                    'initialTabIndex': 0,
+                  },
                 ).then((_) => _loadAnalytics());
               },
             ),
@@ -576,10 +559,10 @@ class _YouTubeDashboardInlinePlayerCardState extends State<_YouTubeDashboardInli
                                   padding: const EdgeInsets.all(14),
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
-                                    color: const Color(0xFF4F46E5),
+                                    color: IDPColors.primary,
                                     boxShadow: [
                                       BoxShadow(
-                                        color: const Color(0xFF4F46E5).withOpacity(0.4),
+                                        color: IDPColors.primary.withOpacity(0.4),
                                         blurRadius: 12,
                                         spreadRadius: 2,
                                       ),

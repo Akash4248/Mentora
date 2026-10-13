@@ -7,7 +7,6 @@ import 'chapter_dashboard_screen.dart';
 import 'pdf_chapter_reader_screen.dart';
 import 'quiz_player_screen.dart';
 import 'chapter_summary_screen.dart';
-import '../../chat/presentation/chapter_chat_screen.dart';
 import '../../course/domain/course_tree.dart';
 import '../../../core/theme/idp_colors.dart';
 import '../../../core/theme/idp_typography.dart';
@@ -210,30 +209,15 @@ class _SubjectScreenState extends State<SubjectScreen> {
                     'Available',
                     false,
                     () {
-                      final legacyCourse = Course(
-                        id: 'grade_${chapter.grade}',
-                        name: 'Grade ${chapter.grade}',
-                      );
-                      final legacySubject = Subject(
-                        id: 'sub_${widget.subject.name.toLowerCase()}',
-                        courseId: legacyCourse.id,
-                        name: widget.subject.name,
-                      );
-                      final legacyChapter = Chapter(
-                        id: chapter.packId,
-                        subjectId: legacySubject.id,
-                        title: chapter.title,
-                        summary: chapter.summary,
-                      );
-
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => ChapterChatScreen(
-                            course: legacyCourse,
-                            subject: legacySubject,
-                            chapter: legacyChapter,
-                          ),
-                        ),
+                      // Canonical chat: chapter workspace, Chat tab (index 0).
+                      Navigator.of(context).pushNamed(
+                        '/chapter_workspace',
+                        arguments: {
+                          'chapterTitle': chapter.title,
+                          'subjectName': widget.subject.name,
+                          'grade': chapter.grade,
+                          'initialTabIndex': 0,
+                        },
                       ).then((_) => _loadResults());
                     },
                   ),

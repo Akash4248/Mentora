@@ -12,7 +12,6 @@ import '../../../core/theme/idp_colors.dart';
 import '../../../core/theme/idp_theme.dart';
 import '../../onboarding/presentation/grade_sync_screen.dart';
 import 'subject_screen.dart';
-import '../../chat/presentation/chapter_chat_screen.dart';
 import '../../course/domain/course_tree.dart';
 
 class MyLearningScreen extends StatefulWidget {
@@ -786,27 +785,15 @@ class _MyLearningScreenState extends State<MyLearningScreen> {
       return;
     }
 
-    final legacyCourse = Course(id: 'grade_${chapter.grade}', name: 'Grade ${chapter.grade}');
-    final legacySubject = Subject(
-      id: 'sub_${subject.name.toLowerCase()}',
-      courseId: legacyCourse.id,
-      name: subject.name,
-    );
-    final legacyChapter = Chapter(
-      id: chapter.packId,
-      subjectId: legacySubject.id,
-      title: chapter.title,
-      summary: chapter.summary,
-    );
-
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ChapterChatScreen(
-          course: legacyCourse,
-          subject: legacySubject,
-          chapter: legacyChapter,
-        ),
-      ),
+    // Canonical chat: chapter workspace, Chat tab (index 0).
+    Navigator.of(context).pushNamed(
+      '/chapter_workspace',
+      arguments: {
+        'chapterTitle': chapter.title,
+        'subjectName': subject.name,
+        'grade': chapter.grade,
+        'initialTabIndex': 0,
+      },
     );
   }
 }

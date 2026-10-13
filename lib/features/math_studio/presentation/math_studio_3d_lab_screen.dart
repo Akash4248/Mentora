@@ -5,6 +5,7 @@ import 'package:vector_math/vector_math_64.dart' as vector;
 
 import '../../../core/theme/idp_colors.dart';
 import '../../../core/theme/idp_typography.dart';
+import '../../experiment/presentation/runtime_workspace/runtime_orientation_lock.dart';
 import 'widgets/math_studio_3d_canvas.dart';
 import 'widgets/math_lab_toolbar.dart';
 import 'widgets/geogebra_embedded_view.dart';
@@ -46,22 +47,14 @@ class _MathStudio3DLabScreenState extends State<MathStudio3DLabScreen> {
   @override
   void initState() {
     super.initState();
-    // Enforce default landscape orientation for mobile screens in 3D Math Lab
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]);
+    // Ref-counted landscape lock: safe when experiment + lab screens overlap.
+    RuntimeOrientationLock.lockLandscape();
   }
 
   @override
   void dispose() {
-    // Restore all device orientations on screen exit
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-      DeviceOrientation.portraitDown,
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]);
+    // Restores all orientations only when no other screen holds the lock.
+    RuntimeOrientationLock.restore();
     super.dispose();
   }
 
@@ -127,7 +120,7 @@ class _MathStudio3DLabScreenState extends State<MathStudio3DLabScreen> {
             ),
           ],
         ),
-        backgroundColor: const Color(0xFF4F46E5),
+        backgroundColor: IDPColors.primary,
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
@@ -270,7 +263,7 @@ class _MathStudio3DLabScreenState extends State<MathStudio3DLabScreen> {
                 ),
                 Switch(
                   value: _useGeoGebra,
-                  activeColor: const Color(0xFF4F46E5),
+                  activeColor: IDPColors.primary,
                   onChanged: (val) => setState(() => _useGeoGebra = val),
                 ),
               ],
@@ -334,7 +327,7 @@ class _MathStudio3DLabScreenState extends State<MathStudio3DLabScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF4F46E5).withValues(alpha: 0.1),
+                  color: IDPColors.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
@@ -343,7 +336,7 @@ class _MathStudio3DLabScreenState extends State<MathStudio3DLabScreen> {
                       : _geometryShape == 'cube'
                           ? 'Volume V = a³ = ${math.pow(_geometryRadius * 2, 3).toStringAsFixed(2)}\nSurface Area A = 6 a² = ${(6 * math.pow(_geometryRadius * 2, 2)).toStringAsFixed(2)}'
                           : 'Volume V = π r² h = ${(math.pi * math.pow(_geometryRadius, 2) * _geometryHeight).toStringAsFixed(2)}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF4F46E5)),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: IDPColors.primary),
                 ),
               ),
             ] else if (_activeTool == MathLabTool.addPoint) ...[
@@ -466,7 +459,7 @@ class _MathStudio3DLabScreenState extends State<MathStudio3DLabScreen> {
                 value: _amplitude,
                 min: 0.5,
                 max: 3.0,
-                activeColor: const Color(0xFF4F46E5),
+                activeColor: IDPColors.primary,
                 onChanged: (val) => setState(() => _amplitude = val),
               ),
               Text('Frequency X (ωx): ${_frequencyX.toStringAsFixed(2)}'),
@@ -492,7 +485,7 @@ class _MathStudio3DLabScreenState extends State<MathStudio3DLabScreen> {
               icon: const Icon(Icons.calculate_rounded),
               label: const Text('Launch Scientific Calculator'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF4F46E5),
+                backgroundColor: IDPColors.primary,
                 foregroundColor: Colors.white,
                 minimumSize: const Size(double.infinity, 42),
                 shape: RoundedRectangleBorder(

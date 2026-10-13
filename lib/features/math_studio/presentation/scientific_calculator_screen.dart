@@ -132,7 +132,7 @@ class _ScientificCalculatorScreenState
             ),
           ],
         ),
-        backgroundColor: const Color(0xFF4F46E5),
+        backgroundColor: IDPColors.primary,
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
@@ -190,7 +190,7 @@ class _ScientificCalculatorScreenState
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          backgroundColor: const Color(0xFF4F46E5),
+                          backgroundColor: IDPColors.primary,
                           visualDensity: VisualDensity.compact,
                         ),
                         if (_memory != 0.0)
@@ -226,7 +226,7 @@ class _ScientificCalculatorScreenState
                       child: Text(
                         _result,
                         style: IDPTypography.headlineLg.copyWith(
-                          color: const Color(0xFF4F46E5),
+                          color: IDPColors.primary,
                           fontSize: 38,
                           fontWeight: FontWeight.bold,
                         ),
@@ -317,7 +317,7 @@ class _ScientificCalculatorScreenState
       _CalcBtn('e', isFunction: true),
       _CalcBtn('0'),
       _CalcBtn('.'),
-      _CalcBtn('=', isAction: true, color: const Color(0xFF4F46E5)),
+      _CalcBtn('=', isAction: true, color: IDPColors.primary),
     ];
   }
 
@@ -326,13 +326,13 @@ class _ScientificCalculatorScreenState
     Color fg = isDark ? Colors.white : Colors.black87;
 
     if (btn.isOperator) {
-      bg = const Color(0xFF4F46E5).withValues(alpha: 0.15);
-      fg = const Color(0xFF4F46E5);
+      bg = IDPColors.primary.withValues(alpha: 0.15);
+      fg = IDPColors.primary;
     } else if (btn.isFunction) {
       bg = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
       fg = isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7);
     } else if (btn.isAction) {
-      bg = btn.color ?? const Color(0xFF4F46E5);
+      bg = btn.color ?? IDPColors.primary;
       fg = Colors.white;
     }
 
@@ -363,7 +363,7 @@ class _ScientificCalculatorScreenState
       builder: (context) => AlertDialog(
         title: const Row(
           children: [
-            Icon(Icons.history_rounded, color: Color(0xFF4F46E5)),
+            Icon(Icons.history_rounded, color: IDPColors.primary),
             SizedBox(width: 8),
             Text('Calculation History'),
           ],

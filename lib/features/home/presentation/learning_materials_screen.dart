@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../../../core/theme/idp_colors.dart';
 
 import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
@@ -848,7 +849,7 @@ class _TextbooksTabState extends State<_TextbooksTab> {
                 icon: const Icon(Icons.download_rounded),
                 label: const Text('Manage & Sync Content Packs'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF4F46E5),
+                  backgroundColor: IDPColors.primary,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),

@@ -30,7 +30,7 @@ class _MathStudioHomeScreenState extends State<MathStudioHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const primaryIndigo = Color(0xFF4F46E5);
+    const primaryIndigo = IDPColors.primary;
     const darkBg = Color(0xFF0F172A);
 
     return Scaffold(
@@ -279,7 +279,7 @@ class _MathStudioHomeScreenState extends State<MathStudioHomeScreen> {
                         title: '3D Math Lab Studio',
                         subtitle: 'Surface z = f(x,y), 360° orbit & GeoGebra 3D',
                         icon: Icons.view_in_ar_rounded,
-                        gradient: const [Color(0xFF4F46E5), Color(0xFF9333EA)],
+                        gradient: const [IDPColors.primary, Color(0xFF9333EA)],
                         badge: '3D Interactive',
                         onTap: () {
                           Navigator.push(
@@ -309,7 +309,7 @@ class _MathStudioHomeScreenState extends State<MathStudioHomeScreen> {
                         title: 'Functions Lab',
                         subtitle: 'Interactive 2D graph plotter & curves',
                         icon: Icons.show_chart_rounded,
-                        gradient: const [Color(0xFF4F46E5), Color(0xFF6366F1)],
+                        gradient: const [IDPColors.primary, Color(0xFF6366F1)],
                         badge: 'Plots & Sliders',
                         onTap: () {
                           Navigator.push(

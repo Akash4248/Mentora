@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/idp_colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../course/data/local/course_repository.dart';
 import '../data/local/progress_repository.dart';
@@ -92,7 +93,7 @@ class _MentoraMasteryScreenState extends State<MentoraMasteryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const primaryIndigo = Color(0xFF4F46E5);
+    const primaryIndigo = IDPColors.primary;
     const slateBg = Color(0xFFF8FAFC);
     const cardBg = Color(0xFFFFFFFF);
     const borderColor = Color(0xFFE2E8F0);

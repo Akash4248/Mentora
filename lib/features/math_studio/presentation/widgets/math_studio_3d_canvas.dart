@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import '../../../../core/theme/idp_colors.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:vector_math/vector_math_64.dart' as vector;
@@ -139,7 +140,7 @@ class _MathStudio3DCanvasState extends State<MathStudio3DCanvas>
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF4F46E5).withValues(alpha: 0.2),
+            color: IDPColors.primary.withValues(alpha: 0.2),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -497,7 +498,7 @@ class _Math3DPainter extends CustomPainter {
         final norm = ((avgZ + amplitude) / (2 * amplitude + 0.1)).clamp(0.0, 1.0);
 
         fillPaint.color = Color.lerp(
-          const Color(0xFF4F46E5).withValues(alpha: 0.3),
+          IDPColors.primary.withValues(alpha: 0.3),
           const Color(0xFF06B6D4).withValues(alpha: 0.5),
           norm,
         )!;

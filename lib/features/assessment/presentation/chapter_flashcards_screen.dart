@@ -118,14 +118,14 @@ class _ChapterFlashcardsScreenState extends State<ChapterFlashcardsScreen> {
                   ),
                 ],
               ),
-              backgroundColor: const Color(0xFF4F46E5),
+              backgroundColor: IDPColors.primary,
               foregroundColor: Colors.white,
               elevation: 0,
             )
           : null,
       body: SafeArea(
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator(color: Color(0xFF4F46E5)))
+            ? const Center(child: CircularProgressIndicator(color: IDPColors.primary))
             : _cards.isEmpty
                 ? _buildEmptyState()
                 : Column(
@@ -140,7 +140,7 @@ class _ChapterFlashcardsScreenState extends State<ChapterFlashcardsScreen> {
                               'Card ${_currentIndex + 1} of ${_cards.length}',
                               style: IDPTypography.titleSmall.copyWith(
                                 fontWeight: FontWeight.bold,
-                                color: const Color(0xFF4F46E5),
+                                color: IDPColors.primary,
                               ),
                             ),
                             Container(
@@ -196,7 +196,7 @@ class _ChapterFlashcardsScreenState extends State<ChapterFlashcardsScreen> {
                                       key: const ValueKey(false),
                                       title: 'TERM / KEYWORD',
                                       body: _cards[_currentIndex].term,
-                                      color: const Color(0xFF4F46E5),
+                                      color: IDPColors.primary,
                                       accentColor: Colors.white,
                                       isDark: isDark,
                                     ),
@@ -228,7 +228,7 @@ class _ChapterFlashcardsScreenState extends State<ChapterFlashcardsScreen> {
                               icon: const Icon(Icons.swap_horiz_rounded),
                               label: const Text('Flip Card'),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF4F46E5),
+                                backgroundColor: IDPColors.primary,
                                 foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                                 shape: RoundedRectangleBorder(
@@ -353,7 +353,7 @@ class _ChapterFlashcardsScreenState extends State<ChapterFlashcardsScreen> {
               icon: const Icon(Icons.sync_rounded),
               label: const Text('Check Content Pack Sync'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF4F46E5),
+                backgroundColor: IDPColors.primary,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),

@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../../../../core/theme/idp_colors.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -101,7 +102,7 @@ class _ExperimentPlayerScreenState
                     icon: const Icon(Icons.open_in_browser),
                     label: const Text('Open PhET Lab in Web Browser'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF4F46E5),
+                      backgroundColor: IDPColors.primary,
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                     ),
                   ),

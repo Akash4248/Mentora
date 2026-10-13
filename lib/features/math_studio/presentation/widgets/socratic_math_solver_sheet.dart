@@ -241,7 +241,7 @@ class _SocraticMathSolverSheetState extends State<SocraticMathSolverSheet> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.auto_awesome_rounded, color: Color(0xFF4F46E5)),
+                const Icon(Icons.auto_awesome_rounded, color: IDPColors.primary),
                 const SizedBox(width: 8),
                 Text(
                   'Socratic Step-by-Step Problem Solver',
@@ -268,7 +268,7 @@ class _SocraticMathSolverSheetState extends State<SocraticMathSolverSheet> {
                     controller: _queryController,
                     decoration: InputDecoration(
                       hintText: 'Enter equation e.g. 2x + 3 = 7 or sin(x)',
-                      prefixIcon: const Icon(Icons.functions_rounded, color: Color(0xFF4F46E5)),
+                      prefixIcon: const Icon(Icons.functions_rounded, color: IDPColors.primary),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
@@ -282,7 +282,7 @@ class _SocraticMathSolverSheetState extends State<SocraticMathSolverSheet> {
                   icon: const Icon(Icons.psychology_rounded),
                   label: const Text('Solve'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4F46E5),
+                    backgroundColor: IDPColors.primary,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                     shape: RoundedRectangleBorder(
@@ -302,7 +302,7 @@ class _SocraticMathSolverSheetState extends State<SocraticMathSolverSheet> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        CircularProgressIndicator(color: Color(0xFF4F46E5)),
+                        CircularProgressIndicator(color: IDPColors.primary),
                         SizedBox(height: 12),
                         Text('Analyzing mathematical steps...'),
                       ],
@@ -335,7 +335,7 @@ class _SocraticMathSolverSheetState extends State<SocraticMathSolverSheet> {
                                     children: [
                                       CircleAvatar(
                                         radius: 14,
-                                        backgroundColor: const Color(0xFF4F46E5),
+                                        backgroundColor: IDPColors.primary,
                                         child: Text(
                                           '${step.stepNumber}',
                                           style: const TextStyle(
@@ -363,12 +363,12 @@ class _SocraticMathSolverSheetState extends State<SocraticMathSolverSheet> {
                                     decoration: BoxDecoration(
                                       color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
                                       borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(color: const Color(0xFF4F46E5).withValues(alpha: 0.2)),
+                                      border: Border.all(color: IDPColors.primary.withValues(alpha: 0.2)),
                                     ),
                                     child: Text(
                                       step.latexExpression,
                                       style: IDPTypography.bodyMd.copyWith(
-                                        color: const Color(0xFF4F46E5),
+                                        color: IDPColors.primary,
                                         fontWeight: FontWeight.bold,
                                         fontSize: 16,
                                       ),

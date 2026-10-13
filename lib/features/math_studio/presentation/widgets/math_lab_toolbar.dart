@@ -60,7 +60,7 @@ class MathLabToolbar extends StatelessWidget {
 
           return Material(
             color: isSelected
-                ? const Color(0xFF4F46E5)
+                ? IDPColors.primary
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
             child: InkWell(

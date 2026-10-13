@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/idp_colors.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/user_api_key_service.dart';
@@ -153,7 +154,7 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('API Key saved securely on device.'),
-          backgroundColor: Color(0xFF4F46E5),
+          backgroundColor: IDPColors.primary,
         ),
       );
     }
@@ -178,7 +179,7 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const primaryIndigo = Color(0xFF4F46E5);
+    const primaryIndigo = IDPColors.primary;
     const slateBg = Color(0xFFF8FAFC);
     const cardBg = Color(0xFFFFFFFF);
     const borderColor = Color(0xFFE2E8F0);
@@ -817,7 +818,7 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
                   return ListTile(
                     title: Text(lang.displayName),
                     subtitle: Text(lang.nativeName),
-                    trailing: isSelected ? const Icon(Icons.check, color: Color(0xFF4F46E5)) : null,
+                    trailing: isSelected ? const Icon(Icons.check, color: IDPColors.primary) : null,
                     onTap: () async {
                       await languageProvider.setLanguage(lang);
                       if (context.mounted) {

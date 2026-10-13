@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/theme/idp_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/phet_catalog_service.dart';
@@ -96,7 +97,7 @@ class _ExperimentCatalogScreenState
 
   @override
   Widget build(BuildContext context) {
-    const primaryIndigo = Color(0xFF4F46E5);
+    const primaryIndigo = IDPColors.primary;
     final snapshot = _snapshot;
 
     final allExperiments = snapshot?.experiments ?? const <ExperimentDescriptor>[];
@@ -335,7 +336,7 @@ class _ExperimentCatalogScreenState
   }
 
   Widget _buildExperimentCard(ExperimentDescriptor experiment) {
-    const primaryIndigo = Color(0xFF4F46E5);
+    const primaryIndigo = IDPColors.primary;
 
     return Card(
       elevation: 2,

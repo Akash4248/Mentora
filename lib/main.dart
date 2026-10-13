@@ -82,6 +82,8 @@ class OfflineTutorApp extends StatelessWidget {
           onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,
           debugShowCheckedModeBanner: false,
           theme: IDPTheme.lightTheme,
+          darkTheme: IDPTheme.darkTheme,
+          themeMode: ThemeMode.system,
           locale: Locale(languageProvider.languageCode),
           localizationsDelegates: const [
             AppLocalizations.delegate,

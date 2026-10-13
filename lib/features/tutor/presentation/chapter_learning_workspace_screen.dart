@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../../../core/theme/idp_colors.dart';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -22,6 +23,8 @@ import '../../assessment/domain/quiz_result.dart';
 import '../../progress/data/local/progress_repository.dart';
 import '../../../config/app_environment.dart';
 import '../../content_packs/data/local/content_pack_repository.dart';
+import '../../chat/data/local/chat_memory_policy_repository.dart';
+import '../../chat/presentation/widgets/chat_memory_policy_sheet.dart';
 
 class ChapterLearningWorkspaceScreen extends StatefulWidget {
   final String chapterTitle;
@@ -49,6 +52,7 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
   String _activeSubjectName = 'Science';
   int _activeGrade = 9;
   bool _argsResolved = false;
+  ChatMemoryPolicy? _memoryPolicy;
 
   // Tab 1 state
   bool _isSending = false;
@@ -171,12 +175,52 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
         'hasAudio': false,
       });
 
+      _loadMemoryPolicy();
       _loadTabResources();
     }
   }
 
   String get _sessionId =>
       'session_grade${_activeGrade}_${_activeSubjectName.replaceAll(' ', '_')}_${_activeChapterTitle.replaceAll(' ', '_')}';
+
+  Future<void> _loadMemoryPolicy() async {
+    try {
+      final policy =
+          await ChatMemoryPolicyRepository().getPolicy(_sessionId);
+      if (mounted) setState(() => _memoryPolicy = policy);
+    } catch (_) {}
+  }
+
+  void _openMemoryPolicySheet() {
+    final policy = _memoryPolicy ?? ChatMemoryPolicy.defaults(_sessionId);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => ChatMemoryPolicySheet(
+        policy: policy,
+        onPolicyChanged: ({
+          shortTermWindow,
+          semanticRecallEnabled,
+          semanticTopK,
+          resetPolicy,
+          inactivityMinutes,
+        }) async {
+          final updated = policy.copyWith(
+            shortTermWindow: shortTermWindow,
+            semanticRecallEnabled: semanticRecallEnabled,
+            semanticTopK: semanticTopK,
+            resetPolicy: resetPolicy,
+            inactivityMinutes: inactivityMinutes,
+          );
+          try {
+            await ChatMemoryPolicyRepository().savePolicy(updated);
+          } catch (_) {}
+          if (mounted) setState(() => _memoryPolicy = updated);
+        },
+      ),
+    );
+  }
 
   /// Deterministic 31-bit FNV-1a of grade|subject|title. Stable across
   /// restarts (unlike [Object.hashCode]), so quiz/flashcard rows keyed by
@@ -386,7 +430,7 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
 
   Widget _buildExplainOption(IconData icon, String title, String subtitle) {
     return ListTile(
-      leading: const CircleAvatar(backgroundColor: Color(0xFFEEF2FF), child: Icon(Icons.lightbulb, color: Color(0xFF4F46E5), size: 20)),
+      leading: const CircleAvatar(backgroundColor: Color(0xFFEEF2FF), child: Icon(Icons.lightbulb, color: IDPColors.primary, size: 20)),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
       subtitle: Text(subtitle, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
       onTap: () {
@@ -407,11 +451,24 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
   }
 
   Future<void> _sendMessageWithTopic(String text) async {
+    final chatRepo = ChatSessionRepository();
+    final userTimestamp = DateTime.now();
+
     setState(() {
       _messages.add({'isUser': true, 'text': text});
       _isSending = true;
     });
     _scrollToBottom(force: true);
+
+    try {
+      await chatRepo.ensureSessionExists(sessionId: _sessionId, chapterId: _activeChapterTitle);
+      await chatRepo.appendMessage(
+        sessionId: _sessionId,
+        isUser: true,
+        text: text,
+        timestamp: userTimestamp,
+      );
+    } catch (_) {}
 
     final reply = await _client.queryAiTutor(
       question: text,
@@ -419,12 +476,23 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
       grade: _activeGrade,
     );
 
+    final answerText = (reply['answer'] ?? reply['response'] ?? 'Here is a simplified explanation with step-by-step breakdown.') as String;
+
+    try {
+      await chatRepo.appendMessage(
+        sessionId: _sessionId,
+        isUser: false,
+        text: answerText,
+        timestamp: DateTime.now(),
+      );
+    } catch (_) {}
+
     if (mounted) {
       setState(() {
         _isSending = false;
         _messages.add({
           'isUser': false,
-          'text': reply['answer'] ?? reply['response'] ?? 'Here is a simplified explanation with step-by-step breakdown.',
+          'text': answerText,
           'formulas': List<String>.from(reply['formulas'] ?? <String>[]),
           'hasAudio': true,
         });
@@ -446,7 +514,7 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
       });
     }
 
-    const primaryIndigo = Color(0xFF4F46E5);
+    const primaryIndigo = IDPColors.primary;
     const slateBg = Color(0xFFF8FAFC);
     const cardBg = Color(0xFFFFFFFF);
     const borderColor = Color(0xFFE2E8F0);
@@ -465,6 +533,11 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
         ),
         iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.tune_rounded, color: Color(0xFF64748B)),
+            tooltip: 'Memory Policy Settings',
+            onPressed: _openMemoryPolicySheet,
+          ),
           IconButton(
             icon: const Icon(Icons.home_rounded, color: primaryIndigo),
             tooltip: 'Home Dashboard',
@@ -661,7 +734,7 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
 
   // STITCH TAB 2: INTERACTIVE HTML5 SIMULATION PLAYER
   Widget _buildSimulationTab() {
-    const primaryIndigo = Color(0xFF4F46E5);
+    const primaryIndigo = IDPColors.primary;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -876,7 +949,7 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
 
   // STITCH TAB 3: YOUTUBE VIDEO LECTURE WATCH SCREEN
   Widget _buildWatchTab() {
-    const primaryIndigo = Color(0xFF4F46E5);
+    const primaryIndigo = IDPColors.primary;
     final playlist = List<Map<String, dynamic>>.from(_videoData?['playlist'] ?? []);
     final currentVideo = _videoData?['currentVideo'] as Map<String, dynamic>?;
 
@@ -1027,7 +1100,7 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
 
   // STITCH TAB 4: DIAGNOSTIC ASSESSMENT QUIZ
   Widget _buildQuizTab() {
-    const primaryIndigo = Color(0xFF4F46E5);
+    const primaryIndigo = IDPColors.primary;
     final questions = List<Map<String, dynamic>>.from(_quizData?['questions'] ?? []);
     if (questions.isEmpty) return const Center(child: CircularProgressIndicator());
 

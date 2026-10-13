@@ -57,7 +57,7 @@ class _GeogebraEmbeddedViewState extends State<GeogebraEmbeddedView> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.view_in_ar_rounded, size: 56, color: Color(0xFF4F46E5)),
+                const Icon(Icons.view_in_ar_rounded, size: 56, color: IDPColors.primary),
                 const SizedBox(height: 16),
                 Text(
                   'GeoGebra Interactive Suite (${widget.initialApp.toUpperCase()})',
@@ -79,7 +79,7 @@ class _GeogebraEmbeddedViewState extends State<GeogebraEmbeddedView> {
                       icon: const Icon(Icons.open_in_new_rounded),
                       label: const Text('Open Online GeoGebra'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF4F46E5),
+                        backgroundColor: IDPColors.primary,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                       ),
@@ -152,7 +152,7 @@ class _GeogebraEmbeddedViewState extends State<GeogebraEmbeddedView> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    CircularProgressIndicator(color: Color(0xFF4F46E5)),
+                    CircularProgressIndicator(color: IDPColors.primary),
                     SizedBox(height: 12),
                     Text(
                       'Loading GeoGebra 3D Engine...',
@@ -186,7 +186,7 @@ class _GeogebraEmbeddedViewState extends State<GeogebraEmbeddedView> {
                         icon: const Icon(Icons.refresh_rounded),
                         label: const Text('Retry Web Connection'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF4F46E5),
+                          backgroundColor: IDPColors.primary,
                           foregroundColor: Colors.white,
                         ),
                         onPressed: () {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/idp_colors.dart';
 import '../../network/services/mentora_backend_client.dart';
 import '../../home/presentation/mentora_home_screen.dart';
 import '../../../config/app_environment.dart';
@@ -67,7 +68,7 @@ class _SubjectChaptersScreenState extends State<SubjectChaptersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const primaryIndigo = Color(0xFF4F46E5);
+    const primaryIndigo = IDPColors.primary;
     const slateBg = Color(0xFFF8FAFC);
     const cardBg = Color(0xFFFFFFFF);
     const borderColor = Color(0xFFE2E8F0);
