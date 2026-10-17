@@ -38,9 +38,9 @@ class OfflineTutorService {
     return _instance;
   }
 
-  void rateResponse(String id, int rating) {
-    AppEnvironment.log('SYNC', '[OfflineTutor] Rating response $id: $rating stars');
-  }
+  OfflineTutorService._internal();
+
+  final RetrievalRouter _router = RetrievalRouter();
 
   /// Answer a student question using local educational content
   /// 
@@ -97,17 +97,14 @@ class OfflineTutorService {
 
     // Get chapter context if available
     final concepts = _extractConceptsFromResults(results);
-    ChapterContextData? context;
 
-    if (primaryResult.type == 'concept' || primaryResult.type == 'chapter') {
-      context = await _search.getChapterContext(primaryResult.id, concepts);
-    }
-
-    // Build explanation using primary result and context
+    // Build explanation from the primary result's own content. Chapter-context
+    // enrichment depended on the removed local search engine; `result.content`
+    // already carries the detail `_buildExplanation` needs.
     final explanation = _buildExplanation(
       question,
       primaryResult,
-      context,
+      null,
     );
 
     // Extract key points

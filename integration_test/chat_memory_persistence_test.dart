@@ -6,8 +6,7 @@ import 'package:mentora/features/chat/application/conversation_memory_harness.da
 import 'package:mentora/features/chat/data/local/chat_memory_policy_repository.dart';
 import 'package:mentora/features/chat/data/local/chat_session_repository.dart';
 import 'package:mentora/features/chat/domain/tutor_message.dart';
-import 'package:mentora/features/chat/presentation/chapter_chat_screen.dart';
-import 'package:mentora/features/course/domain/course_tree.dart';
+import 'package:mentora/features/tutor/presentation/chapter_learning_workspace_screen.dart';
 import 'package:mentora/features/course/data/local/app_database.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -113,19 +112,16 @@ ENABLE_LOCAL_INFERENCE=true
       print('--- [MOBILE_TEST] PASSED: Memory harness prompt assembly verified ---\n');
     });
 
-    testWidgets('3. Verify ChapterChatScreen loads previous history on re-entry on mobile device', (WidgetTester tester) async {
-      print('\n--- [MOBILE_TEST] 3. CHAPTER CHAT SCREEN WIDGET INITIALIZATION & HISTORY RE-ENTRY ---');
-      const course = Course(id: 'sci_9', name: 'Science Grade 9');
-      const subject = Subject(id: 'physics', courseId: 'sci_9', name: 'Physics');
-      const chapter = Chapter(id: 'ch_motion', subjectId: 'physics', title: 'Motion', summary: 'Motion concepts');
+    testWidgets('3. Verify ChapterLearningWorkspaceScreen loads previous history on re-entry on mobile device', (WidgetTester tester) async {
+      print('\n--- [MOBILE_TEST] 3. CHAPTER WORKSPACE SCREEN WIDGET INITIALIZATION & HISTORY RE-ENTRY ---');
 
       await tester.pumpWidget(
         const ProviderScope(
           child: MaterialApp(
-            home: ChapterChatScreen(
-              course: course,
-              subject: subject,
-              chapter: chapter,
+            home: ChapterLearningWorkspaceScreen(
+              chapterTitle: 'Motion',
+              subjectName: 'Physics',
+              grade: 9,
             ),
           ),
         ),
@@ -133,9 +129,9 @@ ENABLE_LOCAL_INFERENCE=true
 
       await tester.pumpAndSettle(const Duration(seconds: 2));
 
-      print('[MOBILE_TEST] ChapterChatScreen rendered successfully on physical device!');
-      expect(find.byType(ChapterChatScreen), findsOneWidget);
-      expect(find.textContaining('Physics - Motion'), findsOneWidget);
+      print('[MOBILE_TEST] ChapterLearningWorkspaceScreen rendered successfully on physical device!');
+      expect(find.byType(ChapterLearningWorkspaceScreen), findsOneWidget);
+      expect(find.textContaining('Physics > Motion'), findsOneWidget);
       print('--- [MOBILE_TEST] PASSED: On-device screen re-entry verified ---\n');
     });
   });
