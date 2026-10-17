@@ -11,9 +11,6 @@ import 'features/language/providers/language_provider.dart';
 import 'features/onboarding/application/background_prefetch_service.dart';
 import 'core/observers/app_provider_observer.dart';
 import 'core/theme/idp_theme.dart';
-import 'features/experiment/runtime/behaviors/behavior_registry.dart';
-import 'features/experiment/runtime/effects/effect_registry.dart';
-import 'features/experiment/runtime/tools/measurement_registry.dart';
 import 'features/home/presentation/app_shell.dart';
 import 'features/home/presentation/mentora_home_screen.dart';
 import 'features/assessment/presentation/mentora_practice_screen.dart';
@@ -22,7 +19,6 @@ import 'features/course/presentation/subject_chapters_screen.dart';
 import 'features/tutor/presentation/chapter_learning_workspace_screen.dart';
 import 'features/settings/presentation/mentora_settings_screen.dart';
 import 'features/progress/presentation/progress_dashboard_screen.dart';
-import 'features/experiment/presentation/screens/experiment_hub_screen.dart';
 import 'features/content_packs/presentation/content_pack_installer_screen.dart';
 import 'features/rag/presentation/screens/document_rag_ingestion_screen.dart';
 
@@ -35,11 +31,6 @@ Future<void> main() async {
   await BackgroundPrefetchService.initialize();
 
   CriticalBootstrap.configureDesktopSqlite();
-
-  // Initialize behavior, effect, and tool registries for all experiments
-  BehaviorRegistry.initialize();
-  EffectRegistry.initialize();
-  MeasurementRegistry.initialize();
 
   // Language foundation — load persisted preference before first frame
   final languageProvider = LanguageProvider();
@@ -105,7 +96,6 @@ class OfflineTutorApp extends StatelessWidget {
                   courseRepository: courseRepository,
                   languageCode: languageProvider.languageCode,
                 ),
-            '/experiment_hub': (context) => const ExperimentHubScreen(),
             '/content_packs': (context) => const ContentPackInstallerScreen(),
             '/document_rag': (context) => const DocumentRagIngestionScreen(),
             '/subject_chapters': (context) => const SubjectChaptersScreen(),

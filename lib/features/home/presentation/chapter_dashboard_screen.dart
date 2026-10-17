@@ -10,7 +10,6 @@ import 'quiz_player_screen.dart';
 import 'chapter_summary_screen.dart';
 import 'video_player_screen.dart';
 import '../data/local/video_resource_repository.dart';
-import 'widgets/chapter_experiments_section.dart';
 
 import '../../analytics/domain/learning_profile_models.dart';
 import '../../analytics/application/learning_insights_service.dart';
@@ -217,11 +216,6 @@ class _ChapterDashboardScreenState extends State<ChapterDashboardScreen> {
               },
             ),
 
-            // Inject the new Experiments Section here
-            ChapterExperimentsSection(
-              chapter: widget.chapter,
-              subject: widget.subject,
-            ),
             const SizedBox(height: 24),
             _buildVideoSectionCard(context),
           ],

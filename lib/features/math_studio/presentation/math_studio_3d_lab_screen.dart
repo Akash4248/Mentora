@@ -5,13 +5,31 @@ import 'package:vector_math/vector_math_64.dart' as vector;
 
 import '../../../core/theme/idp_colors.dart';
 import '../../../core/theme/idp_typography.dart';
-import '../../experiment/presentation/runtime_workspace/runtime_orientation_lock.dart';
 import 'widgets/math_studio_3d_canvas.dart';
 import 'widgets/math_lab_toolbar.dart';
 import 'widgets/geogebra_embedded_view.dart';
 import 'widgets/algebra_balance_workspace.dart';
 import 'widgets/socratic_math_solver_sheet.dart';
 import 'scientific_calculator_screen.dart';
+
+class _OrientationLock {
+  static int _count = 0;
+
+  static void lockLandscape() {
+    _count++;
+    SystemChrome.setPreferredOrientations(const [
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+  }
+
+  static void restore() {
+    if (_count > 0) _count--;
+    if (_count == 0) {
+      SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+    }
+  }
+}
 
 class MathStudio3DLabScreen extends StatefulWidget {
   const MathStudio3DLabScreen({super.key});
@@ -48,13 +66,13 @@ class _MathStudio3DLabScreenState extends State<MathStudio3DLabScreen> {
   void initState() {
     super.initState();
     // Ref-counted landscape lock: safe when experiment + lab screens overlap.
-    RuntimeOrientationLock.lockLandscape();
+    _OrientationLock.lockLandscape();
   }
 
   @override
   void dispose() {
     // Restores all orientations only when no other screen holds the lock.
-    RuntimeOrientationLock.restore();
+    _OrientationLock.restore();
     super.dispose();
   }
 

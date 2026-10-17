@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../controllers/teacher_dashboard_controller.dart';
-import '../../experiment/builder/storage/builder_draft_manager.dart';
 import 'teacher_review_screen.dart';
 import '../../shared/presentation/widgets/empty_state_card.dart';
 import '../../../core/theme/idp_colors.dart';
@@ -8,12 +7,10 @@ import '../../../core/widgets/idp_core_widgets.dart';
 
 class TeacherDashboardScreen extends StatelessWidget {
   final TeacherDashboardController controller;
-  final BuilderDraftManager draftManager;
 
   const TeacherDashboardScreen({
     super.key,
     required this.controller,
-    required this.draftManager,
   });
 
   @override
@@ -254,56 +251,8 @@ class TeacherDashboardScreen extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Create a session first!')));
       return;
     }
-    if (draftManager.drafts.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No drafts available to distribute!')));
-      return;
-    }
-
-    String? selectedSession = controller.activeSessions.first.id;
-    String? selectedDraft = draftManager.drafts.first.draftId;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Distribute Assignment', style: IDPTypography.titleSmall),
-        content: StatefulBuilder(
-          builder: (context, setState) => Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButtonFormField<String>(
-                value: selectedSession,
-                isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Select Session'),
-                items: controller.activeSessions.map((s) => DropdownMenuItem(value: s.id, child: Text(s.topic))).toList(),
-                onChanged: (v) => setState(() => selectedSession = v),
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                value: selectedDraft,
-                isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Select Experiment Draft'),
-                items: draftManager.drafts.map((d) => DropdownMenuItem(value: d.draftId, child: Text(d.title))).toList(),
-                onChanged: (v) => setState(() => selectedDraft = v),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: IDPColors.primary),
-            onPressed: () {
-              if (selectedSession != null && selectedDraft != null) {
-                final draft = draftManager.drafts.firstWhere((d) => d.draftId == selectedDraft);
-                controller.distributeExperiment(selectedSession!, draft.title, draft.manifest);
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Distributed!')));
-              }
-            },
-            child: const Text('Distribute'),
-          ),
-        ],
-      ),
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Experiment drafts are not available.')),
     );
   }
 }

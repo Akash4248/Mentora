@@ -14,7 +14,7 @@ import 'saved_explorations_screen.dart';
 import 'exploration_catalog_screen.dart';
 import 'scientific_calculator_screen.dart';
 import 'math_studio_3d_lab_screen.dart';
-import '../../experiment/presentation/screens/experiment_hub_screen.dart';
+import '../../experiment/phet/presentation/experiment_catalog_screen.dart';
 
 class MathStudioHomeScreen extends StatefulWidget {
   const MathStudioHomeScreen({super.key});
@@ -435,7 +435,7 @@ class _MathStudioHomeScreenState extends State<MathStudioHomeScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => const ExperimentHubScreen(),
+                              builder: (_) => const ExperimentCatalogScreen(),
                             ),
                           );
                         },
