@@ -4,6 +4,7 @@ import 'package:dio/dio.dart' as dio;
 import 'package:flutter_agent_harness/flutter_agent_harness.dart';
 
 import '../../network/services/mentora_backend_client.dart';
+import '../domain/tutor_stream_event.dart';
 import 'mentora_agent_session.dart';
 
 typedef TutorQuery = Future<Map<String, dynamic>> Function({
@@ -13,33 +14,51 @@ typedef TutorQuery = Future<Map<String, dynamic>> Function({
   dio.CancelToken? cancelToken,
 });
 
+typedef TutorStreamQuery = Stream<TutorStreamEvent> Function({
+  required String question,
+  required String topic,
+  required int grade,
+  dio.CancelToken? cancelToken,
+  List<String> history,
+  List<AgentTool> tools,
+});
+
 final class MentoraTutorAgentProvider {
   MentoraTutorAgentProvider({
     MentoraBackendClient? backendClient,
     TutorQuery? queryTutor,
-  }) : _queryTutor =
-           queryTutor ?? (backendClient ?? MentoraBackendClient()).queryAiTutor;
+    TutorStreamQuery? streamTutor,
+  }) : _streamTutor = streamTutor ??
+            (queryTutor != null
+                ? _adaptLegacyQuery(queryTutor)
+                : (backendClient ?? MentoraBackendClient()).streamAiTutor);
 
+  // Native Android runtime uses 2048 token KV cache by default (DEFAULT_CONTEXT_SIZE)
   static const _model = Model(
     id: 'mentora-routed-model',
     name: 'Mentora Tutor',
     api: 'mentora-routed',
     provider: 'mentora',
     baseUrl: 'app://mentora/inference',
-    contextWindow: 8192,
+    contextWindow: 2048,
     maxTokens: 1024,
   );
 
-  final TutorQuery _queryTutor;
+  final TutorStreamQuery _streamTutor;
 
   MentoraAgentSession createSession({
     required String topic,
     required int grade,
     List<Message> initialMessages = const [],
+    Iterable<AgentTool> tools = const [],
+    TutorToolAuthorization? authorizeToolCall,
   }) {
+    final toolList = tools.toList(growable: false);
     return MentoraAgentSession(
       model: _model,
       initialMessages: initialMessages,
+      tools: toolList,
+      authorizeToolCall: authorizeToolCall,
       systemPrompt:
           'You are Mentora, a clear and patient school tutor for grade $grade. '
           'Teach the current topic, answer the latest question, and use prior '
@@ -54,6 +73,7 @@ final class MentoraTutorAgentProvider {
             context: context,
             topic: topic,
             grade: grade,
+            tools: toolList,
             cancelToken: cancelToken,
           ),
         );
@@ -68,6 +88,7 @@ final class MentoraTutorAgentProvider {
     required Context context,
     required String topic,
     required int grade,
+    required List<AgentTool> tools,
     required CancelToken? cancelToken,
   }) async {
     final requestCancelToken = dio.CancelToken();
@@ -81,46 +102,113 @@ final class MentoraTutorAgentProvider {
 
     try {
       cancelToken?.throwIfCancelled();
-      final result = await _queryTutor(
-        question: _renderQuestion(context),
+      final latestQuestion = _extractLatestUserQuestion(context);
+      final history = _extractRecentHistory(context);
+
+      var hasStarted = false;
+      final accumulated = StringBuffer();
+
+      await for (final event in _streamTutor(
+        question: latestQuestion,
         topic: topic,
         grade: grade,
         cancelToken: requestCancelToken,
-      );
-      cancelToken?.throwIfCancelled();
-
-      final answer = (result['answer'] ?? result['response'] ?? '')
-          .toString()
-          .trim();
-      final source = (result['source'] as String? ?? '').toLowerCase();
-      if (_isFailureSource(source)) {
-        _pushFailure(
-          response,
-          model,
-          answer.isEmpty ? 'The tutor could not complete this response.' : answer,
-        );
-        return;
+        history: history,
+        tools: tools,
+      )) {
+        cancelToken?.throwIfCancelled();
+        switch (event) {
+          case TutorStreamChunkEvent(:final chunk):
+            if (chunk.isEmpty) continue;
+            if (!hasStarted) {
+              hasStarted = true;
+              final partial = _assistantMessage(model, text: '');
+              response
+                ..push(StartEvent(partial: partial))
+                ..push(TextStartEvent(contentIndex: 0, partial: partial));
+            }
+            accumulated.write(chunk);
+            final partial = _assistantMessage(model, text: accumulated.toString());
+            response.push(
+              TextDeltaEvent(
+                contentIndex: 0,
+                delta: chunk,
+                partial: partial,
+              ),
+            );
+          case TutorStreamToolCallEvent(:final id, :final name, :final arguments):
+            final toolCall = ToolCall(
+              id: id,
+              name: name,
+              arguments: arguments,
+            );
+            final contentIndex = hasStarted ? 1 : 0;
+            if (!hasStarted) {
+              hasStarted = true;
+              final initialPartial = _assistantMessage(
+                model,
+                content: const [],
+                stopReason: StopReason.toolUse,
+              );
+              response.push(StartEvent(partial: initialPartial));
+            }
+            final callPartial = _assistantMessage(
+              model,
+              content: [
+                if (accumulated.isNotEmpty)
+                  TextContent(text: accumulated.toString()),
+                toolCall,
+              ],
+              stopReason: StopReason.toolUse,
+            );
+            response
+              ..push(ToolCallStartEvent(
+                contentIndex: contentIndex,
+                partial: callPartial,
+              ))
+              ..push(ToolCallEndEvent(
+                contentIndex: contentIndex,
+                toolCall: toolCall,
+                partial: callPartial,
+              ))
+              ..push(DoneEvent(
+                reason: StopReason.toolUse,
+                message: callPartial,
+              ));
+            return;
+          case TutorStreamCompletedEvent(:final fullText, :final source):
+            if (_isFailureSource(source)) {
+              _pushFailure(
+                response,
+                model,
+                fullText.isEmpty ? 'The tutor could not complete this response.' : fullText,
+              );
+              return;
+            }
+            final answer = fullText.trim().isNotEmpty
+                ? fullText.trim()
+                : accumulated.toString().trim();
+            if (answer.isEmpty) {
+              _pushFailure(response, model, 'The tutor returned an empty response.');
+              return;
+            }
+            if (!hasStarted) {
+              hasStarted = true;
+              final partial = _assistantMessage(model, text: '');
+              response
+                ..push(StartEvent(partial: partial))
+                ..push(TextStartEvent(contentIndex: 0, partial: partial));
+            }
+            final finalMsg = _assistantMessage(model, text: answer);
+            response
+              ..push(TextEndEvent(contentIndex: 0, content: answer, partial: finalMsg))
+              ..push(DoneEvent(reason: StopReason.stop, message: finalMsg));
+            return;
+          case TutorStreamErrorEvent(:final error, :final aborted):
+            _pushFailure(response, model, error, aborted: aborted);
+            return;
+        }
       }
-      if (answer.isEmpty) {
-        _pushFailure(response, model, 'The tutor returned an empty response.');
-        return;
-      }
-
-      final message = _assistantMessage(model, text: answer);
-      response
-        ..push(StartEvent(partial: message))
-        ..push(TextStartEvent(contentIndex: 0, partial: message))
-        ..push(TextDeltaEvent(
-          contentIndex: 0,
-          delta: answer,
-          partial: message,
-        ))
-        ..push(TextEndEvent(
-          contentIndex: 0,
-          content: answer,
-          partial: message,
-        ))
-        ..push(DoneEvent(reason: StopReason.stop, message: message));
     } on CancelledException {
       _pushFailure(
         response,
@@ -143,36 +231,103 @@ final class MentoraTutorAgentProvider {
     }
   }
 
-  String _renderQuestion(Context context) {
-    final messages = context.messages
-        .where((message) => message is UserMessage || message is AssistantMessage)
-        .toList();
-    final recentMessages = messages.length > 12
-        ? messages.sublist(messages.length - 12)
-        : messages;
-    final transcript = <String>[];
+  static TutorStreamQuery _adaptLegacyQuery(TutorQuery query) {
+    return ({
+      required String question,
+      required String topic,
+      required int grade,
+      dio.CancelToken? cancelToken,
+      List<String> history = const [],
+      List<AgentTool> tools = const [],
+    }) async* {
+      try {
+        final queryPrompt = history.isNotEmpty
+            ? '${history.join('\n')}\n$question'
+            : question;
+        final result = await query(
+          question: queryPrompt,
+          topic: topic,
+          grade: grade,
+          cancelToken: cancelToken,
+        );
+        final answer = (result['answer'] ?? result['response'] ?? '').toString();
+        final source = (result['source'] as String? ?? 'legacy_query').toLowerCase();
+        final hasAudio = result['hasAudio'] as bool? ?? false;
+        yield TutorStreamChunkEvent(answer);
+        yield TutorStreamCompletedEvent(
+          fullText: answer,
+          source: source,
+          hasAudio: hasAudio,
+        );
+      } catch (e) {
+        final isCancel = cancelToken?.isCancelled == true ||
+            (e is dio.DioException && dio.CancelToken.isCancel(e));
+        yield TutorStreamErrorEvent(e.toString(), aborted: isCancel);
+      }
+    };
+  }
 
-    for (final message in recentMessages) {
-      final text = _messageText(message).trim();
-      if (text.isEmpty) continue;
-      final role = message is UserMessage ? 'Student' : 'Tutor';
-      transcript.add('$role: ${_truncate(text, 1800)}');
+  String _extractLatestUserQuestion(Context context) {
+    var baseQuestion = '';
+    final userMessages = context.messages.whereType<UserMessage>().toList();
+    if (userMessages.isNotEmpty) {
+      final text = _messageText(userMessages.last).trim();
+      if (text.isNotEmpty) {
+        baseQuestion = _truncate(text, 1000);
+      }
     }
 
-    final currentQuestion = recentMessages.isEmpty
-        ? ''
-        : _messageText(recentMessages.last).trim();
-    final contextLines = transcript.length > 1
-        ? transcript.sublist(0, transcript.length - 1)
-        : const <String>[];
-    final instructions = context.systemPrompt?.trim() ?? '';
+    final trailingToolResults = <String>[];
+    for (var i = context.messages.length - 1; i >= 0; i--) {
+      final msg = context.messages[i];
+      if (msg is ToolResultMessage) {
+        final resultText = msg.content
+            .whereType<TextContent>()
+            .map((c) => c.text)
+            .join();
+        if (resultText.isNotEmpty) {
+          trailingToolResults.insert(
+            0,
+            '[Tool Result (${msg.toolCallId})]: $resultText',
+          );
+        }
+      } else if (msg is AssistantMessage) {
+        break;
+      }
+    }
 
-    return [
-      if (instructions.isNotEmpty) 'Tutoring instructions: $instructions',
-      if (contextLines.isNotEmpty)
-        'Recent conversation for context:\n${contextLines.join('\n')}',
-      'Current student question: ${_truncate(currentQuestion, 4000)}',
-    ].join('\n\n');
+    if (trailingToolResults.isNotEmpty) {
+      final resultsSummary = trailingToolResults.join('\n');
+      if (baseQuestion.isNotEmpty) {
+        return '$baseQuestion\n\n$resultsSummary\n\nPlease answer the question incorporating the tool result above.';
+      }
+      return '$resultsSummary\n\nPlease proceed with the answer incorporating the tool result above.';
+    }
+
+    return baseQuestion;
+  }
+
+  List<String> _extractRecentHistory(Context context) {
+    final messages = context.messages
+        .where((m) => m is UserMessage || m is AssistantMessage)
+        .toList();
+    if (messages.length <= 1) return const [];
+
+    // Exclude the current question (the last message)
+    final historyMessages = messages.sublist(0, messages.length - 1);
+    // Take strictly the last 2 turns
+    final recent = historyMessages.length > 2
+        ? historyMessages.sublist(historyMessages.length - 2)
+        : historyMessages;
+
+    final historyLines = <String>[];
+    for (final msg in recent) {
+      final text = _messageText(msg).trim();
+      if (text.isEmpty) continue;
+      final role = msg is UserMessage ? 'Student' : 'Tutor';
+      historyLines.add('$role: ${_truncate(text, 300)}');
+    }
+    return historyLines;
   }
 
   String _messageText(Message message) {
@@ -228,10 +383,11 @@ final class MentoraTutorAgentProvider {
   AssistantMessage _assistantMessage(
     Model model, {
     String? text,
+    List<ContentBlock>? content,
     String? errorMessage,
     StopReason stopReason = StopReason.stop,
   }) => AssistantMessage(
-    content: text == null ? const [] : [TextContent(text: text)],
+    content: content ?? (text == null ? const [] : [TextContent(text: text)]),
     api: model.api,
     provider: model.provider,
     model: model.id,

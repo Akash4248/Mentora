@@ -3,7 +3,6 @@ import '../../../core/theme/idp_colors.dart';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_agent_harness/flutter_agent_harness.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
@@ -29,6 +28,9 @@ import '../../chat/data/local/chat_memory_policy_repository.dart';
 import '../../chat/presentation/widgets/chat_memory_policy_sheet.dart';
 import '../../chat/application/mentora_agent_session.dart';
 import '../../chat/application/mentora_tutor_agent_provider.dart';
+import '../../chat/application/tutor_session_coordinator.dart';
+import '../../language/providers/language_provider.dart';
+import '../../voice/services/offline_speech_service.dart';
 
 class ChapterLearningWorkspaceScreen extends StatefulWidget {
   final String chapterTitle;
@@ -55,7 +57,7 @@ class _ChapterLearningWorkspaceScreenState
   final ScrollController _scrollController = ScrollController();
   final MentoraBackendClient _client = MentoraBackendClient();
   final MentoraTutorAgentProvider _agentProvider = MentoraTutorAgentProvider();
-  MentoraAgentSession? _agentSession;
+  late final TutorSessionCoordinator _coordinator;
 
   String _activeChapterTitle = 'Motion';
   String _activeSubjectName = 'Science';
@@ -93,6 +95,11 @@ class _ChapterLearningWorkspaceScreenState
   @override
   void initState() {
     super.initState();
+    _coordinator = TutorSessionCoordinator(
+      agentProvider: _agentProvider,
+      initialTopic: _activeChapterTitle,
+      initialGrade: _activeGrade,
+    );
     _tabController = TabController(length: 6, vsync: this);
     _tabController.addListener(() {
       if (_tabController.indexIsChanging || _tabController.index != 4) {
@@ -106,10 +113,7 @@ class _ChapterLearningWorkspaceScreenState
 
   @override
   void dispose() {
-    final agentSession = _agentSession;
-    if (agentSession != null) {
-      unawaited(agentSession.dispose());
-    }
+    unawaited(_coordinator.dispose());
     _youtubeController?.close();
     _scrollController.dispose();
     _chatController.dispose();
@@ -207,6 +211,11 @@ class _ChapterLearningWorkspaceScreenState
         _activeSubjectName = widget.subjectName;
         _activeGrade = widget.grade;
       }
+
+      _coordinator.updateTopicAndGrade(
+        topic: _activeChapterTitle,
+        grade: _activeGrade,
+      );
 
       _messages.clear();
       _messages.add({
@@ -491,7 +500,6 @@ class _ChapterLearningWorkspaceScreenState
     String text, {
     bool clearComposer = false,
   }) async {
-    final session = _getAgentSession();
     final chatRepo = ChatSessionRepository();
     final userTimestamp = DateTime.now();
     final assistantIndex = _messages.length + 1;
@@ -551,7 +559,7 @@ class _ChapterLearningWorkspaceScreenState
     final answer = StringBuffer();
     var answerToPersist = '';
     try {
-      await for (final event in session.runTurn(text)) {
+      await for (final event in _coordinator.submitQuestion(text, rawHistory: _messages)) {
         switch (event) {
           case TutorTextDeltaEvent(:final delta):
             answer.write(delta);
@@ -613,43 +621,6 @@ class _ChapterLearningWorkspaceScreenState
     }
   }
 
-  MentoraAgentSession _getAgentSession() {
-    final current = _agentSession;
-    if (current != null) return current;
-
-    final history = <Message>[];
-    for (final entry in _messages) {
-      final text = entry['text'] as String? ?? '';
-      if (text.trim().isEmpty || text.startsWith('Welcome to Grade ')) {
-        continue;
-      }
-      final timestamp = DateTime.now();
-      if (entry['isUser'] == true) {
-        history.add(UserMessage.text(text, timestamp: timestamp));
-      } else {
-        history.add(
-          AssistantMessage(
-            content: [TextContent(text: text)],
-            api: 'mentora-routed',
-            provider: 'mentora',
-            model: 'mentora-default',
-            usage: Usage.zero,
-            stopReason: StopReason.stop,
-            timestamp: timestamp,
-          ),
-        );
-      }
-    }
-
-    final recentHistory = history.length > 12
-        ? history.sublist(history.length - 12)
-        : history;
-    return _agentSession = _agentProvider.createSession(
-      topic: _activeChapterTitle,
-      grade: _activeGrade,
-      initialMessages: recentHistory,
-    );
-  }
 
   Widget _buildChatMessage(Map<String, dynamic> message) {
     final isUser = message['isUser'] as bool;
@@ -740,6 +711,10 @@ class _ChapterLearningWorkspaceScreenState
                   onPressed: _showExplainDifferentlySheet,
                   icon: const Icon(Icons.lightbulb_outline, size: 16),
                   label: const Text('Explain another way'),
+                ),
+                _ReadAloudButton(
+                  key: ValueKey('read-${message['text']}'),
+                  text: message['text'] as String,
                 ),
               ],
             ),
@@ -1016,12 +991,14 @@ class _ChapterLearningWorkspaceScreenState
                         child: FilledButton(
                           style: FilledButton.styleFrom(
                             padding: EdgeInsets.zero,
-                            backgroundColor: primaryIndigo,
+                            backgroundColor: _isSending ? Colors.red.shade600 : primaryIndigo,
                             shape: const CircleBorder(),
                           ),
-                          onPressed: _isSending ? null : _sendMessage,
-                          child: const Icon(
-                            Icons.arrow_upward_rounded,
+                          onPressed: _isSending
+                              ? () => _coordinator.cancelActiveTurn()
+                              : _sendMessage,
+                          child: Icon(
+                            _isSending ? Icons.stop_rounded : Icons.arrow_upward_rounded,
                             color: Colors.white,
                           ),
                         ),
@@ -2023,4 +2000,65 @@ class _SimulationPainter extends CustomPainter {
       oldDelegate.time != time ||
       oldDelegate.lengthVal != lengthVal ||
       oldDelegate.gravityVal != gravityVal;
+}
+
+/// Reads a tutor answer aloud using the on-device TTS engine.
+class _ReadAloudButton extends StatefulWidget {
+  const _ReadAloudButton({super.key, required this.text});
+
+  final String text;
+
+  @override
+  State<_ReadAloudButton> createState() => _ReadAloudButtonState();
+}
+
+class _ReadAloudButtonState extends State<_ReadAloudButton> {
+  final OfflineSpeechService _speech = OfflineSpeechService();
+  bool _speaking = false;
+  int _requestId = 0;
+
+  Future<void> _toggle() async {
+    if (_speaking) {
+      _requestId++;
+      await _speech.stopSpeaking();
+      if (mounted) {
+        setState(() => _speaking = false);
+      }
+      return;
+    }
+
+    final requestId = ++_requestId;
+    setState(() => _speaking = true);
+    final languageCode = LanguageProvider.shared.languageCode;
+    final available = await _speech.isLanguageAvailable(languageCode);
+    if (!mounted || requestId != _requestId) return;
+    if (!available) {
+      setState(() => _speaking = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'No offline voice is installed for $languageCode. '
+            'Install the language in your device text-to-speech settings.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    await _speech.speakText(widget.text, languageCode: languageCode);
+    if (!mounted || requestId != _requestId) return;
+    setState(() => _speaking = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton.icon(
+      onPressed: _toggle,
+      icon: Icon(
+        _speaking ? Icons.stop_rounded : Icons.volume_up_rounded,
+        size: 16,
+      ),
+      label: Text(_speaking ? 'Stop' : 'Listen'),
+    );
+  }
 }

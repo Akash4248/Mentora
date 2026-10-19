@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import '../../chat/data/platform_tutor_inference_gateway.dart';
 
@@ -7,18 +9,24 @@ import '../../chat/data/platform_tutor_inference_gateway.dart';
 ///
 /// Functions 100% offline without requiring connection to external servers.
 class OfflineSpeechService {
-  static final OfflineSpeechService _instance = OfflineSpeechService._internal();
+  static final OfflineSpeechService _instance =
+      OfflineSpeechService._internal();
   factory OfflineSpeechService() => _instance;
   OfflineSpeechService._internal();
 
   static const MethodChannel _ttsChannel = MethodChannel('mentora/tts');
-  final PlatformTutorInferenceGateway _llmGateway = PlatformTutorInferenceGateway();
+  static const MethodChannel _sttChannel = MethodChannel('mentora/stt');
+  final PlatformTutorInferenceGateway _llmGateway =
+      PlatformTutorInferenceGateway();
 
   bool _isSpeaking = false;
   bool get isSpeaking => _isSpeaking;
 
   /// Transcribe audio from recorded WAV file using native STT engine.
-  Future<String> transcribeAudioFile(String wavPath, {String languageCode = 'en'}) async {
+  Future<String> transcribeAudioFile(
+    String wavPath, {
+    String languageCode = 'en',
+  }) async {
     final file = File(wavPath);
     if (!await file.exists()) {
       return '';
@@ -30,38 +38,90 @@ class OfflineSpeechService {
         return '';
       }
       try {
-        final result = await _ttsChannel.invokeMethod<String>('transcribe', {
+        final result = await _sttChannel.invokeMethod<String>('transcribe', {
           'wavPath': wavPath,
           'language': languageCode,
         });
         if (result != null && result.isNotEmpty) {
           return result;
         }
-      } catch (_) {}
+      } on PlatformException catch (e) {
+        debugPrint('[OFFLINE_SPEECH] STT failed: ${e.code} ${e.message}');
+      } on MissingPluginException {
+        debugPrint('[OFFLINE_SPEECH] Native STT channel is not available.');
+      } catch (e) {
+        debugPrint('[OFFLINE_SPEECH] STT execution error: $e');
+      }
       return '';
     } catch (_) {
       return '';
     }
   }
 
+  /// Whether ML Kit on-device speech recognition can run for [languageCode].
+  Future<bool> isSttAvailable({String languageCode = 'en'}) async {
+    try {
+      final result = await _sttChannel.invokeMethod<bool>('isAvailable', {
+        'language': languageCode,
+      });
+      return result ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Speak AI Tutor response text using native on-device TTS engine.
-  Future<void> speakText(String text, {String languageCode = 'en'}) async {
-    if (text.trim().isEmpty) return;
+  ///
+  /// Returns `true` when the utterance finished playing, `false` when the
+  /// platform has no voice for [languageCode] or speech was cancelled/failed.
+  Future<bool> speakText(String text, {String languageCode = 'en'}) async {
+    final speechText = _prepareSpeechText(text);
+    if (speechText.isEmpty) return false;
 
     _isSpeaking = true;
     try {
-      await _ttsChannel.invokeMethod('speak', {
-        'text': text,
+      final result = await _ttsChannel.invokeMethod<bool>('speak', {
+        'text': speechText,
         'language': languageCode,
       });
+      return result ?? true;
     } on MissingPluginException {
       // Fallback log for platform channel
-      print('[OFFLINE_SPEECH] Native TTS MethodChannel missing fallback: "$text"');
+      debugPrint(
+        '[OFFLINE_SPEECH] Native TTS MethodChannel missing fallback: "$speechText"',
+      );
+      return false;
     } catch (e) {
-      print('[OFFLINE_SPEECH] TTS execution error: $e');
+      debugPrint('[OFFLINE_SPEECH] TTS execution error: $e');
+      return false;
     } finally {
       _isSpeaking = false;
     }
+  }
+
+  /// Whether the platform TTS engine has an offline voice for [languageCode].
+  Future<bool> isLanguageAvailable(String languageCode) async {
+    try {
+      final result = await _ttsChannel.invokeMethod<bool>(
+        'isLanguageAvailable',
+        {'language': languageCode},
+      );
+      return result ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Strips lightweight markdown so the voice does not read symbols aloud.
+  String _prepareSpeechText(String text) {
+    return text
+        .replaceAllMapped(
+          RegExp(r'\[([^\]]+)\]\([^)]+\)'),
+          (match) => match.group(1) ?? '',
+        )
+        .replaceAll(RegExp(r'[*_#`>]+'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
   }
 
   /// Stop current TTS playback.
@@ -79,7 +139,10 @@ class OfflineSpeechService {
     required int grade,
     String languageCode = 'en',
   }) async {
-    final userQuery = await transcribeAudioFile(wavPath, languageCode: languageCode);
+    final userQuery = await transcribeAudioFile(
+      wavPath,
+      languageCode: languageCode,
+    );
     final prompt = userQuery.isNotEmpty
         ? userQuery
         : 'Explain $chapterTitle for Grade $grade student.';

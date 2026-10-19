@@ -19,6 +19,8 @@ import '../../chat/data/local/linux_llm_config_service.dart';
 import '../../chat/data/platform_tutor_inference_gateway.dart';
 import '../../chat/data/llm_admin_channel_service.dart';
 import '../../rag/data/local/rag_repository_v2.dart';
+import '../../chat/domain/tutor_stream_event.dart';
+import 'package:flutter_agent_harness/flutter_agent_harness.dart' hide CancelToken;
 
 class DiscoveryProgress {
   final String currentCandidate;
@@ -118,13 +120,14 @@ class MentoraBackendClient {
     } catch (_) {}
   }
 
-  MentoraBackendClient({String? baseUrl}) {
+  MentoraBackendClient({String? baseUrl, Dio? dioClient}) : _injectedClient = dioClient {
     if (baseUrl != null) {
       setBaseUrl(baseUrl);
     }
   }
 
-  Dio get _client => MentoraDioClient.instance;
+  final Dio? _injectedClient;
+  Dio get _client => _injectedClient ?? MentoraDioClient.instance;
 
   static const String _kCachedBackendUrl = 'backend_url';
   static const String _kCachedBackendUrlTs = 'backend_url_ts';
@@ -698,112 +701,279 @@ class MentoraBackendClient {
     }
   }
 
-  // 7. Send Query to Gateway AI Tutor Endpoint
-  Future<Map<String, dynamic>> queryAiTutor({
+  // Helper to extract clean student question from raw prompt
+  String _extractStudentQuestion(String raw) {
+    if (raw.contains('Current student question:')) {
+      final parts = raw.split('Current student question:');
+      if (parts.length > 1) {
+        return parts.last.trim();
+      }
+    }
+    return raw.trim();
+  }
+
+  // 7. Stream Query to Gateway AI Tutor Endpoint (or Local Fallback)
+  Stream<TutorStreamEvent> streamAiTutor({
     required String question,
     required String topic,
     int grade = 9,
     CancelToken? cancelToken,
-  }) async {
+    List<String> history = const [],
+    List<AgentTool> tools = const [],
+  }) async* {
     if (cancelToken?.isCancelled == true) {
-      throw cancelToken!.cancelError!;
+      yield const TutorStreamErrorEvent('Tutor response cancelled.', aborted: true);
+      return;
     }
-    // Check global availability state: If offline or unverified, fallback immediately without network probing
+
+    final cleanQuestion = _extractStudentQuestion(question);
+
+    // If offline, stream directly from local LLM
     if (BackendAvailabilityCache().isOffline) {
-      final localResult = await _tryLocalLlmFallback(
-        question,
+      yield* _streamLocalLlmFallback(
+        cleanQuestion,
         topic,
         grade,
         cancelToken: cancelToken,
+        history: history,
+        tools: tools,
       );
-      if (localResult != null) {
-        return localResult;
-      }
+      return;
     }
 
+    var tokensEmitted = 0;
+    final rawBuffer = StringBuffer();
+    final toolCalls = <TutorStreamToolCallEvent>[];
+
     try {
-      final response = await _client.post(
+      final response = await _client.post<ResponseBody>(
         '/ai/tutor',
-        data: {'question': question, 'topic': topic, 'grade': grade},
+        data: {
+          'question': cleanQuestion,
+          'topic': topic,
+          'grade': grade,
+          'stream': true,
+          if (tools.isNotEmpty)
+            'tools': tools.map((t) => {
+              'name': t.name,
+              'description': t.description,
+              'parameters': t.parameters,
+            }).toList(),
+        },
         options: Options(
-          sendTimeout: const Duration(seconds: 3),
+          responseType: ResponseType.stream,
+          sendTimeout: const Duration(seconds: 4),
           receiveTimeout: const Duration(seconds: 120),
         ),
         cancelToken: cancelToken,
       );
 
-      if (response.statusCode == 200) {
-        final decoded = response.data is Map ? Map<String, dynamic>.from(response.data) : jsonDecode(response.data);
-        if (decoded['answer'] != null) {
-          BackendAvailabilityCache().updateStatus(true, url: _activeBaseUrl);
-          return decoded;
+      if (response.statusCode == 200 && response.data != null) {
+        final lines = response.data!.stream
+            .cast<List<int>>()
+            .transform(utf8.decoder)
+            .transform(const LineSplitter());
+
+        await for (final line in lines) {
+          if (cancelToken?.isCancelled == true) {
+            yield const TutorStreamErrorEvent('Tutor response cancelled.', aborted: true);
+            return;
+          }
+          final trimmed = line.trim();
+          if (trimmed.isEmpty) continue;
+          if (trimmed == 'data: [DONE]' || trimmed == '[DONE]') break;
+          if (trimmed.startsWith('data:')) {
+            final data = trimmed.substring(5).trim();
+            if (data.isEmpty || data == '[DONE]') continue;
+            try {
+              final json = jsonDecode(data);
+              if (json is Map) {
+                final toolCallData = json['tool_call'];
+                if (toolCallData is Map) {
+                  final id = toolCallData['id'] as String? ??
+                      'call_${DateTime.now().millisecondsSinceEpoch}';
+                  final name = toolCallData['name'] as String? ?? '';
+                  final args = toolCallData['arguments'] is Map
+                      ? Map<String, dynamic>.from(toolCallData['arguments'] as Map)
+                      : <String, dynamic>{};
+                  if (name.isNotEmpty) {
+                    final callEvent = TutorStreamToolCallEvent(
+                      id: id,
+                      name: name,
+                      arguments: args,
+                    );
+                    toolCalls.add(callEvent);
+                    yield callEvent;
+                    return;
+                  }
+                }
+
+                final chunk = json['chunk'] as String? ?? '';
+                final isDone = json['done'] as bool? ?? false;
+                final isStarted = json['started'] as bool? ?? false;
+                final isHeartbeat = json['heartbeat'] as bool? ?? false;
+                if (isStarted || isHeartbeat) continue;
+
+                if (chunk.isNotEmpty) {
+                  tokensEmitted++;
+                  rawBuffer.write(chunk);
+                  yield TutorStreamChunkEvent(chunk);
+                }
+                if (isDone) break;
+              }
+            } catch (_) {
+              if (data.isNotEmpty) {
+                tokensEmitted++;
+                rawBuffer.write(data);
+                yield TutorStreamChunkEvent(data);
+              }
+            }
+          }
         }
-      } else if (response.statusCode == 504) {
-        return {
-          'answer': '⚠️ **Backend LLM Timeout (504)**: Backend generation took longer than 120 seconds on CPU. Please retry or ask a shorter question.',
-          'hasAudio': false,
-          'source': 'backend_timeout_error',
-        };
+
+        BackendAvailabilityCache().updateStatus(true, url: _activeBaseUrl);
+        final fullAnswer = rawBuffer.toString().trim();
+        yield TutorStreamCompletedEvent(
+          fullText: fullAnswer.isNotEmpty ? fullAnswer : '⚠️ The tutor returned an empty response.',
+          source: 'pihub_backend_sse',
+          toolCalls: toolCalls,
+        );
+        return;
       } else {
-        return {
-          'answer': '⚠️ **Backend Error (${response.statusCode})**: Service returned status ${response.statusCode}',
-          'hasAudio': false,
-          'source': 'backend_http_error_${response.statusCode}',
-        };
+        throw DioException(
+          requestOptions: RequestOptions(path: '/ai/tutor'),
+          response: Response(
+            requestOptions: RequestOptions(path: '/ai/tutor'),
+            statusCode: response.statusCode,
+          ),
+        );
       }
     } on DioException catch (e) {
-      if (CancelToken.isCancel(e)) rethrow;
+      if (CancelToken.isCancel(e) || cancelToken?.isCancelled == true) {
+        yield const TutorStreamErrorEvent('Tutor response cancelled.', aborted: true);
+        return;
+      }
       BackendAvailabilityCache().updateStatus(false);
-      try {
-        final localResult = await _tryLocalLlmFallback(
-          question,
+      if (tokensEmitted == 0) {
+        // Network failed before any token delivered: seamless local fallback
+        yield* _streamLocalLlmFallback(
+          cleanQuestion,
           topic,
           grade,
           cancelToken: cancelToken,
+          history: history,
+          tools: tools,
         );
-        if (localResult != null) {
-          return localResult;
-        }
-      } catch (localError) {
-        if (cancelToken?.isCancelled == true) {
-          throw cancelToken!.cancelError!;
-        }
-        AppEnvironment.log(
-          'LLM',
-          'Local inference fallback failed after backend error: $localError',
+        return;
+      } else {
+        yield TutorStreamErrorEvent(
+          '⚠️ Connection lost during generation: ${e.message ?? e}',
         );
+        return;
       }
+    } catch (e) {
+      if (cancelToken?.isCancelled == true) {
+        yield const TutorStreamErrorEvent('Tutor response cancelled.', aborted: true);
+        return;
+      }
+      if (tokensEmitted == 0) {
+        yield* _streamLocalLlmFallback(
+          cleanQuestion,
+          topic,
+          grade,
+          cancelToken: cancelToken,
+          history: history,
+          tools: tools,
+        );
+        return;
+      }
+      yield TutorStreamErrorEvent('⚠️ Generation error: $e');
+    }
+  }
 
-      final isNetworkHostError = e.toString().contains('Failed host lookup') || e.toString().contains('SocketException');
-      final hostName = _activeBaseUrl.replaceAll('http://', '').replaceAll('https://', '');
 
-      final friendlyMsg = isNetworkHostError
-          ? '🔌 **Offline Mode: PiHub Unreachable**\n\nUnable to reach PiHub server at `$hostName`.\n\n💡 *Tip: Connect your phone to the PiHub Wi-Fi network, or load an offline GGUF model in **Settings > Local AI Tutor** to ask questions anywhere without Wi-Fi.*'
-          : '⚠️ **Backend Service Error**: ${e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '')}\n\n*Tip: Check Settings > Local AI Tutor to load an offline model.*';
+  // Backwards-compatible queryAiTutor delegating to streamAiTutor
+  Future<Map<String, dynamic>> queryAiTutor({
+    required String question,
+    required String topic,
+    int grade = 9,
+    CancelToken? cancelToken,
+    List<String> history = const [],
+  }) async {
+    final buffer = StringBuffer();
+    String finalSource = 'unknown';
+    bool finalAudio = false;
 
+    try {
+      await for (final event in streamAiTutor(
+        question: question,
+        topic: topic,
+        grade: grade,
+        cancelToken: cancelToken,
+        history: history,
+      )) {
+        switch (event) {
+          case TutorStreamChunkEvent(:final chunk):
+            buffer.write(chunk);
+          case TutorStreamToolCallEvent():
+            // Legacy synchronous callers do not participate in multi-turn tool cycles.
+            break;
+          case TutorStreamCompletedEvent(:final fullText, :final source, :final hasAudio):
+            return {
+              'answer': fullText,
+              'hasAudio': hasAudio,
+              'source': source,
+            };
+          case TutorStreamErrorEvent(:final error, :final aborted):
+            if (aborted) {
+              throw DioException(
+                requestOptions: RequestOptions(path: '/ai/tutor'),
+                type: DioExceptionType.cancel,
+              );
+            }
+            return {
+              'answer': error,
+              'hasAudio': false,
+              'source': 'tutor_stream_error',
+            };
+        }
+      }
+    } on DioException catch (e) {
+      if (CancelToken.isCancel(e)) rethrow;
       return {
-        'answer': friendlyMsg,
+        'answer': '⚠️ **Tutor Error**: ${e.message ?? e}',
         'hasAudio': false,
-        'source': 'backend_connection_error',
+        'source': 'tutor_dio_error',
+      };
+    } catch (e) {
+      return {
+        'answer': '⚠️ **Tutor Error**: $e',
+        'hasAudio': false,
+        'source': 'tutor_error',
       };
     }
 
+    final text = buffer.toString().trim();
     return {
-      'answer': '⚠️ **Backend Error**: Service returned an unexpected response. Please try again.',
-      'hasAudio': false,
-      'source': 'unexpected_response_error',
+      'answer': text.isNotEmpty ? text : '⚠️ The tutor returned an empty response.',
+      'hasAudio': finalAudio,
+      'source': finalSource,
     };
   }
 
-  Future<Map<String, dynamic>?> _tryLocalLlmFallback(
+
+  Stream<TutorStreamEvent> _streamLocalLlmFallback(
     String question,
     String topic,
-    int grade,
-    {CancelToken? cancelToken}
-  ) async {
+    int grade, {
+    CancelToken? cancelToken,
+    List<String> history = const [],
+    List<AgentTool> tools = const [],
+  }) async* {
     try {
       if (cancelToken?.isCancelled == true) {
-        throw cancelToken!.cancelError!;
+        yield const TutorStreamErrorEvent('Tutor response cancelled.', aborted: true);
+        return;
       }
       if (Platform.isLinux) {
         final configService = LinuxLlmConfigService();
@@ -833,11 +1003,11 @@ class MentoraBackendClient {
 
         final validation = await configService.validate(config);
         if (!validation.ready) {
-          return {
-            'answer': '🔌 **Offline Mode: Local GGUF Model Required**\n\n${validation.message}\n\n💡 *Tip: Select a GGUF model file or llama-cli runner binary in **Settings > Local AI Tutor**.*',
-            'hasAudio': false,
-            'source': 'local_llm_config_incomplete',
-          };
+          yield TutorStreamCompletedEvent(
+            fullText: '🔌 **Offline Mode: Local GGUF Model Required**\n\n${validation.message}\n\n💡 *Tip: Select a GGUF model file or llama-cli runner binary in **Settings > Local AI Tutor**.*',
+            source: 'local_llm_config_incomplete',
+          );
+          return;
         }
       } else {
         try {
@@ -845,14 +1015,12 @@ class MentoraBackendClient {
           var status = await adminService.getEngineStatus();
           if (!status.loaded) {
             if (status.modelPath.trim().isEmpty) {
-              return {
-                'answer': '🔌 **Offline Mode: Local GGUF Model Required**\n\nNo offline GGUF model path is configured.\n\n💡 *Tip: Load an offline GGUF model in **Settings > Local AI Tutor** to ask questions anywhere without Wi-Fi.*',
-                'hasAudio': false,
-                'source': 'offline_mode_no_local_model',
-              };
+              yield const TutorStreamCompletedEvent(
+                fullText: '🔌 **Offline Mode: Local GGUF Model Required**\n\nNo offline GGUF model path is configured.\n\n💡 *Tip: Load an offline GGUF model in **Settings > Local AI Tutor** to ask questions anywhere without Wi-Fi.*',
+                source: 'offline_mode_no_local_model',
+              );
+              return;
             }
-            // Preload runs asynchronously on Android. Large models can take
-            // longer than a few seconds to map and initialize on mobile.
             final preloadStarted = await adminService.preloadModel();
             status = await adminService.waitForModelReady();
 
@@ -862,28 +1030,28 @@ class MentoraBackendClient {
                 final detail = loadError.isNotEmpty
                     ? loadError
                     : 'The native inference engine could not start model loading.';
-                return {
-                  'answer':
+                yield TutorStreamCompletedEvent(
+                  fullText:
                       '⚠️ **Local AI Model Load Failed**: $detail\n\nCheck that this GGUF architecture is supported by the Android runtime and that the device has enough available memory.',
-                  'hasAudio': false,
-                  'source': 'local_llm_init_error',
-                };
+                  source: 'local_llm_init_error',
+                );
+                return;
               }
 
-              return {
-                'answer':
+              yield const TutorStreamCompletedEvent(
+                fullText:
                     '⚠️ **Local AI Engine Timeout**: The GGUF model did not finish loading within 2 minutes. Try a smaller model or check device memory.',
-                'hasAudio': false,
-                'source': 'local_llm_warmup_timeout',
-              };
+                source: 'local_llm_warmup_timeout',
+              );
+              return;
             }
           }
         } catch (e) {
-          return {
-            'answer': '⚠️ **Local AI Error**: Failed to initialize local engine: $e',
-            'hasAudio': false,
-            'source': 'local_llm_init_error',
-          };
+          yield TutorStreamCompletedEvent(
+            fullText: '⚠️ **Local AI Error**: Failed to initialize local engine: $e',
+            source: 'local_llm_init_error',
+          );
+          return;
         }
       }
 
@@ -894,51 +1062,132 @@ class MentoraBackendClient {
         );
       }
       final tClean = topic.trim().isEmpty ? 'Science & Mathematics' : topic.trim();
+      final cleanStudentQuestion = _extractStudentQuestion(question);
 
       String ragContextBlock = '';
       try {
         final ragRepo = RagRepositoryV2();
         await ragRepo.ensureSeedChunks();
-        var chunks = await ragRepo.searchChunks(question, tClean, limit: 3);
+        // Context budgeting: search with isolated clean student question (max 2 chunks)
+        var chunks = await ragRepo.searchChunks(cleanStudentQuestion, tClean, limit: 2);
         if (chunks.isEmpty) {
-          chunks = await ragRepo.searchAll(question, limit: 3);
+          chunks = await ragRepo.searchAll(cleanStudentQuestion, limit: 2);
         }
         if (chunks.isNotEmpty) {
           final excerpts = chunks.map((c) => c.content).join('\n---\n');
-          final truncated = excerpts.length > 800 ? '${excerpts.substring(0, 800)}...' : excerpts;
-          ragContextBlock = '\n\nRelevant NCERT Textbook Excerpts:\n$truncated\n';
+          // Budget NCERT excerpt strictly to <= 400 characters
+          final truncated = excerpts.length > 400 ? '${excerpts.substring(0, 400)}...' : excerpts;
+          ragContextBlock = '\n\nRelevant NCERT Textbook Excerpt:\n$truncated\n';
         }
       } catch (e) {
         AppEnvironment.log('RAG', 'Local RAG search for offline fallback failed: $e');
       }
 
+      // Context budgeting: format recent history (max 2 turns, <= 300 chars each)
+      final historyBuffer = StringBuffer();
+      if (history.isNotEmpty) {
+        final recent = history.length > 2 ? history.sublist(history.length - 2) : history;
+        for (final turn in recent) {
+          final trimmed = turn.trim();
+          if (trimmed.isEmpty) continue;
+          final capped = trimmed.length > 300 ? '${trimmed.substring(0, 300)}…' : trimmed;
+          historyBuffer.writeln(capped);
+        }
+      }
+      final historyText = historyBuffer.toString().trim();
+      final historyBlock = historyText.isNotEmpty ? '\n\nRecent context:\n$historyText' : '';
+
+      final toolPromptSection = StringBuffer();
+      if (tools.isNotEmpty) {
+        toolPromptSection.writeln('\nYou have access to the following tools:');
+        for (final tool in tools) {
+          toolPromptSection.writeln('- ${tool.name}: ${tool.description}');
+          toolPromptSection.writeln('  parameters: ${jsonEncode(tool.parameters)}');
+        }
+        toolPromptSection.writeln('If you need to use a tool, format your output strictly as:');
+        toolPromptSection.writeln('```mentora-tool-call');
+        toolPromptSection.writeln('{"name": "<tool_name>", "arguments": {<json_arguments>}}');
+        toolPromptSection.writeln('```');
+      }
+
+      // Single-layer prompt serialization: No double wrapping
       final prompt = '''<|im_start|>system
 You are an expert NCERT school AI tutor for Class $grade $tClean.
-Answer the student's question directly and clearly using Markdown formatting, bullet points, and key formulas.$ragContextBlock
-IMPORTANT: If the user asks in Kannada (e.g. "can u explain in kannada" or Kannada script) or any regional language, respond in that language.
-Do not output internal monologues or planning steps.
+Answer directly and clearly using Markdown formatting, bullet points, and key formulas.$ragContextBlock$toolPromptSection
+IMPORTANT: If the user asks in Kannada or any regional language, respond in that language.
+Do not output internal monologues or planning steps.$historyBlock
 <|im_end|>
 <|im_start|>user
-$question
+$cleanStudentQuestion
 <|im_end|>
 <|im_start|>assistant
 ''';
 
       final filter = ReasoningOutputFilter();
       final rawBuffer = StringBuffer();
+      var emittedBuffered = false;
 
       await for (final chunk in gateway.streamResponse(prompt: prompt)) {
         if (cancelToken?.isCancelled == true) {
-          throw cancelToken!.cancelError!;
+          await gateway.stopGeneration();
+          yield const TutorStreamErrorEvent('Tutor response cancelled.', aborted: true);
+          return;
         }
         final pushed = filter.push(chunk);
         if (pushed.isNotEmpty) {
           rawBuffer.write(pushed);
+          final current = rawBuffer.toString();
+          if (tools.isEmpty) {
+            yield TutorStreamChunkEvent(pushed);
+          } else if (!current.trimLeft().startsWith('```mentora-tool-call')) {
+            if (!emittedBuffered) {
+              emittedBuffered = true;
+              yield TutorStreamChunkEvent(current);
+            } else {
+              yield TutorStreamChunkEvent(pushed);
+            }
+          }
         }
       }
       final flushed = filter.flush();
       if (flushed.isNotEmpty) {
         rawBuffer.write(flushed);
+        final current = rawBuffer.toString();
+        if (tools.isEmpty) {
+          yield TutorStreamChunkEvent(flushed);
+        } else if (!current.trimLeft().startsWith('```mentora-tool-call')) {
+          if (!emittedBuffered) {
+            emittedBuffered = true;
+            yield TutorStreamChunkEvent(current);
+          } else {
+            yield TutorStreamChunkEvent(flushed);
+          }
+        }
+      }
+
+      final fullRaw = rawBuffer.toString();
+      final toolCallMatch = RegExp(r'```mentora-tool-call\s*(\{[\s\S]*?\})\s*```').firstMatch(fullRaw);
+      if (toolCallMatch != null) {
+        try {
+          final jsonStr = toolCallMatch.group(1)!;
+          final map = jsonDecode(jsonStr);
+          if (map is Map && map['name'] is String) {
+            final name = map['name'] as String;
+            final args = map['arguments'] is Map
+                ? Map<String, dynamic>.from(map['arguments'] as Map)
+                : <String, dynamic>{};
+            yield TutorStreamToolCallEvent(
+              id: 'call_local_${DateTime.now().millisecondsSinceEpoch}',
+              name: name,
+              arguments: args,
+            );
+            return;
+          }
+        } catch (_) {}
+      }
+
+      if (!emittedBuffered && rawBuffer.isNotEmpty && tools.isNotEmpty) {
+        yield TutorStreamChunkEvent(rawBuffer.toString());
       }
 
       var fullAnswer = ReasoningOutputFilter.stripComplete(rawBuffer.toString());
@@ -950,29 +1199,30 @@ $question
             ? fullAnswer
             : '### $tClean Explained\n\n$fullAnswer';
 
-        return {
-          'answer': '📱 **[On-Device Local AI Tutor]**\n\n$formattedAnswer',
-          'hasAudio': false,
-          'source': 'on_device_local_llm',
-        };
+        yield TutorStreamCompletedEvent(
+          fullText: '📱 **[On-Device Local AI Tutor]**\n\n$formattedAnswer',
+          source: 'on_device_local_llm',
+        );
       } else {
-        return {
-          'answer': '⚠️ **Local AI Error**: On-device model returned an empty response. Please retry your question.',
-          'hasAudio': false,
-          'source': 'local_llm_empty_response',
-        };
+        yield const TutorStreamCompletedEvent(
+          fullText: '⚠️ **Local AI Error**: On-device model returned an empty response. Please retry your question.',
+          source: 'local_llm_empty_response',
+        );
       }
     } catch (e) {
       if (cancelToken?.isCancelled == true) {
-        throw cancelToken!.cancelError!;
+        yield const TutorStreamErrorEvent('Tutor response cancelled.', aborted: true);
+        return;
       }
-      return {
-        'answer': '⚠️ **Local AI Execution Error**: ${e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '')}\n\n*Tip: Check Settings > Local AI Tutor to verify your local GGUF model file.*',
-        'hasAudio': false,
-        'source': 'local_llm_execution_error',
-      };
+      yield TutorStreamCompletedEvent(
+        fullText: '⚠️ **Local AI Execution Error**: ${e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '')}\n\n*Tip: Check Settings > Local AI Tutor to verify your local GGUF model file.*',
+        source: 'local_llm_execution_error',
+      );
     }
   }
+
+
+
 
   String _deduplicateTopicHeaders(String text, String topic) {
     var out = text.trim();

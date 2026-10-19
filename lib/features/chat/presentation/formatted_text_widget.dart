@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/idp_colors.dart';
-import '../../../core/theme/idp_typography.dart';
 import '../application/markdown_format_normalizer.dart';
+import '../application/visual_stream_parser.dart';
+import 'widgets/visual_card_widget.dart';
 
 class FormattedTextWidget extends StatelessWidget {
   final String text;
@@ -15,7 +16,12 @@ class FormattedTextWidget extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    final normalizedText = MarkdownFormatNormalizer.normalize(text);
+    final parsedTurn = const VisualStreamParser().parse(text);
+    if (parsedTurn.proseText.isEmpty && parsedTurn.visualIntents.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final normalizedText = MarkdownFormatNormalizer.normalize(parsedTurn.proseText);
     final lines = normalizedText.split('\n');
     final List<Widget> children = [];
 
@@ -113,6 +119,10 @@ class FormattedTextWidget extends StatelessWidget {
     }
 
     flushList();
+
+    for (final intent in parsedTurn.visualIntents) {
+      children.add(VisualCardWidget(intent: intent));
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
