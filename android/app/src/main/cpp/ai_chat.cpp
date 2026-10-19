@@ -97,10 +97,10 @@ JNIEXPORT jint JNICALL
 Java_com_arm_aichat_internal_InferenceEngineImpl_load(JNIEnv *env, jobject, jstring jmodel_path) {
     llama_model_params model_params = llama_model_default_params();
     model_params.n_gpu_layers = 0;
-    model_params.use_mmap = true;
-    model_params.use_direct_io = false;
-    model_params.use_mlock = false;
-    model_params.check_tensors = false;
+    // Use mmap for fast loading; fall back to NONE if the filesystem doesn't support it.
+    // (use_mmap / use_mlock / use_direct_io were removed in favour of load_mode enum)
+    model_params.load_mode      = LLAMA_LOAD_MODE_MMAP;
+    model_params.check_tensors  = false;
     model_params.use_extra_bufts = false;
 
     const auto *model_path = env->GetStringUTFChars(jmodel_path, 0);
@@ -116,8 +116,9 @@ Java_com_arm_aichat_internal_InferenceEngineImpl_load(JNIEnv *env, jobject, jstr
 
     auto *model = llama_model_load_from_file(model_path, model_params);
     if (!model) {
-        // Fallback for devices/filesystems where mmap can fail.
-        model_params.use_mmap = false;
+        // Fallback for devices/filesystems where mmap can fail (e.g. some Android OEMs).
+        LOGw("%s: mmap load failed, retrying without mmap...", __func__);
+        model_params.load_mode = LLAMA_LOAD_MODE_NONE;
         model = llama_model_load_from_file(model_path, model_params);
     }
     env->ReleaseStringUTFChars(jmodel_path, model_path);
@@ -129,6 +130,7 @@ Java_com_arm_aichat_internal_InferenceEngineImpl_load(JNIEnv *env, jobject, jstr
     LOGi("%s: Model loaded successfully and cached in memory", __func__);
     return 0;
 }
+
 
 static llama_context *init_context(llama_model *model, const int n_ctx = DEFAULT_CONTEXT_SIZE) {
     if (!model) {

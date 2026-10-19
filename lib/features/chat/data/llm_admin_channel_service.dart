@@ -31,14 +31,16 @@ class GenerationConfig {
 class EngineStatus {
   const EngineStatus({
     required this.loaded,
+    bool? ready,
     required this.modelPath,
     required this.lastEngineError,
     required this.totalInferenceCount,
     required this.lastInferenceDurationMs,
     required this.avgInferenceDurationMs,
-  });
+  }) : ready = ready ?? loaded;
 
   final bool loaded;
+  final bool ready;
   final String modelPath;
   final String lastEngineError;
   final int totalInferenceCount;
@@ -46,9 +48,32 @@ class EngineStatus {
   final int avgInferenceDurationMs;
 }
 
+Future<EngineStatus> waitForLocalEngineReady({
+  required Future<EngineStatus> Function() readStatus,
+  Duration timeout = const Duration(minutes: 2),
+  Duration pollInterval = const Duration(milliseconds: 200),
+}) async {
+  final stopwatch = Stopwatch()..start();
+  var status = await readStatus();
+
+  while (!status.loaded &&
+      status.lastEngineError.trim().isEmpty &&
+      stopwatch.elapsed < timeout) {
+    final remaining = timeout - stopwatch.elapsed;
+    await Future<void>.delayed(
+      remaining < pollInterval ? remaining : pollInterval,
+    );
+    status = await readStatus();
+  }
+
+  return status;
+}
+
 class LlmAdminChannelService {
   static const MethodChannel _channel = MethodChannel('offline_tutor/llm');
-  static const EventChannel _modelCopyProgressChannel = EventChannel('offline_tutor/model_copy_progress');
+  static const EventChannel _modelCopyProgressChannel = EventChannel(
+    'offline_tutor/model_copy_progress',
+  );
   final LinuxLlmConfigService _linuxConfigService = LinuxLlmConfigService();
 
   Stream<int> get modelCopyProgress {
@@ -156,9 +181,7 @@ class LlmAdminChannelService {
     String? systemPrompt,
   }) async {
     if (Platform.isLinux) {
-      final config = await _linuxConfigService.update(
-        maxTokens: maxTokens,
-      );
+      final config = await _linuxConfigService.update(maxTokens: maxTokens);
       return GenerationConfig(
         maxTokens: config.maxTokens,
         timeoutMs: timeoutMs ?? 120000,
@@ -192,7 +215,8 @@ class LlmAdminChannelService {
       }
       final validation = await _linuxConfigService.validate(config);
       return EngineStatus(
-        loaded: validation.ready,
+        loaded: false,
+        ready: validation.ready,
         modelPath: config.modelPath,
         lastEngineError: validation.ready ? '' : validation.message,
         totalInferenceCount: 0,
@@ -209,10 +233,20 @@ class LlmAdminChannelService {
       modelPath: response?['modelPath'] as String? ?? '',
       lastEngineError: response?['lastEngineError'] as String? ?? '',
       totalInferenceCount: response?['totalInferenceCount'] as int? ?? 0,
-      lastInferenceDurationMs: response?['lastInferenceDurationMs'] as int? ?? 0,
+      lastInferenceDurationMs:
+          response?['lastInferenceDurationMs'] as int? ?? 0,
       avgInferenceDurationMs: response?['avgInferenceDurationMs'] as int? ?? 0,
     );
   }
+
+  Future<EngineStatus> waitForModelReady({
+    Duration timeout = const Duration(minutes: 2),
+    Duration pollInterval = const Duration(milliseconds: 200),
+  }) => waitForLocalEngineReady(
+    readStatus: getEngineStatus,
+    timeout: timeout,
+    pollInterval: pollInterval,
+  );
 
   Future<bool> preloadModel() async {
     if (Platform.isLinux) {
@@ -224,14 +258,15 @@ class LlmAdminChannelService {
     return response ?? false;
   }
 
-  Future<Map<String, dynamic>> runPerformanceProbe({
-    int iterations = 1,
-  }) async {
+  Future<Map<String, dynamic>> runPerformanceProbe({int iterations = 1}) async {
     if (Platform.isLinux) {
       final gateway = LinuxTutorInferenceGateway();
       final stopwatch = Stopwatch()..start();
       try {
-        final stream = gateway.streamResponse(prompt: 'Hello');
+        final stream = gateway.streamResponse(
+          prompt: 'Reply with OK.',
+          maxTokens: 1,
+        );
         var count = 0;
         await for (final chunk in stream) {
           count += chunk.length;
@@ -240,7 +275,8 @@ class LlmAdminChannelService {
         return <String, dynamic>{
           'ok': count > 0,
           'msPerInference': stopwatch.elapsedMilliseconds,
-          'details': 'Linux llama.cpp subprocess probe succeeded ($count chars).',
+          'details':
+              'Linux llama.cpp subprocess probe succeeded ($count chars).',
         };
       } catch (e) {
         stopwatch.stop();
@@ -272,12 +308,38 @@ class LlmAdminChannelService {
     if (Platform.isLinux) {
       final config = await _linuxConfigService.load();
       final validation = await _linuxConfigService.validate(config);
-      return <String, dynamic>{
-        'ok': validation.ready,
-        'message': validation.message,
-        'executable': validation.resolvedExecutablePath ?? config.executablePath,
-        'modelPath': config.modelPath,
-      };
+      if (!validation.ready) {
+        return <String, dynamic>{
+          'ok': false,
+          'message': validation.message,
+          'executable':
+              validation.resolvedExecutablePath ?? config.executablePath,
+          'modelPath': config.modelPath,
+        };
+      }
+
+      final gateway = LinuxTutorInferenceGateway();
+      try {
+        await for (final _
+            in gateway
+                .streamResponse(prompt: 'Reply with OK.', maxTokens: 1)
+                .timeout(const Duration(minutes: 2))) {}
+        return <String, dynamic>{
+          'ok': true,
+          'message': 'The selected llama.cpp runtime loaded this GGUF model.',
+          'executable':
+              validation.resolvedExecutablePath ?? config.executablePath,
+          'modelPath': config.modelPath,
+        };
+      } catch (error) {
+        return <String, dynamic>{
+          'ok': false,
+          'message': error.toString(),
+          'executable':
+              validation.resolvedExecutablePath ?? config.executablePath,
+          'modelPath': config.modelPath,
+        };
+      }
     }
     final response = await _channel.invokeMapMethod<String, dynamic>(
       'runEngineSelfTest',

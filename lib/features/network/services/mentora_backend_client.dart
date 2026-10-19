@@ -703,10 +703,19 @@ class MentoraBackendClient {
     required String question,
     required String topic,
     int grade = 9,
+    CancelToken? cancelToken,
   }) async {
+    if (cancelToken?.isCancelled == true) {
+      throw cancelToken!.cancelError!;
+    }
     // Check global availability state: If offline or unverified, fallback immediately without network probing
     if (BackendAvailabilityCache().isOffline) {
-      final localResult = await _tryLocalLlmFallback(question, topic, grade);
+      final localResult = await _tryLocalLlmFallback(
+        question,
+        topic,
+        grade,
+        cancelToken: cancelToken,
+      );
       if (localResult != null) {
         return localResult;
       }
@@ -720,6 +729,7 @@ class MentoraBackendClient {
           sendTimeout: const Duration(seconds: 3),
           receiveTimeout: const Duration(seconds: 120),
         ),
+        cancelToken: cancelToken,
       );
 
       if (response.statusCode == 200) {
@@ -742,13 +752,27 @@ class MentoraBackendClient {
         };
       }
     } on DioException catch (e) {
+      if (CancelToken.isCancel(e)) rethrow;
       BackendAvailabilityCache().updateStatus(false);
       try {
-        final localResult = await _tryLocalLlmFallback(question, topic, grade);
+        final localResult = await _tryLocalLlmFallback(
+          question,
+          topic,
+          grade,
+          cancelToken: cancelToken,
+        );
         if (localResult != null) {
           return localResult;
         }
-      } catch (_) {}
+      } catch (localError) {
+        if (cancelToken?.isCancelled == true) {
+          throw cancelToken!.cancelError!;
+        }
+        AppEnvironment.log(
+          'LLM',
+          'Local inference fallback failed after backend error: $localError',
+        );
+      }
 
       final isNetworkHostError = e.toString().contains('Failed host lookup') || e.toString().contains('SocketException');
       final hostName = _activeBaseUrl.replaceAll('http://', '').replaceAll('https://', '');
@@ -775,8 +799,12 @@ class MentoraBackendClient {
     String question,
     String topic,
     int grade,
+    {CancelToken? cancelToken}
   ) async {
     try {
+      if (cancelToken?.isCancelled == true) {
+        throw cancelToken!.cancelError!;
+      }
       if (Platform.isLinux) {
         final configService = LinuxLlmConfigService();
         var config = await configService.load();
@@ -823,20 +851,28 @@ class MentoraBackendClient {
                 'source': 'offline_mode_no_local_model',
               };
             }
-            // Preload GGUF model into memory if path exists but engine cold
-            await adminService.preloadModel();
-
-            // Wait up to 10s for background thread in LlamaEngine to finish loading model
-            final stopWatch = Stopwatch()..start();
-            while (stopWatch.elapsedMilliseconds < 10000) {
-              await Future.delayed(const Duration(milliseconds: 200));
-              status = await adminService.getEngineStatus();
-              if (status.loaded) break;
-            }
+            // Preload runs asynchronously on Android. Large models can take
+            // longer than a few seconds to map and initialize on mobile.
+            final preloadStarted = await adminService.preloadModel();
+            status = await adminService.waitForModelReady();
 
             if (!status.loaded) {
+              final loadError = status.lastEngineError.trim();
+              if (loadError.isNotEmpty || !preloadStarted) {
+                final detail = loadError.isNotEmpty
+                    ? loadError
+                    : 'The native inference engine could not start model loading.';
+                return {
+                  'answer':
+                      '⚠️ **Local AI Model Load Failed**: $detail\n\nCheck that this GGUF architecture is supported by the Android runtime and that the device has enough available memory.',
+                  'hasAudio': false,
+                  'source': 'local_llm_init_error',
+                };
+              }
+
               return {
-                'answer': '⚠️ **Local AI Engine Timeout**: Failed to warm up GGUF model into memory within 10 seconds. Please try again.',
+                'answer':
+                    '⚠️ **Local AI Engine Timeout**: The GGUF model did not finish loading within 2 minutes. Try a smaller model or check device memory.',
                 'hasAudio': false,
                 'source': 'local_llm_warmup_timeout',
               };
@@ -852,6 +888,11 @@ class MentoraBackendClient {
       }
 
       final gateway = PlatformTutorInferenceGateway();
+      if (cancelToken != null) {
+        unawaited(
+          cancelToken.whenCancel.then((_) => gateway.stopGeneration()),
+        );
+      }
       final tClean = topic.trim().isEmpty ? 'Science & Mathematics' : topic.trim();
 
       String ragContextBlock = '';
@@ -887,6 +928,9 @@ $question
       final rawBuffer = StringBuffer();
 
       await for (final chunk in gateway.streamResponse(prompt: prompt)) {
+        if (cancelToken?.isCancelled == true) {
+          throw cancelToken!.cancelError!;
+        }
         final pushed = filter.push(chunk);
         if (pushed.isNotEmpty) {
           rawBuffer.write(pushed);
@@ -919,6 +963,9 @@ $question
         };
       }
     } catch (e) {
+      if (cancelToken?.isCancelled == true) {
+        throw cancelToken!.cancelError!;
+      }
       return {
         'answer': '⚠️ **Local AI Execution Error**: ${e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '')}\n\n*Tip: Check Settings > Local AI Tutor to verify your local GGUF model file.*',
         'hasAudio': false,
@@ -1026,4 +1073,3 @@ $question
     };
   }
 }
-

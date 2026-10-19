@@ -3,6 +3,7 @@ import '../../../core/theme/idp_colors.dart';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_agent_harness/flutter_agent_harness.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
@@ -26,6 +27,8 @@ import '../../content_packs/data/local/content_pack_repository.dart';
 import '../../assessment/application/quiz_question_loader.dart';
 import '../../chat/data/local/chat_memory_policy_repository.dart';
 import '../../chat/presentation/widgets/chat_memory_policy_sheet.dart';
+import '../../chat/application/mentora_agent_session.dart';
+import '../../chat/application/mentora_tutor_agent_provider.dart';
 
 class ChapterLearningWorkspaceScreen extends StatefulWidget {
   final String chapterTitle;
@@ -40,14 +43,19 @@ class ChapterLearningWorkspaceScreen extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<ChapterLearningWorkspaceScreen> createState() => _ChapterLearningWorkspaceScreenState();
+  State<ChapterLearningWorkspaceScreen> createState() =>
+      _ChapterLearningWorkspaceScreenState();
 }
 
-class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspaceScreen> with SingleTickerProviderStateMixin {
+class _ChapterLearningWorkspaceScreenState
+    extends State<ChapterLearningWorkspaceScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _chatController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final MentoraBackendClient _client = MentoraBackendClient();
+  final MentoraTutorAgentProvider _agentProvider = MentoraTutorAgentProvider();
+  MentoraAgentSession? _agentSession;
 
   String _activeChapterTitle = 'Motion';
   String _activeSubjectName = 'Science';
@@ -88,7 +96,9 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
     _tabController = TabController(length: 6, vsync: this);
     _tabController.addListener(() {
       if (_tabController.indexIsChanging || _tabController.index != 4) {
-        print('[VIDEO_DEBUG] Workspace Tab changed to ${_tabController.index}. Pausing YouTube player plugin.');
+        print(
+          '[VIDEO_DEBUG] Workspace Tab changed to ${_tabController.index}. Pausing YouTube player plugin.',
+        );
         _youtubeController?.pauseVideo();
       }
     });
@@ -96,6 +106,10 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
 
   @override
   void dispose() {
+    final agentSession = _agentSession;
+    if (agentSession != null) {
+      unawaited(agentSession.dispose());
+    }
     _youtubeController?.close();
     _scrollController.dispose();
     _chatController.dispose();
@@ -169,11 +183,17 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
       _argsResolved = true;
       final args = ModalRoute.of(context)?.settings.arguments;
       if (args is Map<String, dynamic>) {
-        _activeChapterTitle = args['chapterTitle']?.toString() ?? widget.chapterTitle;
-        _activeSubjectName = args['subjectName']?.toString() ?? args['subject']?.toString() ?? widget.subjectName;
+        _activeChapterTitle =
+            args['chapterTitle']?.toString() ?? widget.chapterTitle;
+        _activeSubjectName =
+            args['subjectName']?.toString() ??
+            args['subject']?.toString() ??
+            widget.subjectName;
         _activeGrade = (args['grade'] as num?)?.toInt() ?? widget.grade;
         final initialTab = (args['initialTabIndex'] as num?)?.toInt();
-        if (initialTab != null && initialTab >= 0 && initialTab < _tabController.length) {
+        if (initialTab != null &&
+            initialTab >= 0 &&
+            initialTab < _tabController.length) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             _tabController.animateTo(initialTab);
           });
@@ -191,7 +211,8 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
       _messages.clear();
       _messages.add({
         'isUser': false,
-        'text': 'Welcome to Grade $_activeGrade $_activeSubjectName: *$_activeChapterTitle*! 👋\n\nI am your Mentora Socratic AI Tutor. Ask me any question or concept related to *$_activeChapterTitle* to begin learning.',
+        'text':
+            'Welcome to Grade $_activeGrade $_activeSubjectName: *$_activeChapterTitle*! 👋\n\nI am your Mentora Socratic AI Tutor. Ask me any question or concept related to *$_activeChapterTitle* to begin learning.',
         'formulas': <String>[],
         'hasAudio': false,
       });
@@ -206,8 +227,7 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
 
   Future<void> _loadMemoryPolicy() async {
     try {
-      final policy =
-          await ChatMemoryPolicyRepository().getPolicy(_sessionId);
+      final policy = await ChatMemoryPolicyRepository().getPolicy(_sessionId);
       if (mounted) setState(() => _memoryPolicy = policy);
     } catch (_) {}
   }
@@ -220,25 +240,26 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
       backgroundColor: Colors.transparent,
       builder: (context) => ChatMemoryPolicySheet(
         policy: policy,
-        onPolicyChanged: ({
-          shortTermWindow,
-          semanticRecallEnabled,
-          semanticTopK,
-          resetPolicy,
-          inactivityMinutes,
-        }) async {
-          final updated = policy.copyWith(
-            shortTermWindow: shortTermWindow,
-            semanticRecallEnabled: semanticRecallEnabled,
-            semanticTopK: semanticTopK,
-            resetPolicy: resetPolicy,
-            inactivityMinutes: inactivityMinutes,
-          );
-          try {
-            await ChatMemoryPolicyRepository().savePolicy(updated);
-          } catch (_) {}
-          if (mounted) setState(() => _memoryPolicy = updated);
-        },
+        onPolicyChanged:
+            ({
+              shortTermWindow,
+              semanticRecallEnabled,
+              semanticTopK,
+              resetPolicy,
+              inactivityMinutes,
+            }) async {
+              final updated = policy.copyWith(
+                shortTermWindow: shortTermWindow,
+                semanticRecallEnabled: semanticRecallEnabled,
+                semanticTopK: semanticTopK,
+                resetPolicy: resetPolicy,
+                inactivityMinutes: inactivityMinutes,
+              );
+              try {
+                await ChatMemoryPolicyRepository().savePolicy(updated);
+              } catch (_) {}
+              if (mounted) setState(() => _memoryPolicy = updated);
+            },
       ),
     );
   }
@@ -249,7 +270,8 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
   int get _stableChapterId {
     const fnvPrime = 0x01000193;
     var hash = 0x811C9DC5;
-    final key = '$_activeGrade|${_activeSubjectName.toLowerCase().trim()}|${_activeChapterTitle.toLowerCase().trim()}';
+    final key =
+        '$_activeGrade|${_activeSubjectName.toLowerCase().trim()}|${_activeChapterTitle.toLowerCase().trim()}';
     for (var i = 0; i < key.length; i++) {
       hash ^= key.codeUnitAt(i);
       hash = (hash * fnvPrime) & 0x7FFFFFFF;
@@ -258,12 +280,17 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
   }
 
   Future<void> _loadTabResources() async {
-    print('[VIDEO_DEBUG] Workspace: Loading resources for chapter: "$_activeChapterTitle" (Grade $_activeGrade $_activeSubjectName)');
-    
+    print(
+      '[VIDEO_DEBUG] Workspace: Loading resources for chapter: "$_activeChapterTitle" (Grade $_activeGrade $_activeSubjectName)',
+    );
+
     // Load SQLite Chat History
     try {
       final chatRepo = ChatSessionRepository();
-      await chatRepo.ensureSessionExists(sessionId: _sessionId, chapterId: _activeChapterTitle);
+      await chatRepo.ensureSessionExists(
+        sessionId: _sessionId,
+        chapterId: _activeChapterTitle,
+      );
       final storedMessages = await chatRepo.getMessages(_sessionId);
       if (storedMessages.isNotEmpty && mounted) {
         setState(() {
@@ -289,8 +316,13 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
     List<Map<String, dynamic>> playlistItems = [];
     try {
       final localRepo = VideoResourceRepository();
-      final localVideos = await localRepo.getVideosForChapter(_activeChapterTitle, grade: _activeGrade);
-      print('[VIDEO_DEBUG] Workspace: Found ${localVideos.length} local SQLite videos for "$_activeChapterTitle"');
+      final localVideos = await localRepo.getVideosForChapter(
+        _activeChapterTitle,
+        grade: _activeGrade,
+      );
+      print(
+        '[VIDEO_DEBUG] Workspace: Found ${localVideos.length} local SQLite videos for "$_activeChapterTitle"',
+      );
       if (localVideos.isNotEmpty) {
         playlistItems = localVideos.map((v) {
           final m = v.durationSeconds ~/ 60;
@@ -310,7 +342,9 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
         }).toList();
       }
     } catch (e) {
-      print('[VIDEO_DEBUG] Workspace: Error querying VideoResourceRepository: $e');
+      print(
+        '[VIDEO_DEBUG] Workspace: Error querying VideoResourceRepository: $e',
+      );
     }
 
     final pdfItem = await ContentPackRepository().findPdfItemForChapter(
@@ -353,7 +387,9 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
           _videoData = video;
         }
         final currentVid = _videoData?['currentVideo'] as Map<String, dynamic>?;
-        final heroUrl = currentVid?['videoUrl']?.toString() ?? currentVid?['youtubeId']?.toString();
+        final heroUrl =
+            currentVid?['videoUrl']?.toString() ??
+            currentVid?['youtubeId']?.toString();
         _initYoutubeControllerForVideo(heroUrl);
       });
     }
@@ -361,75 +397,17 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
 
   Future<void> _sendMessage() async {
     final text = _chatController.text.trim();
-    if (text.isEmpty) return;
-
-    final chatRepo = ChatSessionRepository();
-    final userTimestamp = DateTime.now();
-
-    setState(() {
-      _messages.add({'isUser': true, 'text': text});
-      _chatController.clear();
-      _isSending = true;
-    });
-    _scrollToBottom(force: true);
-
-    try {
-      await chatRepo.ensureSessionExists(sessionId: _sessionId, chapterId: _activeChapterTitle);
-      await chatRepo.appendMessage(
-        sessionId: _sessionId,
-        isUser: true,
-        text: text,
-        timestamp: userTimestamp,
-      );
-    } catch (_) {}
-
-    unawaited(
-      ProgressRepository()
-          .recordQuestionAsked(chapterId: _activeChapterTitle)
-          .catchError((e) => AppEnvironment.log('PROGRESS', 'Failed recording question: $e')),
-    );
-    unawaited(
-      ProgressRepository()
-          .recordChatMessage(chapterId: _activeChapterTitle, sessionId: _sessionId)
-          .catchError((e) => AppEnvironment.log('PROGRESS', 'Failed recording chat message: $e')),
-    );
-
-    final reply = await _client.queryAiTutor(
-      question: text,
-      topic: _activeChapterTitle,
-      grade: _activeGrade,
-    );
-
-    final answerText = (reply['answer'] ?? reply['response'] ?? 'I have analyzed your query from the NCERT curriculum.') as String;
-
-    try {
-      await chatRepo.appendMessage(
-        sessionId: _sessionId,
-        isUser: false,
-        text: answerText,
-        timestamp: DateTime.now(),
-      );
-    } catch (_) {}
-
-    if (mounted) {
-      setState(() {
-        _isSending = false;
-        _messages.add({
-          'isUser': false,
-          'text': answerText,
-          'formulas': List<String>.from(reply['formulas'] ?? <String>[]),
-          'hasAudio': true,
-        });
-      });
-      _scrollToBottom(force: false);
-    }
+    if (text.isEmpty || _isSending) return;
+    await _sendTutorMessage(text, clearComposer: true);
   }
 
   void _showExplainDifferentlySheet() {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
       builder: (context) {
         return Padding(
           padding: const EdgeInsets.all(20.0),
@@ -437,12 +415,31 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('💡 How would you like me to explain this?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const Text(
+                '💡 How would you like me to explain this?',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
               const SizedBox(height: 16),
-              _buildExplainOption(Icons.directions_car, 'Use a Real-World Analogy', 'Practical daily life example'),
-              _buildExplainOption(Icons.child_care, 'Simplify the Language', 'Easier words for younger readers'),
-              _buildExplainOption(Icons.format_list_numbered, 'Show Step-by-Step Math', 'Detailed breakdown'),
-              _buildExplainOption(Icons.science, 'Suggest a Visual Simulation', 'Opens interactive lab'),
+              _buildExplainOption(
+                Icons.directions_car,
+                'Use a Real-World Analogy',
+                'Practical daily life example',
+              ),
+              _buildExplainOption(
+                Icons.child_care,
+                'Simplify the Language',
+                'Easier words for younger readers',
+              ),
+              _buildExplainOption(
+                Icons.format_list_numbered,
+                'Show Step-by-Step Math',
+                'Detailed breakdown',
+              ),
+              _buildExplainOption(
+                Icons.science,
+                'Suggest a Visual Simulation',
+                'Opens interactive lab',
+              ),
             ],
           ),
         );
@@ -452,20 +449,33 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
 
   Widget _buildExplainOption(IconData icon, String title, String subtitle) {
     return ListTile(
-      leading: const CircleAvatar(backgroundColor: Color(0xFFEEF2FF), child: Icon(Icons.lightbulb, color: IDPColors.primary, size: 20)),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-      subtitle: Text(subtitle, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+      leading: const CircleAvatar(
+        backgroundColor: Color(0xFFEEF2FF),
+        child: Icon(Icons.lightbulb, color: IDPColors.primary, size: 20),
+      ),
+      title: Text(
+        title,
+        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+      ),
       onTap: () {
         Navigator.pop(context);
         String prompt = 'Please explain $_activeChapterTitle in clear detail.';
         if (title.contains('Analogy')) {
-          prompt = 'Please explain $_activeChapterTitle using a practical real-world daily life example or analogy.';
+          prompt =
+              'Please explain $_activeChapterTitle using a practical real-world daily life example or analogy.';
         } else if (title.contains('Simplify')) {
-          prompt = 'Please simplify the core concepts and equations of $_activeChapterTitle for a school student.';
+          prompt =
+              'Please simplify the core concepts and equations of $_activeChapterTitle for a school student.';
         } else if (title.contains('Step-by-Step')) {
-          prompt = 'Please show a clear, step-by-step mathematical breakdown and key formulas for $_activeChapterTitle.';
+          prompt =
+              'Please show a clear, step-by-step mathematical breakdown and key formulas for $_activeChapterTitle.';
         } else if (title.contains('Visual')) {
-          prompt = 'Please describe an interactive visual experiment or simulation to understand $_activeChapterTitle.';
+          prompt =
+              'Please describe an interactive visual experiment or simulation to understand $_activeChapterTitle.';
         }
         _sendMessageWithTopic(prompt);
       },
@@ -473,54 +483,347 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
   }
 
   Future<void> _sendMessageWithTopic(String text) async {
+    if (_isSending) return;
+    await _sendTutorMessage(text);
+  }
+
+  Future<void> _sendTutorMessage(
+    String text, {
+    bool clearComposer = false,
+  }) async {
+    final session = _getAgentSession();
     final chatRepo = ChatSessionRepository();
     final userTimestamp = DateTime.now();
+    final assistantIndex = _messages.length + 1;
 
     setState(() {
       _messages.add({'isUser': true, 'text': text});
+      _messages.add({'isUser': false, 'text': 'Thinking…', 'hasAudio': false});
+      if (clearComposer) {
+        _chatController.clear();
+      }
       _isSending = true;
     });
     _scrollToBottom(force: true);
 
     try {
-      await chatRepo.ensureSessionExists(sessionId: _sessionId, chapterId: _activeChapterTitle);
+      await chatRepo.ensureSessionExists(
+        sessionId: _sessionId,
+        chapterId: _activeChapterTitle,
+      );
       await chatRepo.appendMessage(
         sessionId: _sessionId,
         isUser: true,
         text: text,
         timestamp: userTimestamp,
       );
-    } catch (_) {}
+    } catch (error) {
+      AppEnvironment.log(
+        'CHAT',
+        'Could not persist the student message: $error',
+      );
+    }
 
-    final reply = await _client.queryAiTutor(
-      question: text,
-      topic: _activeChapterTitle,
-      grade: _activeGrade,
+    unawaited(
+      ProgressRepository()
+          .recordQuestionAsked(chapterId: _activeChapterTitle)
+          .catchError(
+            (error) => AppEnvironment.log(
+              'PROGRESS',
+              'Failed recording question: $error',
+            ),
+          ),
+    );
+    unawaited(
+      ProgressRepository()
+          .recordChatMessage(
+            chapterId: _activeChapterTitle,
+            sessionId: _sessionId,
+          )
+          .catchError(
+            (error) => AppEnvironment.log(
+              'PROGRESS',
+              'Failed recording chat message: $error',
+            ),
+          ),
     );
 
-    final answerText = (reply['answer'] ?? reply['response'] ?? 'Here is a simplified explanation with step-by-step breakdown.') as String;
+    final answer = StringBuffer();
+    var answerToPersist = '';
+    try {
+      await for (final event in session.runTurn(text)) {
+        switch (event) {
+          case TutorTextDeltaEvent(:final delta):
+            answer.write(delta);
+            if (mounted) {
+              setState(() {
+                _messages[assistantIndex]['text'] = answer.toString();
+              });
+              _scrollToBottom(force: false);
+            }
+          case TutorTurnCompletedEvent(:final text):
+            answerToPersist = text;
+          case TutorTurnFailedEvent(:final message):
+            answerToPersist = '⚠️ $message';
+          case TutorTurnAbortedEvent():
+            answerToPersist = 'Response cancelled.';
+          case TutorToolStatusEvent():
+            break;
+        }
+      }
+    } catch (error) {
+      answerToPersist = '⚠️ Tutor inference failed: $error';
+      AppEnvironment.log('CHAT', 'Agent turn failed: $error');
+    }
+
+    if (answerToPersist.isEmpty) {
+      answerToPersist = answer.toString().trim();
+    }
+    if (answerToPersist.isEmpty) {
+      answerToPersist = '⚠️ The tutor returned no answer. Please try again.';
+    }
 
     try {
+      await chatRepo.ensureSessionExists(
+        sessionId: _sessionId,
+        chapterId: _activeChapterTitle,
+      );
       await chatRepo.appendMessage(
         sessionId: _sessionId,
         isUser: false,
-        text: answerText,
+        text: answerToPersist,
         timestamp: DateTime.now(),
       );
-    } catch (_) {}
+    } catch (error) {
+      AppEnvironment.log(
+        'CHAT',
+        'Could not persist the tutor response: $error',
+      );
+    }
 
     if (mounted) {
       setState(() {
         _isSending = false;
-        _messages.add({
-          'isUser': false,
-          'text': answerText,
-          'formulas': List<String>.from(reply['formulas'] ?? <String>[]),
-          'hasAudio': true,
-        });
+        _messages[assistantIndex]
+          ..['text'] = answerToPersist
+          ..['formulas'] = <String>[]
+          ..['hasAudio'] = false;
       });
       _scrollToBottom(force: false);
     }
+  }
+
+  MentoraAgentSession _getAgentSession() {
+    final current = _agentSession;
+    if (current != null) return current;
+
+    final history = <Message>[];
+    for (final entry in _messages) {
+      final text = entry['text'] as String? ?? '';
+      if (text.trim().isEmpty || text.startsWith('Welcome to Grade ')) {
+        continue;
+      }
+      final timestamp = DateTime.now();
+      if (entry['isUser'] == true) {
+        history.add(UserMessage.text(text, timestamp: timestamp));
+      } else {
+        history.add(
+          AssistantMessage(
+            content: [TextContent(text: text)],
+            api: 'mentora-routed',
+            provider: 'mentora',
+            model: 'mentora-default',
+            usage: Usage.zero,
+            stopReason: StopReason.stop,
+            timestamp: timestamp,
+          ),
+        );
+      }
+    }
+
+    final recentHistory = history.length > 12
+        ? history.sublist(history.length - 12)
+        : history;
+    return _agentSession = _agentProvider.createSession(
+      topic: _activeChapterTitle,
+      grade: _activeGrade,
+      initialMessages: recentHistory,
+    );
+  }
+
+  Widget _buildChatMessage(Map<String, dynamic> message) {
+    final isUser = message['isUser'] as bool;
+    final formulas = message['formulas'];
+    final maxWidth = MediaQuery.of(context).size.width * 0.82;
+
+    final bubble = Container(
+      constraints: BoxConstraints(maxWidth: maxWidth),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      decoration: BoxDecoration(
+        color: isUser ? IDPColors.primary : Colors.white,
+        borderRadius: BorderRadius.only(
+          topLeft: const Radius.circular(18),
+          topRight: const Radius.circular(18),
+          bottomLeft: Radius.circular(isUser ? 18 : 5),
+          bottomRight: Radius.circular(isUser ? 5 : 18),
+        ),
+        border: isUser ? null : Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: isUser
+            ? null
+            : const [
+                BoxShadow(
+                  color: Color(0x0A0F172A),
+                  blurRadius: 12,
+                  offset: Offset(0, 3),
+                ),
+              ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            isUser ? 'YOU' : 'MENTORA · TUTOR',
+            style: TextStyle(
+              color: isUser ? Colors.white70 : IDPColors.textSecondary,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.7,
+            ),
+          ),
+          const SizedBox(height: 6),
+          if (isUser)
+            Text(
+              message['text'] as String,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 15,
+                height: 1.5,
+              ),
+            )
+          else
+            FormattedTextWidget(
+              text: message['text'] as String,
+              style: const TextStyle(
+                color: IDPColors.textPrimary,
+                fontSize: 15,
+                height: 1.55,
+              ),
+            ),
+          if (!isUser && formulas is List<String> && formulas.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: formulas.map((formula) {
+                return Chip(
+                  label: Text(
+                    formula,
+                    style: const TextStyle(
+                      color: IDPColors.onPrimaryContainer,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
+                  ),
+                  backgroundColor: IDPColors.primaryContainer,
+                  side: BorderSide.none,
+                  visualDensity: VisualDensity.compact,
+                );
+              }).toList(),
+            ),
+          ],
+          if (!isUser) ...[
+            const Divider(height: 20, color: Color(0xFFE2E8F0)),
+            Wrap(
+              spacing: 4,
+              children: [
+                TextButton.icon(
+                  onPressed: _showExplainDifferentlySheet,
+                  icon: const Icon(Icons.lightbulb_outline, size: 16),
+                  label: const Text('Explain another way'),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        mainAxisAlignment: isUser
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (!isUser) ...[
+            const CircleAvatar(
+              radius: 16,
+              backgroundColor: IDPColors.primaryContainer,
+              child: Icon(
+                Icons.school_rounded,
+                color: IDPColors.primary,
+                size: 18,
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+          Flexible(child: bubble),
+          if (isUser) ...[
+            const SizedBox(width: 8),
+            const CircleAvatar(
+              radius: 16,
+              backgroundColor: Color(0xFFE2E8F0),
+              child: Icon(
+                Icons.person_rounded,
+                color: IDPColors.textSecondary,
+                size: 18,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChatSuggestions() {
+    const suggestions = [
+      ('Explain simply', Icons.auto_awesome_outlined),
+      ('Give a real-life example', Icons.lightbulb_outline),
+      ('Show the steps', Icons.format_list_numbered_rounded),
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 40, bottom: 16),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: suggestions.map((suggestion) {
+          return ActionChip(
+            avatar: Icon(suggestion.$2, size: 16, color: IDPColors.primary),
+            label: Text(suggestion.$1),
+            labelStyle: const TextStyle(
+              color: IDPColors.textPrimary,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+            backgroundColor: Colors.white,
+            side: const BorderSide(color: Color(0xFFCBD5E1)),
+            onPressed: () {
+              final prompt = switch (suggestion.$1) {
+                'Explain simply' =>
+                  'Please explain $_activeChapterTitle in simpler words for a Grade $_activeGrade student.',
+                'Give a real-life example' =>
+                  'Explain $_activeChapterTitle with a practical real-life example.',
+                _ =>
+                  'Show a clear step-by-step explanation of $_activeChapterTitle.',
+              };
+              _sendMessageWithTopic(prompt);
+            },
+          );
+        }).toList(),
+      ),
+    );
   }
 
   @override
@@ -530,7 +833,9 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
       _tabController = TabController(length: 6, vsync: this);
       _tabController.addListener(() {
         if (_tabController.indexIsChanging || _tabController.index != 4) {
-          print('[VIDEO_DEBUG] Workspace Tab changed to ${_tabController.index}. Pausing YouTube player plugin.');
+          print(
+            '[VIDEO_DEBUG] Workspace Tab changed to ${_tabController.index}. Pausing YouTube player plugin.',
+          );
           _youtubeController?.pauseVideo();
         }
       });
@@ -549,8 +854,18 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Grade $_activeGrade $_activeSubjectName > $_activeChapterTitle', style: const TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.bold, fontSize: 16)),
-            Text('NCERT Class $_activeGrade $_activeSubjectName', style: const TextStyle(color: Color(0xFF64748B), fontSize: 11)),
+            Text(
+              'Grade $_activeGrade $_activeSubjectName > $_activeChapterTitle',
+              style: const TextStyle(
+                color: Color(0xFF0F172A),
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+            Text(
+              'NCERT Class $_activeGrade $_activeSubjectName',
+              style: const TextStyle(color: Color(0xFF64748B), fontSize: 11),
+            ),
           ],
         ),
         iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
@@ -566,7 +881,9 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
             onPressed: () {
               Navigator.pushAndRemoveUntil(
                 context,
-                MaterialPageRoute(builder: (_) => const MentoraHomeScreen(initialTabIndex: 0)),
+                MaterialPageRoute(
+                  builder: (_) => const MentoraHomeScreen(initialTabIndex: 0),
+                ),
                 (route) => false,
               );
             },
@@ -597,118 +914,120 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
               Expanded(
                 child: ListView.builder(
                   controller: _scrollController,
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _messages.length,
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+                  itemCount:
+                      _messages.length +
+                      (_messages.length == 1 && !_isSending ? 1 : 0),
                   itemBuilder: (context, index) {
-                    final msg = _messages[index];
-                    final bool isUser = msg['isUser'] as bool;
-
-                    return Align(
-                      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-                      child: Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(14),
-                        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.82),
-                        decoration: BoxDecoration(
-                          color: isUser ? primaryIndigo : cardBg,
-                          borderRadius: BorderRadius.circular(14),
-                          border: isUser ? null : Border.all(color: borderColor),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            isUser
-                                ? Text(
-                                    msg['text'] as String,
-                                    style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.4),
-                                  )
-                                : FormattedTextWidget(
-                                    text: msg['text'] as String,
-                                    style: const TextStyle(color: Color(0xFF0F172A), fontSize: 14, height: 1.4),
-                                  ),
-                            if (!isUser && msg['formulas'] != null) ...[
-                              const SizedBox(height: 10),
-                              Wrap(
-                                spacing: 6,
-                                children: (msg['formulas'] as List<String>).map((formula) {
-                                  return Chip(
-                                    label: Text(formula, style: const TextStyle(color: primaryIndigo, fontWeight: FontWeight.bold, fontSize: 11)),
-                                    backgroundColor: const Color(0xFFEEF2FF),
-                                  );
-                                }).toList(),
-                              ),
-                            ],
-                            if (!isUser) ...[
-                              const Divider(height: 16, color: borderColor),
-                              Row(
-                                children: [
-                                  TextButton.icon(
-                                    onPressed: () {},
-                                    icon: const Icon(Icons.volume_up_outlined, size: 14, color: primaryIndigo),
-                                    label: const Text('Read Aloud', style: TextStyle(color: primaryIndigo, fontSize: 11, fontWeight: FontWeight.bold)),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  TextButton.icon(
-                                    onPressed: _showExplainDifferentlySheet,
-                                    icon: const Icon(Icons.lightbulb_outline, size: 14, color: Color(0xFFF59E0B)),
-                                    label: const Text('Explain Differently', style: TextStyle(color: Color(0xFFF59E0B), fontSize: 11, fontWeight: FontWeight.bold)),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    );
+                    if (index == _messages.length) {
+                      return _buildChatSuggestions();
+                    }
+                    return _buildChatMessage(_messages[index]);
                   },
                 ),
               ),
               if (_isSending)
                 const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8.0),
+                  padding: EdgeInsets.fromLTRB(16, 4, 16, 12),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: primaryIndigo)),
-                      SizedBox(width: 8),
-                      Text('Mentora Socratic AI is thinking...', style: TextStyle(color: Color(0xFF64748B), fontSize: 12)),
+                      CircleAvatar(
+                        radius: 15,
+                        backgroundColor: IDPColors.primaryContainer,
+                        child: Icon(
+                          Icons.school_rounded,
+                          color: IDPColors.primary,
+                          size: 17,
+                        ),
+                      ),
+                      SizedBox(width: 10),
+                      SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: primaryIndigo,
+                        ),
+                      ),
+                      SizedBox(width: 9),
+                      Text(
+                        'Mentora is thinking…',
+                        style: TextStyle(
+                          color: IDPColors.textSecondary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ],
                   ),
                 ),
               // INPUT BAR
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
                 color: cardBg,
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.mic, color: primaryIndigo),
-                      onPressed: () {
-                        Navigator.pushNamed(context, '/voice_overlay');
-                      },
-                    ),
-                    Expanded(
-                      child: TextField(
-                        controller: _chatController,
-                        onSubmitted: (_) => _sendMessage(),
-                        decoration: InputDecoration(
-                          hintText: 'Ask anything about $_activeChapterTitle...',
-                          filled: true,
-                          fillColor: slateBg,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
+                child: SafeArea(
+                  top: false,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      IconButton(
+                        tooltip: 'Open voice tutor',
+                        icon: const Icon(
+                          Icons.mic_rounded,
+                          color: primaryIndigo,
+                        ),
+                        onPressed: () {
+                          Navigator.pushNamed(context, '/voice_overlay');
+                        },
+                      ),
+                      Expanded(
+                        child: TextField(
+                          controller: _chatController,
+                          minLines: 1,
+                          maxLines: 4,
+                          textInputAction: TextInputAction.send,
+                          onSubmitted: (_) => _sendMessage(),
+                          decoration: InputDecoration(
+                            hintText: 'Ask about $_activeChapterTitle…',
+                            filled: true,
+                            fillColor: slateBg,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(22),
+                              borderSide: const BorderSide(color: borderColor),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(22),
+                              borderSide: const BorderSide(
+                                color: primaryIndigo,
+                                width: 1.5,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    CircleAvatar(
-                      backgroundColor: primaryIndigo,
-                      child: IconButton(
-                        icon: const Icon(Icons.send, color: Colors.white, size: 18),
-                        onPressed: _sendMessage,
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        width: 46,
+                        height: 46,
+                        child: FilledButton(
+                          style: FilledButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            backgroundColor: primaryIndigo,
+                            shape: const CircleBorder(),
+                          ),
+                          onPressed: _isSending ? null : _sendMessage,
+                          child: const Icon(
+                            Icons.arrow_upward_rounded,
+                            color: Colors.white,
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -774,13 +1093,18 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: const Color(0xFF334155)),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 10, offset: const Offset(0, 4)),
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.15),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
                 ],
               ),
               child: _isWebViewSupported
                   ? InAppWebView(
-                initialData: InAppWebViewInitialData(
-                  data: '''
+                      initialData: InAppWebViewInitialData(
+                        data:
+                            '''
 <!DOCTYPE html>
 <html>
 <head>
@@ -856,15 +1180,15 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
 </body>
 </html>
 ''',
-                  mimeType: 'text/html',
-                  encoding: 'utf-8',
-                ),
-                initialSettings: InAppWebViewSettings(
-                  javaScriptEnabled: true,
-                  transparentBackground: true,
-                  supportZoom: false,
-                ),
-              )
+                        mimeType: 'text/html',
+                        encoding: 'utf-8',
+                      ),
+                      initialSettings: InAppWebViewSettings(
+                        javaScriptEnabled: true,
+                        transparentBackground: true,
+                        supportZoom: false,
+                      ),
+                    )
                   : NativeSimulationCanvasWidget(
                       chapterTitle: _activeChapterTitle,
                       simLength: _simLength,
@@ -878,22 +1202,41 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
           Card(
             elevation: 0,
             color: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: const BorderSide(color: Color(0xFFE2E8F0))),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+              side: const BorderSide(color: Color(0xFFE2E8F0)),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('⚙️ Simulation Controls', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  const Text(
+                    '⚙️ Simulation Controls',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  ),
                   const SizedBox(height: 16),
 
                   // Slider 1: Intensity / Parameter 1
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('System Length (L): ${_simLength.toStringAsFixed(1)} m', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                      Text(
+                        'System Length (L): ${_simLength.toStringAsFixed(1)} m',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
                       Chip(
-                        label: Text('${_simLength.toStringAsFixed(1)} m', style: const TextStyle(color: primaryIndigo, fontWeight: FontWeight.bold, fontSize: 11)),
+                        label: Text(
+                          '${_simLength.toStringAsFixed(1)} m',
+                          style: const TextStyle(
+                            color: primaryIndigo,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                          ),
+                        ),
                         backgroundColor: const Color(0xFFEEF2FF),
                       ),
                     ],
@@ -912,9 +1255,22 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Environmental Factor (k): ${_simGravity.toStringAsFixed(1)}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                      Text(
+                        'Environmental Factor (k): ${_simGravity.toStringAsFixed(1)}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
                       Chip(
-                        label: Text('${_simGravity.toStringAsFixed(1)} const', style: const TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 11)),
+                        label: Text(
+                          '${_simGravity.toStringAsFixed(1)} const',
+                          style: const TextStyle(
+                            color: Color(0xFF10B981),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                          ),
+                        ),
                         backgroundColor: const Color(0xFFECFDF5),
                       ),
                     ],
@@ -955,12 +1311,26 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
                   ),
                 );
               },
-              icon: const Icon(Icons.screen_rotation_rounded, color: Colors.white),
-              label: const Text('Play Interactive Fullscreen (Landscape)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              icon: const Icon(
+                Icons.screen_rotation_rounded,
+                color: Colors.white,
+              ),
+              label: const Text(
+                'Play Interactive Fullscreen (Landscape)',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: primaryIndigo,
-                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 14,
+                  horizontal: 16,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
           ),
@@ -972,12 +1342,20 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
   // STITCH TAB 3: YOUTUBE VIDEO LECTURE WATCH SCREEN
   Widget _buildWatchTab() {
     const primaryIndigo = IDPColors.primary;
-    final playlist = List<Map<String, dynamic>>.from(_videoData?['playlist'] ?? []);
+    final playlist = List<Map<String, dynamic>>.from(
+      _videoData?['playlist'] ?? [],
+    );
     final currentVideo = _videoData?['currentVideo'] as Map<String, dynamic>?;
 
-    final heroTitle = currentVideo?['title']?.toString() ?? 'NCERT Class $_activeGrade $_activeSubjectName: $_activeChapterTitle';
-    final heroUrl = currentVideo?['videoUrl']?.toString() ?? currentVideo?['youtubeId']?.toString();
-    final videoId = heroUrl != null ? YouTubeUtils.extractYouTubeId(heroUrl) : null;
+    final heroTitle =
+        currentVideo?['title']?.toString() ??
+        'NCERT Class $_activeGrade $_activeSubjectName: $_activeChapterTitle';
+    final heroUrl =
+        currentVideo?['videoUrl']?.toString() ??
+        currentVideo?['youtubeId']?.toString();
+    final videoId = heroUrl != null
+        ? YouTubeUtils.extractYouTubeId(heroUrl)
+        : null;
 
     if (_isWebViewSupported && videoId != null && _youtubeController == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1013,9 +1391,7 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
               child: Column(
                 children: [
                   _isWebViewSupported && _youtubeController != null
-                      ? YoutubePlayer(
-                          controller: _youtubeController!,
-                        )
+                      ? YoutubePlayer(controller: _youtubeController!)
                       : Container(
                           height: 200,
                           width: double.infinity,
@@ -1023,13 +1399,23 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(Icons.play_circle_fill, color: Colors.redAccent, size: 48),
+                              const Icon(
+                                Icons.play_circle_fill,
+                                color: Colors.redAccent,
+                                size: 48,
+                              ),
                               const SizedBox(height: 12),
                               Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                ),
                                 child: Text(
                                   heroTitle,
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
                                   textAlign: TextAlign.center,
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
@@ -1042,24 +1428,40 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
                                     final uri = Uri.tryParse(heroUrl);
                                     if (uri != null) launchUrl(uri);
                                   },
-                                  icon: const Icon(Icons.open_in_browser, size: 16),
-                                  label: const Text('Open Lecture Video in Browser'),
+                                  icon: const Icon(
+                                    Icons.open_in_browser,
+                                    size: 16,
+                                  ),
+                                  label: const Text(
+                                    'Open Lecture Video in Browser',
+                                  ),
                                 ),
                               ],
                             ],
                           ),
                         ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
                     color: const Color(0xFF0F172A),
                     child: Row(
                       children: [
-                        const Icon(Icons.play_circle_filled, color: Colors.redAccent, size: 20),
+                        const Icon(
+                          Icons.play_circle_filled,
+                          color: Colors.redAccent,
+                          size: 20,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             heroTitle,
-                            style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -1076,7 +1478,11 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
           // TITLE ROW
           Text(
             'NCERT Class $_activeGrade $_activeSubjectName: $_activeChapterTitle',
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A)),
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: Color(0xFF0F172A),
+            ),
           ),
           const SizedBox(height: 16),
 
@@ -1084,11 +1490,16 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
           Row(
             children: [
               const Expanded(
-                child: Text('📚 Playlist Chapters',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                child: Text(
+                  '📚 Playlist Chapters',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
               ),
               FilterChip(
-                label: const Text('ISL 🤟', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                label: const Text(
+                  'ISL 🤟',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                ),
                 selected: _islOnly,
                 onSelected: (value) => setState(() => _islOnly = value),
                 tooltip: 'Show only Indian Sign Language videos',
@@ -1096,8 +1507,7 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
             ],
           ),
           const SizedBox(height: 8),
-          if (_islOnly &&
-              !playlist.any((item) => _isIslVideo(item))) ...[
+          if (_islOnly && !playlist.any((item) => _isIslVideo(item))) ...[
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
@@ -1112,49 +1522,94 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
             ),
             const SizedBox(height: 8),
           ],
-          ...playlist.where((item) => !_islOnly || _isIslVideo(item)).map((item) {
+          ...playlist.where((item) => !_islOnly || _isIslVideo(item)).map((
+            item,
+          ) {
             final itemTitle = item['title']?.toString() ?? 'Video Chapter';
-            final itemUrl = item['videoUrl']?.toString() ?? item['youtubeId']?.toString() ?? '';
+            final itemUrl =
+                item['videoUrl']?.toString() ??
+                item['youtubeId']?.toString() ??
+                '';
             final itemDuration = item['duration']?.toString() ?? '10:00';
             final itemChannel = item['channel']?.toString() ?? 'NCERT';
 
             return Card(
               margin: const EdgeInsets.only(bottom: 8),
               elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: const BorderSide(color: Color(0xFFE2E8F0))),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+                side: const BorderSide(color: Color(0xFFE2E8F0)),
+              ),
               child: ListTile(
                 onTap: () {
-                  print('[VIDEO_DEBUG] Tapped Workspace Playlist Item "$itemTitle". Launching VideoPlayerScreen with URL "$itemUrl"');
+                  print(
+                    '[VIDEO_DEBUG] Tapped Workspace Playlist Item "$itemTitle". Launching VideoPlayerScreen with URL "$itemUrl"',
+                  );
                   _initYoutubeControllerForVideo(itemUrl);
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (context) => VideoPlayerScreen(
                         videoUrl: itemUrl,
                         title: itemTitle,
-                        subtitle: '$itemChannel • Grade $_activeGrade $_activeChapterTitle',
+                        subtitle:
+                            '$itemChannel • Grade $_activeGrade $_activeChapterTitle',
                         description: item['description']?.toString(),
                       ),
                     ),
                   );
                 },
-                leading: const CircleAvatar(backgroundColor: Color(0xFFEEF2FF), child: Icon(Icons.play_circle_fill, color: primaryIndigo, size: 20)),
-                title: Text(itemTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                subtitle: Text(itemChannel, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFEEF2FF),
+                  child: Icon(
+                    Icons.play_circle_fill,
+                    color: primaryIndigo,
+                    size: 20,
+                  ),
+                ),
+                title: Text(
+                  itemTitle,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+                subtitle: Text(
+                  itemChannel,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
                 trailing: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text(itemDuration, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                    Text(
+                      itemDuration,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
                     if (_isIslVideo(item))
                       Container(
                         margin: const EdgeInsets.only(top: 4),
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFECFDF5),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Text('ISL 🤟',
-                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF059669))),
+                        child: const Text(
+                          'ISL 🤟',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF059669),
+                          ),
+                        ),
                       ),
                   ],
                 ),
@@ -1169,8 +1624,11 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
   // STITCH TAB 4: DIAGNOSTIC ASSESSMENT QUIZ
   Widget _buildQuizTab() {
     const primaryIndigo = IDPColors.primary;
-    final questions = List<Map<String, dynamic>>.from(_quizData?['questions'] ?? []);
-    if (questions.isEmpty) return const Center(child: CircularProgressIndicator());
+    final questions = List<Map<String, dynamic>>.from(
+      _quizData?['questions'] ?? [],
+    );
+    if (questions.isEmpty)
+      return const Center(child: CircularProgressIndicator());
 
     final currentQ = questions[_currentQuestionIndex];
     final options = List<String>.from(currentQ['options']);
@@ -1184,9 +1642,23 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Question ${_currentQuestionIndex + 1} of ${questions.length} • Score: $_score', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF64748B), fontSize: 13)),
+              Text(
+                'Question ${_currentQuestionIndex + 1} of ${questions.length} • Score: $_score',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF64748B),
+                  fontSize: 13,
+                ),
+              ),
               Chip(
-                label: Text('${_quizData?['userMastery'] ?? 0}% Mastered', style: const TextStyle(color: Color(0xFF059669), fontWeight: FontWeight.bold, fontSize: 11)),
+                label: Text(
+                  '${_quizData?['userMastery'] ?? 0}% Mastered',
+                  style: const TextStyle(
+                    color: Color(0xFF059669),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11,
+                  ),
+                ),
                 backgroundColor: const Color(0xFFECFDF5),
               ),
             ],
@@ -1197,12 +1669,20 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
           Card(
             elevation: 0,
             color: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: const BorderSide(color: Color(0xFFE2E8F0))),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+              side: const BorderSide(color: Color(0xFFE2E8F0)),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Text(
                 currentQ['question'] as String,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A), height: 1.4),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: Color(0xFF0F172A),
+                  height: 1.4,
+                ),
               ),
             ),
           ),
@@ -1233,7 +1713,10 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
               decoration: BoxDecoration(
                 color: optionBg,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: optionBorder, width: isSelected ? 1.5 : 1.0),
+                border: Border.all(
+                  color: optionBorder,
+                  width: isSelected ? 1.5 : 1.0,
+                ),
               ),
               child: ListTile(
                 onTap: () {
@@ -1243,10 +1726,27 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
                 },
                 leading: CircleAvatar(
                   radius: 14,
-                  backgroundColor: isSelected ? primaryIndigo : const Color(0xFFF1F5F9),
-                  child: Text(String.fromCharCode(65 + idx), style: TextStyle(color: isSelected ? Colors.white : const Color(0xFF0F172A), fontSize: 12, fontWeight: FontWeight.bold)),
+                  backgroundColor: isSelected
+                      ? primaryIndigo
+                      : const Color(0xFFF1F5F9),
+                  child: Text(
+                    String.fromCharCode(65 + idx),
+                    style: TextStyle(
+                      color: isSelected
+                          ? Colors.white
+                          : const Color(0xFF0F172A),
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
-                title: Text(options[idx], style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                title: Text(
+                  options[idx],
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
             );
           }),
@@ -1257,7 +1757,8 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  final isCorrect = _selectedOptionIndex == currentQ['correctIndex'];
+                  final isCorrect =
+                      _selectedOptionIndex == currentQ['correctIndex'];
                   setState(() {
                     _showExplanation = true;
                     if (isCorrect) {
@@ -1272,36 +1773,71 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
                             chapterId: chapterId,
                             score: isCorrect ? 1 : 0,
                             totalQuestions: 1,
-                            answers: {_currentQuestionIndex: _selectedOptionIndex ?? 0},
+                            answers: {
+                              _currentQuestionIndex: _selectedOptionIndex ?? 0,
+                            },
                             attemptedAt: DateTime.now(),
                           ),
                         )
                         .catchError((e) {
-                          AppEnvironment.log('QUIZ', 'Failed saving workspace quiz result: $e');
+                          AppEnvironment.log(
+                            'QUIZ',
+                            'Failed saving workspace quiz result: $e',
+                          );
                           return -1;
                         }),
                   );
                   unawaited(
                     ProgressRepository()
                         .recordQuestionAsked(chapterId: chapterId)
-                        .catchError((e) => AppEnvironment.log('PROGRESS', 'Failed recording workspace question: $e')),
+                        .catchError(
+                          (e) => AppEnvironment.log(
+                            'PROGRESS',
+                            'Failed recording workspace question: $e',
+                          ),
+                        ),
                   );
                 },
-                style: ElevatedButton.styleFrom(backgroundColor: primaryIndigo, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                child: const Text('Submit Answer', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryIndigo,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'Submit Answer',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ),
 
           if (_showExplanation) ...[
             Container(
               padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFCBD5E1))),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFCBD5E1)),
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('💡 Explanation:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  const Text(
+                    '💡 Explanation:',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
                   const SizedBox(height: 4),
-                  Text(currentQ['explanation'] as String, style: const TextStyle(fontSize: 13, color: Color(0xFF334155))),
+                  Text(
+                    currentQ['explanation'] as String,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF334155),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -1317,8 +1853,20 @@ class _ChapterLearningWorkspaceScreenState extends State<ChapterLearningWorkspac
                     _score = 0;
                   });
                 },
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF64748B), padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                child: const Text('Restart Quiz', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF64748B),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'Restart Quiz',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ),
           ],
@@ -1341,10 +1889,12 @@ class NativeSimulationCanvasWidget extends StatefulWidget {
   final double simGravity;
 
   @override
-  State<NativeSimulationCanvasWidget> createState() => _NativeSimulationCanvasWidgetState();
+  State<NativeSimulationCanvasWidget> createState() =>
+      _NativeSimulationCanvasWidgetState();
 }
 
-class _NativeSimulationCanvasWidgetState extends State<NativeSimulationCanvasWidget>
+class _NativeSimulationCanvasWidgetState
+    extends State<NativeSimulationCanvasWidget>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
@@ -1382,7 +1932,10 @@ class _NativeSimulationCanvasWidgetState extends State<NativeSimulationCanvasWid
               top: 12,
               left: 12,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0x338B5CF6),
                   borderRadius: BorderRadius.circular(20),
@@ -1390,7 +1943,11 @@ class _NativeSimulationCanvasWidgetState extends State<NativeSimulationCanvasWid
                 ),
                 child: Text(
                   '🧪 Interactive Lab (Native Desktop): ${widget.chapterTitle}',
-                  style: const TextStyle(color: Color(0xFFC4B5FD), fontSize: 11, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    color: Color(0xFFC4B5FD),
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),
@@ -1439,7 +1996,10 @@ class _SimulationPainter extends CustomPainter {
     for (double x = 0; x < size.width; x += 2) {
       final freq = 0.02 * lengthVal;
       final amp = 30 * (gravityVal / 5.0);
-      final y = cy + math.sin(x * freq + time) * amp + math.cos(x * 0.01 - time * 0.5) * (amp * 0.4);
+      final y =
+          cy +
+          math.sin(x * freq + time) * amp +
+          math.cos(x * 0.01 - time * 0.5) * (amp * 0.4);
       if (x == 0) {
         path.moveTo(x, y);
       } else {
@@ -1451,12 +2011,16 @@ class _SimulationPainter extends CustomPainter {
     final particlePaint = Paint()..color = const Color(0xFF8B5CF6);
     for (int i = 0; i < 8; i++) {
       final px = (size.width / 8) * i + math.sin(time + i) * 20;
-      final py = cy + math.sin(px * 0.02 * lengthVal + time) * (30 * (gravityVal / 5.0));
+      final py =
+          cy +
+          math.sin(px * 0.02 * lengthVal + time) * (30 * (gravityVal / 5.0));
       canvas.drawCircle(Offset(px, py), 5, particlePaint);
     }
   }
 
   @override
   bool shouldRepaint(covariant _SimulationPainter oldDelegate) =>
-      oldDelegate.time != time || oldDelegate.lengthVal != lengthVal || oldDelegate.gravityVal != gravityVal;
+      oldDelegate.time != time ||
+      oldDelegate.lengthVal != lengthVal ||
+      oldDelegate.gravityVal != gravityVal;
 }

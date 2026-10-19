@@ -23,6 +23,7 @@ class LlamaEngine(private val context: Context) {
     private val lastSelectedAtKey = "selected_model_last_selected_at"
     private val modelFileName = "phi-2.Q4_K_M.gguf"
     private var modelPath = resolveInitialModelPath()
+    @Volatile
     private var loaded = false
     private var initAttempts = 0
     private var successfulInits = 0
@@ -35,6 +36,7 @@ class LlamaEngine(private val context: Context) {
     private var maxInferenceDurationMs = 0L
     private var lastPromptChars = 0
     private var lastOutputChars = 0
+    @Volatile
     private var lastEngineError = ""
     private val inferenceEngine: InferenceEngine = AiChat.getInferenceEngine(context)
     private var systemPromptApplied = false
@@ -42,10 +44,15 @@ class LlamaEngine(private val context: Context) {
     fun getModelPath(): String = modelPath
 
     private fun resolveInitialModelPath(): String {
-        prefs.getString(modelPathKey, null)
+        val configuredPath = prefs.getString(modelPathKey, null)
             ?.trim()
             ?.takeIf { it.isNotEmpty() }
-            ?.let { return it }
+
+        if (configuredPath != null &&
+            !AndroidModelCompatibility.isDFlashDraft(File(configuredPath).name)
+        ) {
+            return configuredPath
+        }
 
         discoverDefaultModelPath()?.let { return it }
 
@@ -67,6 +74,7 @@ class LlamaEngine(private val context: Context) {
                     ?.filter { file -> 
                         file.isFile && 
                         file.name.lowercase().endsWith(".gguf") && 
+                        !AndroidModelCompatibility.isDFlashDraft(file.name) &&
                         !file.name.lowercase().contains("gemma-3")
                     }
                     ?: emptyList()
@@ -147,6 +155,7 @@ class LlamaEngine(private val context: Context) {
             return false
         }
 
+        lastEngineError = ""
         Thread {
             try {
                 runBlocking {
@@ -863,6 +872,8 @@ class LlamaEngine(private val context: Context) {
         if (!path.lowercase().endsWith(".gguf")) {
             return "Selected file is not a GGUF model."
         }
+
+        AndroidModelCompatibility.dflashDraftError(modelFile.name)?.let { return it }
 
         val size = modelFile.length()
         if (size < 1024L * 1024L) {

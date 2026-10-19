@@ -112,7 +112,28 @@ class LinuxLlmConfigService {
   }
 
   Future<String?> autoDetectExecutable() async {
-    final candidates = <String>[
+    final candidates = <String>[];
+    final home = Platform.environment['HOME'];
+    if (home != null) {
+      final lmStudioBackends = Directory(
+        '$home/.lmstudio/extensions/backends',
+      );
+      if (await lmStudioBackends.exists()) {
+        final backendDirectories = await lmStudioBackends
+            .list(followLinks: false)
+            .where((entity) => entity is Directory)
+            .cast<Directory>()
+            .toList();
+        backendDirectories.sort(_compareBackendDirectories);
+        candidates.addAll(
+          backendDirectories.map((directory) => '${directory.path}/llama-server'),
+        );
+      }
+    }
+
+    candidates.addAll(const <String>[
+      '/home/akash/Desktop/AI/llama.cpp/build/bin/llama-server',
+      '/home/akash/Desktop/IDP/llama.cpp/build/bin/llama-server',
       '/home/akash/Desktop/IDP/llama.cpp/build/bin/llama-completion',
       '/home/akash/Desktop/IDP/llama.cpp/build/bin/llama-cli',
       '/usr/local/bin/llama-completion',
@@ -121,7 +142,7 @@ class LinuxLlmConfigService {
       '/usr/bin/llama-cli',
       'llama-completion',
       'llama-cli',
-    ];
+    ]);
 
     for (final candidate in candidates) {
       final resolved = await _resolveExecutable(candidate);
@@ -131,6 +152,36 @@ class LinuxLlmConfigService {
     }
 
     return null;
+  }
+
+  int _compareBackendVersions(String left, String right) {
+    final versionPattern = RegExp(r'-(\d+)\.(\d+)\.(\d+)$');
+    final leftMatch = versionPattern.firstMatch(left);
+    final rightMatch = versionPattern.firstMatch(right);
+    if (leftMatch == null || rightMatch == null) return 0;
+
+    for (var group = 1; group <= 3; group++) {
+      final comparison = int.parse(
+        leftMatch.group(group)!,
+      ).compareTo(int.parse(rightMatch.group(group)!));
+      if (comparison != 0) return comparison;
+    }
+    return 0;
+  }
+
+  int _compareBackendDirectories(Directory left, Directory right) {
+    final versionOrder = _compareBackendVersions(right.path, left.path);
+    if (versionOrder != 0) return versionOrder;
+    return _backendPreference(right.path).compareTo(
+      _backendPreference(left.path),
+    );
+  }
+
+  int _backendPreference(String path) {
+    final normalized = path.toLowerCase();
+    if (normalized.contains('cuda') || normalized.contains('nvidia')) return 0;
+    if (normalized.contains('vulkan')) return 2;
+    return 1;
   }
 
   Future<String?> autoDetectModelPath() async {
@@ -227,7 +278,9 @@ class LinuxLlmConfigService {
     var executable = config.executablePath.trim();
     var modelPath = config.modelPath.trim();
 
-    var resolvedExecutable = await _resolveExecutable(executable);
+    var resolvedExecutable = executable == LinuxLlmConfig.defaults.executablePath
+        ? await autoDetectExecutable()
+        : await _resolveExecutable(executable);
     if (resolvedExecutable == null) {
       resolvedExecutable = await autoDetectExecutable();
     }
@@ -270,7 +323,8 @@ class LinuxLlmConfigService {
 
     return LinuxLlmValidationResult(
       ready: true,
-      message: 'Linux model pipeline ready.',
+      message:
+          'GGUF file and llama.cpp runner are configured. Use Validate to test model compatibility.',
       resolvedExecutablePath: resolvedExecutable,
     );
   }

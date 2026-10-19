@@ -1,3 +1,4 @@
+
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -13,7 +14,7 @@ void main() {
   group('Local LLM Architecture & Config Tests', () {
     final configService = LinuxLlmConfigService();
 
-    test('Auto-detects llama-cli / llama-completion executable', () async {
+    test('Auto-detects a llama.cpp inference runtime', () async {
       final detected = await configService.autoDetectExecutable();
       expect(detected, isNotNull);
       expect(File(detected!).existsSync(), isTrue);
@@ -40,7 +41,8 @@ void main() {
 
     test('ReasoningOutputFilter cleans stop tokens and reasoning blocks', () {
       final filter = ReasoningOutputFilter();
-      const chunk1 = '<think>\nThe user is asking for definition of motion.\n</think>\n';
+      const chunk1 =
+          '<think>\nThe user is asking for definition of motion.\n</think>\n';
       const chunk2 = 'Motion is the change in position of an object over time.';
 
       final p1 = filter.push(chunk1);
@@ -50,80 +52,97 @@ void main() {
       final full = p1 + p2 + fl;
       print('Filter test output: "$full"');
       expect(full, isNot(contains('<think>')));
-      expect(full, contains('Motion is the change in position of an object over time.'));
+      expect(
+        full,
+        contains('Motion is the change in position of an object over time.'),
+      );
     });
   });
 
   group('Local LLM Subprocess Inference Flow Test', () {
-    test('Streams real tokens from local GGUF model via LinuxTutorInferenceGateway', () async {
-      const modelPath =
-          '/home/akash/Desktop/PIHUB/backend/inference-service/models/phi-2.Q4_K_M.gguf';
+    test(
+      'Streams real tokens from local GGUF model via LinuxTutorInferenceGateway',
+      () async {
+        const modelPath =
+            '/home/akash/Desktop/PIHUB/backend/inference-service/models/phi-2.Q4_K_M.gguf';
 
-      final configService = LinuxLlmConfigService();
-      final executable = await configService.autoDetectExecutable();
-      expect(executable, isNotNull);
+        final configService = LinuxLlmConfigService();
+        final executable = await configService.autoDetectExecutable();
+        expect(executable, isNotNull);
 
-      // Save valid local config
-      await configService.save(
-        LinuxLlmConfig(
-          modelPath: modelPath,
-          executablePath: executable!,
-          maxTokens: 64,
-        ),
-      );
+        // Save valid local config
+        await configService.save(
+          LinuxLlmConfig(
+            modelPath: modelPath,
+            executablePath: executable!,
+            maxTokens: 64,
+          ),
+        );
 
-      final gateway = LinuxTutorInferenceGateway(configService: configService);
-      final stream = gateway.streamResponse(prompt: 'Explain gravity in 1 simple sentence.');
+        final gateway = LinuxTutorInferenceGateway(
+          configService: configService,
+        );
+        final stream = gateway.streamResponse(
+          prompt: 'Explain gravity in 1 simple sentence.',
+        );
 
-      final outputBuffer = StringBuffer();
-      var tokenCount = 0;
+        final outputBuffer = StringBuffer();
+        var tokenCount = 0;
 
-      await for (final chunk in stream) {
-        outputBuffer.write(chunk);
-        tokenCount++;
-      }
+        await for (final chunk in stream) {
+          outputBuffer.write(chunk);
+          tokenCount++;
+        }
 
-      final fullOutput = outputBuffer.toString();
-      print('\n=== LOCAL LLM STREAMED OUTPUT (${fullOutput.length} chars, $tokenCount chunks) ===');
-      print(fullOutput);
-      print('========================================================================\n');
+        final fullOutput = outputBuffer.toString();
+        print(
+          '\n=== LOCAL LLM STREAMED OUTPUT (${fullOutput.length} chars, $tokenCount chunks) ===',
+        );
+        print(fullOutput);
+        print(
+          '========================================================================\n',
+        );
 
-      expect(fullOutput.trim(), isNotEmpty);
-      expect(tokenCount, greaterThan(0));
-    });
+        expect(fullOutput.trim(), isNotEmpty);
+        expect(tokenCount, greaterThan(0));
+      },
+    );
 
-    test('MentoraBackendClient automatically falls back to Local LLM when backend is offline', () async {
-      const modelPath =
-          '/home/akash/Desktop/PIHUB/backend/inference-service/models/phi-2.Q4_K_M.gguf';
+    test(
+      'MentoraBackendClient automatically falls back to Local LLM when backend is offline',
+      () async {
+        const modelPath =
+            '/home/akash/Desktop/PIHUB/backend/inference-service/models/phi-2.Q4_K_M.gguf';
 
-      final configService = LinuxLlmConfigService();
-      final executable = await configService.autoDetectExecutable();
-      expect(executable, isNotNull);
+        final configService = LinuxLlmConfigService();
+        final executable = await configService.autoDetectExecutable();
+        expect(executable, isNotNull);
 
-      await configService.save(
-        LinuxLlmConfig(
-          modelPath: modelPath,
-          executablePath: executable!,
-          maxTokens: 32,
-        ),
-      );
+        await configService.save(
+          LinuxLlmConfig(
+            modelPath: modelPath,
+            executablePath: executable!,
+            maxTokens: 32,
+          ),
+        );
 
-      final client = MentoraBackendClient();
-      client.setBaseUrl('http://127.0.0.1:9999'); // Unreachable backend port
+        final client = MentoraBackendClient();
+        client.setBaseUrl('http://127.0.0.1:9999'); // Unreachable backend port
 
-      final reply = await client.queryAiTutor(
-        question: 'What is acceleration?',
-        topic: 'Motion',
-        grade: 9,
-      );
+        final reply = await client.queryAiTutor(
+          question: 'What is acceleration?',
+          topic: 'Motion',
+          grade: 9,
+        );
 
-      print('\n=== OFFLINE FALLBACK REPLY ===');
-      print('Source: ${reply['source']}');
-      print('Answer: ${reply['answer']}');
-      print('===============================\n');
+        print('\n=== OFFLINE FALLBACK REPLY ===');
+        print('Source: ${reply['source']}');
+        print('Answer: ${reply['answer']}');
+        print('===============================\n');
 
-      expect(reply['source'], 'on_device_local_llm');
-      expect(reply['answer'], contains('On-Device Local AI Tutor'));
-    });
+        expect(reply['source'], 'on_device_local_llm');
+        expect(reply['answer'], contains('On-Device Local AI Tutor'));
+      },
+    );
   });
 }

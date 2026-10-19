@@ -2,6 +2,29 @@
 
 This module is a separate app scaffold from `ai_tutor` and is intended for staged implementation of the full offline tutor platform.
 
+## Flutter SDK
+
+This project is pinned to Flutter **3.47.7** (Dart 3.13.5), as
+`flutter_agent_harness` requires Dart 3.12 or newer. Do not lower the Dart SDK
+constraint in `pubspec.yaml` to work around a system Flutter installation.
+
+Install FVM once with `dart pub global activate fvm` and ensure
+`$HOME/.pub-cache/bin` is on `PATH`. Then run `fvm install` from the project
+root. In VS Code, the workspace selects the pinned SDK automatically. For
+terminal commands, use `fvm flutter pub get`, `fvm flutter run`, or
+`fvm flutter test` rather than system `flutter`.
+
+## Android Bonsai model
+
+The Android JNI runtime is pinned to PrismML llama.cpp release
+`prism-b10777-e3de715`. After cloning, initialize the runtime source with
+`git submodule update --init --recursive`.
+
+In Settings > Local AI Tutor, download the Bonsai 2 4B Q2_0 base model or select
+another supported base GGUF. DFlash2 files are speculative draft models and
+cannot be loaded as the chat model by themselves. The 4B base is the phone-size
+starting point; larger model variants need device-specific memory testing.
+
 ## Stage 1 Implemented
 
 - Course -> Subject -> Chapter hierarchy (SQLite-backed)
@@ -267,4 +290,3 @@ No heavy inference logic is moved into Flutter.
 4. Add chapter mastery prerequisites enforcement (gated learning paths)
 5. Add spaced-repetition scheduling for review chapters
 6. Add personalized difficulty adjustment based on mastery progression
-

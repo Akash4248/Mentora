@@ -11,12 +11,16 @@ class LinuxTutorInferenceGateway implements TutorInferenceGateway {
 
   final LinuxLlmConfigService _configService;
   Process? _activeProcess;
+  HttpClient? _activeHttpClient;
   final Map<String, _LlamaCliCapabilities> _capabilityCache =
       <String, _LlamaCliCapabilities>{};
   static final RegExp _ansiEscape = RegExp(r'\x1B\[[0-9;]*[A-Za-z]');
 
   @override
-  Stream<String> streamResponse({required String prompt}) async* {
+  Stream<String> streamResponse({
+    required String prompt,
+    int? maxTokens,
+  }) async* {
     final config = await _configService.load();
     final executable = config.executablePath.trim();
     final model = config.modelPath.trim();
@@ -53,9 +57,25 @@ class LinuxTutorInferenceGateway implements TutorInferenceGateway {
       capabilities: capabilities,
     );
 
+    if (selected.executable
+        .split('/')
+        .last
+        .toLowerCase()
+        .contains('llama-server')) {
+      await for (final chunk in _streamFromServer(
+        executable: selected.executable,
+        model: model,
+        maxTokens: maxTokens ?? config.maxTokens,
+        prompt: prompt,
+      )) {
+        yield chunk;
+      }
+      return;
+    }
+
     final args = _buildArgs(
       model: model,
-      maxTokens: config.maxTokens,
+      maxTokens: maxTokens ?? config.maxTokens,
       prompt: prompt,
       executable: selected.executable,
       capabilities: selected.capabilities,
@@ -87,57 +107,84 @@ class LinuxTutorInferenceGateway implements TutorInferenceGateway {
     }
 
     // Forward stdout chunks into the merged stream.
-    process.stdout.transform(utf8.decoder).listen(
-      (chunk) {
-        if (chunk.isEmpty) return;
-        final cleaned = chunk.replaceAll(_ansiEscape, '');
-        if (cleaned.isNotEmpty && !_isLlamaLogChunk(cleaned) && !merged.isClosed) {
-          merged.add(cleaned);
-        }
-      },
-      onError: merged.addError,
-      onDone: () {
-        stdoutDone = true;
-        _closeWhenComplete();
-      },
-    );
+    process.stdout
+        .transform(utf8.decoder)
+        .listen(
+          (chunk) {
+            if (chunk.isEmpty) return;
+            final cleaned = chunk.replaceAll(_ansiEscape, '');
+            if (cleaned.isNotEmpty &&
+                !_isLlamaLogChunk(cleaned) &&
+                !merged.isClosed) {
+              merged.add(cleaned);
+            }
+          },
+          onError: merged.addError,
+          onDone: () {
+            stdoutDone = true;
+            _closeWhenComplete();
+          },
+        );
 
     // Capture stderr continuously for diagnostic logs and error reporting.
     // We log it to the console buffer, but DO NOT yield stderr lines into
     // the chat UI stream so initialization telemetry never leaks into user bubbles.
-    process.stderr.transform(utf8.decoder).listen(
-      (chunk) {
-        if (chunk.isEmpty) return;
-        stderrBuffer.write(chunk);
-        final cleaned = chunk.replaceAll(_ansiEscape, '');
-        if (cleaned.isNotEmpty) {
-          // Print diagnostics to console for developer troubleshooting.
-          // ignore: avoid_print
-          print('[LLAMA STDERR] ${cleaned.trim()}');
-        }
-      },
-      onError: merged.addError,
-      onDone: () {
-        stderrDone = true;
-        _closeWhenComplete();
-      },
-    );
+    process.stderr
+        .transform(utf8.decoder)
+        .listen(
+          (chunk) {
+            if (chunk.isEmpty) return;
+            stderrBuffer.write(chunk);
+            final cleaned = chunk.replaceAll(_ansiEscape, '');
+            if (cleaned.isNotEmpty) {
+              // Print diagnostics to console for developer troubleshooting.
+              // ignore: avoid_print
+              print('[LLAMA STDERR] ${cleaned.trim()}');
+            }
+          },
+          onError: merged.addError,
+          onDone: () {
+            stderrDone = true;
+            _closeWhenComplete();
+          },
+        );
 
     try {
       // Yield whatever we get from either stream (even if it includes partial
       // lines or stderr noise), so the UI can progress instead of hanging.
+      var receivedOutput = false;
       await for (final chunk in merged.stream) {
+        receivedOutput = receivedOutput || chunk.isNotEmpty;
         yield chunk;
       }
 
       final code = await process.exitCode;
       if (code != 0) {
         final message = stderrBuffer.toString().trim();
-        throw Exception(
-          message.isEmpty
-              ? 'Linux inference failed with exit code $code'
-              : 'Linux inference failed: $message',
-        );
+        final detail = message.isEmpty
+            ? 'Linux inference failed with exit code $code'
+            : 'Linux inference failed: $message';
+        if (!receivedOutput && _hasUnsupportedType41(detail)) {
+          final compatibleRunner = await _configService.autoDetectExecutable();
+          if (compatibleRunner != null &&
+              compatibleRunner
+                  .split('/')
+                  .last
+                  .toLowerCase()
+                  .contains('llama-server') &&
+              compatibleRunner != selected.executable) {
+            await for (final chunk in _streamFromServer(
+              executable: compatibleRunner,
+              model: model,
+              maxTokens: maxTokens ?? config.maxTokens,
+              prompt: prompt,
+            )) {
+              yield chunk;
+            }
+            return;
+          }
+        }
+        throw Exception(_addRuntimeCompatibilityHint(detail));
       }
     } finally {
       if (!merged.isClosed) {
@@ -147,6 +194,158 @@ class LinuxTutorInferenceGateway implements TutorInferenceGateway {
         _activeProcess = null;
       }
     }
+  }
+
+  Stream<String> _streamFromServer({
+    required String executable,
+    required String model,
+    required int maxTokens,
+    required String prompt,
+  }) async* {
+    await stopGeneration();
+    final port = await _reserveLoopbackPort();
+    final process = await Process.start(executable, <String>[
+      '--model',
+      model,
+      '--ctx-size',
+      '2048',
+      '--predict',
+      maxTokens.toString(),
+      '--gpu-layers',
+      '0',
+      '--threads',
+      '2',
+      '--host',
+      '127.0.0.1',
+      '--port',
+      port.toString(),
+      '--no-webui',
+    ], runInShell: false);
+    _activeProcess = process;
+    final logs = StringBuffer();
+    final stdoutSubscription = process.stdout
+        .transform(utf8.decoder)
+        .listen(logs.write);
+    final stderrSubscription = process.stderr.transform(utf8.decoder).listen((
+      chunk,
+    ) {
+      logs.write(chunk);
+      print('[LLAMA SERVER] ${chunk.trim()}');
+    });
+    final client = HttpClient()..connectionTimeout = const Duration(seconds: 2);
+    _activeHttpClient = client;
+
+    try {
+      await _waitForServer(
+        client: client,
+        port: port,
+        process: process,
+        logs: logs,
+      );
+
+      final request = await client.postUrl(
+        Uri.parse('http://127.0.0.1:$port/completion'),
+      );
+      request.headers.contentType = ContentType.json;
+      request.write(
+        jsonEncode(<String, dynamic>{
+          'prompt': prompt,
+          'n_predict': maxTokens,
+          'temperature': 0.3,
+          'top_k': 30,
+          'stream': true,
+        }),
+      );
+      final response = await request.close();
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        final body = await utf8.decoder.bind(response).join();
+        throw StateError(
+          'llama-server returned HTTP ${response.statusCode}: $body',
+        );
+      }
+
+      await for (final line
+          in response.transform(utf8.decoder).transform(const LineSplitter())) {
+        if (!line.startsWith('data:')) continue;
+        final data = line.substring('data:'.length).trim();
+        if (data.isEmpty || data == '[DONE]') continue;
+        final event = jsonDecode(data);
+        if (event is! Map<String, dynamic>) continue;
+        final error = event['error'];
+        if (error != null) {
+          throw StateError('llama-server inference failed: $error');
+        }
+        final content = event['content'];
+        if (content is String && content.isNotEmpty) {
+          yield content;
+        }
+      }
+    } finally {
+      await stdoutSubscription.cancel();
+      await stderrSubscription.cancel();
+      if (identical(_activeHttpClient, client)) {
+        _activeHttpClient = null;
+      }
+      client.close(force: true);
+      if (identical(_activeProcess, process)) {
+        await stopGeneration();
+      }
+    }
+  }
+
+  Future<void> _waitForServer({
+    required HttpClient client,
+    required int port,
+    required Process process,
+    required StringBuffer logs,
+  }) async {
+    var processExitCode = -1;
+    var processExited = false;
+    unawaited(
+      process.exitCode.then((code) {
+        processExitCode = code;
+        processExited = true;
+      }),
+    );
+    final deadline = DateTime.now().add(const Duration(minutes: 2));
+
+    while (DateTime.now().isBefore(deadline)) {
+      if (processExited) {
+        throw StateError(
+          'llama-server exited during model load (code $processExitCode). '
+          '${logs.toString().trim()}',
+        );
+      }
+      try {
+        final request = await client.getUrl(
+          Uri.parse('http://127.0.0.1:$port/health'),
+        );
+        final response = await request.close().timeout(
+          const Duration(seconds: 2),
+        );
+        await response.drain<void>();
+        if (response.statusCode == HttpStatus.ok) return;
+      } on SocketException {
+        // The server has not bound its local health endpoint yet.
+      } on HttpException {
+        // The server has not bound its local health endpoint yet.
+      } on TimeoutException {
+        // Model loading may still be in progress.
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+    }
+
+    throw TimeoutException(
+      'llama-server did not finish loading the selected model within 2 minutes. '
+      '${logs.toString().trim()}',
+    );
+  }
+
+  Future<int> _reserveLoopbackPort() async {
+    final socket = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+    final port = socket.port;
+    await socket.close();
+    return port;
   }
 
   @override
@@ -292,6 +491,9 @@ class LinuxTutorInferenceGateway implements TutorInferenceGateway {
   @override
   Future<void> stopGeneration() async {
     final process = _activeProcess;
+    final client = _activeHttpClient;
+    _activeHttpClient = null;
+    client?.close(force: true);
     if (process == null) {
       return;
     }
@@ -333,6 +535,21 @@ class LinuxTutorInferenceGateway implements TutorInferenceGateway {
         lower.contains('fitting params to device memory') ||
         lower.contains('loaded meta data with');
   }
+
+  static String _addRuntimeCompatibilityHint(String message) {
+    final normalized = message.toLowerCase();
+    if (_hasUnsupportedType41(normalized)) {
+      return '$message\n\nThe selected llama.cpp runtime does not support GGUF '
+          'tensor type 41. Update the llama-cli/llama-completion/llama-server '
+          'binary to a build that supports this model quantization, or choose '
+          'a GGUF quantization supported by the installed runtime.';
+    }
+    return message;
+  }
+
+  static bool _hasUnsupportedType41(String message) =>
+      message.toLowerCase().contains('invalid ggml type 41') ||
+      message.toLowerCase().contains('ggml type 41. should be in [0, 41)');
 }
 
 class _LlamaCliCapabilities {
