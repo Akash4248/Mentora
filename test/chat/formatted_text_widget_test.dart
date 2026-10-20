@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mentora/features/chat/presentation/formatted_text_widget.dart';
+import 'package:mentora/features/chat/presentation/widgets/ray_optics_canvas.dart';
 
 void main() {
   group('FormattedTextWidget', () {
@@ -143,6 +144,80 @@ print(f"Force: {force} N")
       expect(find.text('PYTHON'), findsOneWidget);
       expect(find.text('Copy'), findsOneWidget);
       expect(find.textContaining('force = mass * accel'), findsOneWidget);
+    });
+
+    testWidgets(r'renders block math $$ ... $$ and converts LaTeX symbols to Unicode', (tester) async {
+      const markdown = r'''
+Here is the integral to solve:
+
+$$
+\int (2 x^2 + 5 y^3 dx)
+$$
+
+And the summation formula:
+\[ \sum_{i=1}^n i = \frac{n(n+1)}{2} \]
+''';
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: FormattedTextWidget(text: markdown),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.functions_rounded), findsNWidgets(2));
+      expect(find.textContaining('∫ (2 x² + 5 y³ dx)'), findsOneWidget);
+      expect(find.textContaining('∑'), findsOneWidget);
+    });
+
+    testWidgets('attaches circuit schematic visual card when student asks about kirchhoff', (tester) async {
+      const markdown = '''
+Kirchhoff's Current Law states that the total current entering a junction must equal the total current leaving.
+''';
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: FormattedTextWidget(
+                text: markdown,
+                studentQuestion: "show me how kirchoff's law works",
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Verify that circuit visual card is attached
+      expect(find.textContaining("Kirchhoff's Current Law"), findsOneWidget);
+      expect(find.text("Kirchhoff's Laws & Circuit Loop"), findsOneWidget);
+      expect(find.text('Voltage (V)'), findsOneWidget);
+    });
+
+    testWidgets('renders ray optics canvas for merora-visual misspelling with trailing brace', (tester) async {
+      const markdown =
+          '```merora-visual {"type": "optics.ray_diagram", "scenario": "concave_mirror", "title": "Rays Reflecting from a Concave Mirror", "inputs": {"focal_length_cm": 15, "object_distance_cm": 30}} } ```';
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: FormattedTextWidget(text: markdown),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Verify that ray optics canvas rendered instead of black code card
+      expect(find.text('Rays Reflecting from a Concave Mirror'), findsOneWidget);
+      expect(find.text('MERORA-VISUAL'), findsNothing);
+      expect(find.byType(RayOpticsCanvas), findsOneWidget);
     });
   });
 }

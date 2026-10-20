@@ -110,5 +110,21 @@ Here is the explanation for the pendulum motion.
       expect(result.proseText, isNot(contains('mentora-tool-call')));
       expect(result.proseText, isNot(contains('lookup_simulation')));
     });
+
+    test('parses merora-visual misspelling with single-line JSON and extraneous trailing brace', () {
+      const rawText =
+          '```merora-visual {"type": "optics.ray_diagram", "scenario": "concave_mirror", "title": "Rays Reflecting from a Concave Mirror", "inputs": {"focal_length_cm": 15, "object_distance_cm": 30}} } ```';
+
+      final result = parser.parse(rawText);
+      expect(result.hasIncompleteBlock, isFalse);
+      expect(result.visualIntents.length, 1);
+      final intent = result.visualIntents.first;
+      expect(intent.type, VisualType.opticsRayDiagram);
+      expect(intent.scenario, 'concave_mirror');
+      expect(intent.title, 'Rays Reflecting from a Concave Mirror');
+      expect(intent.inputs['focal_length_cm'], 15);
+      expect(intent.inputs['object_distance_cm'], 30);
+      expect(result.proseText, isEmpty);
+    });
   });
 }

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter_agent_harness/flutter_agent_harness.dart';
 
 import '../../experiment/sensor_lab/domain/lab_experiment_definition.dart';
@@ -96,6 +97,7 @@ abstract final class DefaultCapabilities {
             final summary = StringBuffer('Found simulation: $title');
             if (desc.isNotEmpty) summary.write(' — $desc');
             if (formulas.isNotEmpty) summary.write(' (Formulas: $formulas)');
+            summary.write('\nTo render this interactive visualizer for the student, include a ```mentora-visual block with type "motion.trajectory".');
             return ToolExecutionResult.text(summary.toString());
           } catch (e) {
             return ToolExecutionResult.text(
@@ -153,6 +155,73 @@ abstract final class DefaultCapabilities {
     );
   }
 
+  /// Interactive scientific, circuit, trajectory, or geometric visualizer capability.
+  static CapabilityDescriptor showVisualization() {
+    return CapabilityDescriptor(
+      id: 'visual.render',
+      version: '1.0.0',
+      displayName: 'Interactive Visualizer',
+      description:
+          'Renders an interactive scientific simulation, dynamic circuit, trajectory, or diagram.',
+      tier: CapabilityPermissionTier.readOnly,
+      tags: const {'physics', 'math', 'visual', 'circuit', 'simulation', 'stem'},
+      tool: AgentTool(
+        name: 'show_visualization',
+        description:
+            'Renders an interactive dynamic visualizer, circuit schematic, physics simulation, or geometry canvas for the student.',
+        label: 'Rendering visualizer',
+        parameters: const {
+          'type': 'object',
+          'properties': {
+            'type': {
+              'type': 'string',
+              'description':
+                  'The visualizer type: "circuit.schematic", "motion.trajectory", "optics.ray_diagram", "geometry.construction", or "simulation.launcher".',
+            },
+            'scenario': {
+              'type': 'string',
+              'description':
+                  'The scenario name (e.g. "series_circuit", "simple_circuit", "projectile", "concave_mirror", "convex_lens", "right_triangle").',
+            },
+            'title': {
+              'type': 'string',
+              'description': 'A student-friendly title for the visualizer card.',
+            },
+            'inputs': {
+              'type': 'object',
+              'description':
+                  'Numeric input parameters for the simulation or schematic (e.g. voltage, resistances, launch_velocity_mps, focal_length_cm).',
+            },
+          },
+          'required': ['type', 'scenario'],
+          'additionalProperties': true,
+        },
+        execute: (arguments, cancelToken, onUpdate) async {
+          cancelToken?.throwIfCancelled();
+          final type = (arguments['type'] as String? ?? 'circuit.schematic').trim();
+          final scenario = (arguments['scenario'] as String? ?? 'simple_circuit').trim();
+          final title = (arguments['title'] as String? ?? 'Interactive Visualizer').trim();
+          final inputs = arguments['inputs'] is Map
+              ? Map<String, dynamic>.from(arguments['inputs'] as Map)
+              : <String, dynamic>{};
+
+          onUpdate?.call(ToolExecutionResult.text('Preparing $title visualizer…'));
+
+          final visualJson = jsonEncode({
+            'type': type,
+            'scenario': scenario,
+            'title': title,
+            'inputs': inputs,
+          });
+
+          return ToolExecutionResult.text(
+            'Visualizer rendered successfully.\n\n```mentora-visual\n$visualJson\n```',
+          );
+        },
+      ),
+    );
+  }
+
   /// Returns a [CapabilityRegistry] populated with default safe educational tools.
   static CapabilityRegistry createDefaultRegistry({
     MentoraBackendClient? client,
@@ -161,6 +230,7 @@ abstract final class DefaultCapabilities {
       calculate(),
       lookupSimulation(client: client),
       proposeLab(),
+      showVisualization(),
     ]);
   }
 }

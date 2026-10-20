@@ -1,6 +1,7 @@
 // ignore_for_file: prefer_initializing_formals
 
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_agent_harness/flutter_agent_harness.dart';
@@ -13,6 +14,8 @@ import 'context_builder.dart';
 import 'mentora_agent_session.dart';
 import 'mentora_tutor_agent_provider.dart';
 import 'tutor_evaluation_logger.dart';
+import 'visual_fallback_policy.dart';
+import 'visual_stream_parser.dart';
 
 enum TutorRunState {
   idle,
@@ -187,7 +190,20 @@ final class TutorSessionCoordinator {
             evaluation.finishTurn(answer: text);
             final activeSessionId = sessionId ?? _topic;
             _contextBuilder?.memoryManager.recordSessionQuestion(activeSessionId, question);
-            yield event;
+
+            var finalText = text;
+            final parsed = const VisualStreamParser().parse(text);
+            if (parsed.visualIntents.isEmpty) {
+              final fallback = const VisualFallbackPolicy().matchDeterministicFallback(
+                question: question,
+                existingIntents: parsed.visualIntents,
+              );
+              if (fallback != null) {
+                final visualBlock = '\n\n```mentora-visual\n${jsonEncode(fallback.toJson())}\n```';
+                finalText = '$text$visualBlock';
+              }
+            }
+            yield TutorTurnCompletedEvent(finalText);
           case TutorTurnAbortedEvent():
             _stateNotifier.value = TutorRunState.aborted;
             evaluation.finishTurn(answer: '', err: 'Aborted by user');

@@ -101,6 +101,7 @@ final class MentoraAgentSession {
       messages: initialMessages,
       toolRegistry: registry,
       toolExecution: ToolExecutionMode.sequential,
+      overWindowRelief: _compactOverWindowMessages,
       streamFunction: (activeModel, context, {cancelToken}) {
         if (_modelTurns >= maxModelTurns) {
           return _failureResponse(
@@ -222,6 +223,71 @@ final class MentoraAgentSession {
 
   void cancelCurrentTurn() {
     _agent.abort();
+  }
+
+  static Future<List<Message>?> _compactOverWindowMessages(List<Message> messages) async {
+    if (messages.isEmpty) return null;
+
+    if (messages.length <= 2) {
+      final truncated = <Message>[];
+      for (final m in messages) {
+        if (m is AssistantMessage) {
+          final text = m.content.whereType<TextContent>().map((c) => c.text).join();
+          if (text.length > 400) {
+            truncated.add(AssistantMessage(
+              content: [TextContent(text: '${text.substring(0, 400)}…')],
+              api: m.api,
+              provider: m.provider,
+              model: m.model,
+              usage: m.usage,
+              stopReason: m.stopReason,
+              timestamp: m.timestamp,
+            ));
+            continue;
+          }
+        }
+        truncated.add(m);
+      }
+      return truncated;
+    }
+
+    final recent = messages.sublist(messages.length - 2);
+    final older = messages.sublist(0, messages.length - 2);
+
+    final summaryLines = <String>[];
+    for (final m in older) {
+      String role = 'Student';
+      String text = '';
+      if (m is UserMessage) {
+        role = 'Student';
+        final content = m.content;
+        if (content is String) {
+          text = content;
+        } else if (content is List<ContentBlock>) {
+          text = content.whereType<TextContent>().map((c) => c.text).join();
+        }
+      } else if (m is AssistantMessage) {
+        role = 'Tutor';
+        text = m.content.whereType<TextContent>().map((c) => c.text).join();
+      } else if (m is ToolResultMessage) {
+        continue;
+      }
+      text = text.trim();
+      if (text.isEmpty) continue;
+
+      text = text.replaceAll(RegExp(r'```[\s\S]*?(?:```|$)'), '[diagram]');
+      final snippet = text.length > 100 ? '${text.substring(0, 100)}…' : text;
+      summaryLines.add('$role: $snippet');
+    }
+
+    final summaryBlock = summaryLines.isNotEmpty
+        ? '[Compacted Conversation History Summary]:\n${summaryLines.join('\n')}'
+        : '[Prior history compacted]';
+
+    return [
+      UserMessage.text(summaryBlock, timestamp: DateTime.now()),
+      ...recent,
+    ];
   }
 
   Future<void> dispose() async {

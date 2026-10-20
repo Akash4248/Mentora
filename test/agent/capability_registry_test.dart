@@ -184,6 +184,27 @@ void main() {
         expect(_resultText(result), contains('Interactive Pendulum & Motion Lab'));
         expect(_resultText(result), contains('Formulas:'));
       });
+
+      test('visual.render executes and returns mentora-visual block', () async {
+        final visualDescriptor = DefaultCapabilities.showVisualization();
+        expect(visualDescriptor.id, 'visual.render');
+        expect(visualDescriptor.tier, CapabilityPermissionTier.readOnly);
+        expect(visualDescriptor.name, 'show_visualization');
+
+        final result = await visualDescriptor.tool.execute(
+          {
+            'type': 'circuit.schematic',
+            'scenario': 'series_circuit',
+            'title': "Kirchhoff's Laws",
+            'inputs': {'voltage': 12.0, 'resistances': [10.0, 20.0]},
+          },
+          null,
+          null,
+        );
+        expect(_resultText(result), contains('mentora-visual'));
+        expect(_resultText(result), contains('series_circuit'));
+        expect(_resultText(result), contains("Kirchhoff's Laws"));
+      });
     });
   });
 }

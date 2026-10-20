@@ -163,5 +163,39 @@ void main() {
       expect(decision.confidence, 0.50);
       expect(decision.selectedCapabilityIds, isEmpty);
     });
+
+    test('routes inquiries about supported tools to all capabilities', () {
+      final toolQueries = [
+        'what tools do u support?',
+        'what tools do you support?',
+        'list your tools',
+        'what capabilities do you have?',
+      ];
+
+      for (final query in toolQueries) {
+        final decision = router.route(question: query, topic: 'Science', grade: 9);
+        expect(decision.route, TutorRoute.generalFactual);
+        expect(decision.selectedCapabilityIds, contains('math.calculate'));
+        expect(decision.selectedCapabilityIds, contains('simulation.lookup'));
+        expect(decision.selectedCapabilityIds, contains('lab.propose'));
+        expect(decision.selectedCapabilityIds, contains('visual.render'));
+      }
+    });
+
+    test('routes visualization inquiries with visual.render capability', () {
+      final visualQueries = [
+        'show me how kirchoff\'s law works',
+        'visualize projectile motion',
+        'draw circuit for resistors in series',
+        'show ray diagram for concave mirror',
+        'visualize a simple circuit',
+      ];
+
+      for (final query in visualQueries) {
+        final decision = router.route(question: query, topic: 'Physics', grade: 9);
+        expect(decision.route, TutorRoute.visualization, reason: 'Failed for: $query');
+        expect(decision.selectedCapabilityIds, contains('visual.render'));
+      }
+    });
   });
 }

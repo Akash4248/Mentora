@@ -10,7 +10,7 @@ class MarkdownFormatNormalizer {
     var out = text;
 
     // 0. Strip raw tool call blocks and legacy device tags
-    out = out.replaceAll(RegExp(r'```(?:json:)?mentora-tool-call[\s\S]*?(?:```|$)'), '');
+    out = out.replaceAll(RegExp(r'```(?:json:)?(?:mentora|merora|mentor|m)?[_\-]?tool-call[\s\S]*?(?:```|$)', caseSensitive: false), '');
     out = out.replaceAll(RegExp(r'📱\s*\*+\[On-Device Local AI Tutor\]\*+\s*'), '');
 
     // Extract code blocks (```...```) so prose heuristics never alter code or diagrams

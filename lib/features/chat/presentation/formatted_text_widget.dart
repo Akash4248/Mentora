@@ -2,15 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/theme/idp_colors.dart';
 import '../application/markdown_format_normalizer.dart';
+import '../application/visual_fallback_policy.dart';
 import '../application/visual_stream_parser.dart';
+import '../domain/visual_intent.dart';
 import 'widgets/mermaid_diagram_card.dart';
 import 'widgets/visual_card_widget.dart';
 
 class FormattedTextWidget extends StatelessWidget {
   final String text;
   final TextStyle? style;
+  final String? studentQuestion;
 
-  const FormattedTextWidget({required this.text, this.style, super.key});
+  const FormattedTextWidget({
+    required this.text,
+    this.style,
+    this.studentQuestion,
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -34,6 +42,9 @@ class FormattedTextWidget extends StatelessWidget {
     bool inCodeBlock = false;
     String codeBlockLang = '';
     List<String> currentCodeBlockLines = [];
+
+    bool inMathBlock = false;
+    List<String> currentMathBlockLines = [];
 
     void flushList() {
       if (currentList.isNotEmpty) {
@@ -60,6 +71,15 @@ class FormattedTextWidget extends StatelessWidget {
       }
     }
 
+    void flushMathBlock() {
+      if (currentMathBlockLines.isNotEmpty) {
+        final mathContent = currentMathBlockLines.join('\n');
+        children.add(_buildMathBlock(mathContent));
+        currentMathBlockLines = [];
+      }
+      inMathBlock = false;
+    }
+
     void flushCodeBlock({bool isStillStreaming = false}) {
       if (currentCodeBlockLines.isNotEmpty || inCodeBlock) {
         final codeContent = currentCodeBlockLines.join('\n');
@@ -68,6 +88,11 @@ class FormattedTextWidget extends StatelessWidget {
             source: codeContent,
             isStreaming: isStillStreaming,
           ));
+        } else if (codeBlockLang.contains('visual') || codeBlockLang.contains('mentora') || codeBlockLang.contains('merora')) {
+          final intent = VisualIntent.tryParse(codeContent);
+          if (intent != null) {
+            children.add(VisualCardWidget(intent: intent));
+          }
         } else {
           children.add(_buildCodeBlock(codeBlockLang, codeContent));
         }
@@ -81,6 +106,25 @@ class FormattedTextWidget extends StatelessWidget {
 
     for (var line in lines) {
       final trimmed = line.trim();
+
+      // Handle lines inside an active math block ($$ ... $$ or \[ ... \])
+      if (inMathBlock) {
+        if (trimmed == r'$$' || trimmed == r'\]') {
+          flushMathBlock();
+          continue;
+        } else if (trimmed.endsWith(r'$$') && trimmed.length > 2) {
+          currentMathBlockLines.add(trimmed.substring(0, trimmed.length - 2).trim());
+          flushMathBlock();
+          continue;
+        } else if (trimmed.endsWith(r'\]') && trimmed.length > 2) {
+          currentMathBlockLines.add(trimmed.substring(0, trimmed.length - 2).trim());
+          flushMathBlock();
+          continue;
+        } else {
+          currentMathBlockLines.add(line);
+          continue;
+        }
+      }
 
       // Handle lines inside an active code block
       if (inCodeBlock) {
@@ -96,7 +140,45 @@ class FormattedTextWidget extends StatelessWidget {
       if (trimmed.isEmpty) {
         flushList();
         flushTable();
+        flushMathBlock();
         children.add(const SizedBox(height: 6));
+        continue;
+      }
+
+      // Check for standalone math block ($$ or \[)
+      if (trimmed == r'$$' || trimmed == r'\[') {
+        flushList();
+        flushTable();
+        inMathBlock = true;
+        currentMathBlockLines = [];
+        continue;
+      }
+      if (trimmed.startsWith(r'$$') && trimmed.endsWith(r'$$') && trimmed.length > 4) {
+        flushList();
+        flushTable();
+        final mathContent = trimmed.substring(2, trimmed.length - 2).trim();
+        children.add(_buildMathBlock(mathContent));
+        continue;
+      }
+      if (trimmed.startsWith(r'\[') && trimmed.endsWith(r'\]') && trimmed.length > 4) {
+        flushList();
+        flushTable();
+        final mathContent = trimmed.substring(2, trimmed.length - 2).trim();
+        children.add(_buildMathBlock(mathContent));
+        continue;
+      }
+      if (trimmed.startsWith(r'$$') && trimmed.length > 2) {
+        flushList();
+        flushTable();
+        inMathBlock = true;
+        currentMathBlockLines = [trimmed.substring(2).trim()];
+        continue;
+      }
+      if (trimmed.startsWith(r'\[') && trimmed.length > 2) {
+        flushList();
+        flushTable();
+        inMathBlock = true;
+        currentMathBlockLines = [trimmed.substring(2).trim()];
         continue;
       }
 
@@ -202,11 +284,25 @@ class FormattedTextWidget extends StatelessWidget {
 
     flushList();
     flushTable();
+    if (inMathBlock) {
+      flushMathBlock();
+    }
     if (inCodeBlock) {
       flushCodeBlock(isStillStreaming: parsedTurn.hasIncompleteBlock);
     }
 
-    for (final intent in parsedTurn.visualIntents) {
+    final intents = List<VisualIntent>.from(parsedTurn.visualIntents);
+    if (intents.isEmpty && studentQuestion != null && studentQuestion!.isNotEmpty) {
+      final fallback = const VisualFallbackPolicy().matchDeterministicFallback(
+        question: studentQuestion!,
+        existingIntents: intents,
+      );
+      if (fallback != null) {
+        intents.add(fallback);
+      }
+    }
+
+    for (final intent in intents) {
       children.add(VisualCardWidget(intent: intent));
     }
 
@@ -440,17 +536,89 @@ class FormattedTextWidget extends StatelessWidget {
     );
   }
 
+  Widget _buildMathBlock(String rawFormula) {
+    final formula = _normalizeMathExpression(rawFormula);
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFCBD5E1)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(5),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEEF2FF),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: const Icon(Icons.functions_rounded, size: 18, color: IDPColors.primary),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: SelectableText(
+              formula,
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF1E293B),
+                height: 1.45,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   static String _normalizeMathExpression(String expr) {
-    var s = expr;
-    // Replace \sqrt{...} with √(...)
-    s = s.replaceAllMapped(RegExp(r'\\sqrt\{([^}]+)\}'), (m) => '√(${m.group(1)})');
-    // Replace \frac{a}{b} with (a / b)
+    var s = expr.trim();
+    // 0. Character encoding & parser artifacts
+    s = s.replaceAll('¥', r'\');
+    s = s.replaceAll('sft(', '(').replaceAll(r'\left(', '(').replaceAll(r'\right)', ')');
+    s = s.replaceAll(r'\left[', '[').replaceAll(r'\right]', ']');
+    s = s.replaceAll(r'\left', '').replaceAll(r'\right', '');
+
+    // 1. Spacing macros
+    s = s.replaceAll(r'\,', ' ').replaceAll(r'\;', ' ').replaceAll(r'\quad', '  ').replaceAll(r'\qquad', '    ');
+
+    // 2. Text macros
+    s = s.replaceAllMapped(RegExp(r'\\text\{([^}]+)\}'), (m) => m.group(1)!);
+
+    // 3. Integrals and summations
+    s = s.replaceAll(r'\iiint', '∭')
+         .replaceAll(r'\iint', '∬')
+         .replaceAll(r'\oint', '∮')
+         .replaceAll(r'\int', '∫')
+         .replaceAll(r'\sum', '∑')
+         .replaceAll(r'\prod', '∏')
+         .replaceAll(r'\partial', '∂')
+         .replaceAll(r'\nabla', '∇');
+
+    // 4. Fractions: \frac{a}{b} -> (a / b)
     s = s.replaceAllMapped(RegExp(r'\\frac\{([^}]+)\}\{([^}]+)\}'), (m) => '(${m.group(1)} / ${m.group(2)})');
-    // Greek letters & math symbols
+
+    // 5. Square roots: \sqrt{...} -> √(...)
+    s = s.replaceAllMapped(RegExp(r'\\sqrt\{([^}]+)\}'), (m) => '√(${m.group(1)})');
+
+    // 6. Greek letters & mathematical symbols
     s = s.replaceAll(r'\pi', 'π')
          .replaceAll(r'\theta', 'θ')
          .replaceAll(r'\alpha', 'α')
          .replaceAll(r'\beta', 'β')
+         .replaceAll(r'\gamma', 'γ')
+         .replaceAll(r'\delta', 'δ')
+         .replaceAll(r'\epsilon', 'ε')
+         .replaceAll(r'\lambda', 'λ')
+         .replaceAll(r'\mu', 'μ')
+         .replaceAll(r'\sigma', 'σ')
+         .replaceAll(r'\omega', 'ω')
+         .replaceAll(r'\Delta', 'Δ')
+         .replaceAll(r'\Omega', 'Ω')
          .replaceAll(r'\times', '×')
          .replaceAll(r'\cdot', '·')
          .replaceAll(r'\pm', '±')
@@ -459,13 +627,19 @@ class FormattedTextWidget extends StatelessWidget {
          .replaceAll(r'\leq', '≤')
          .replaceAll(r'\ge', '≥')
          .replaceAll(r'\geq', '≥')
-         .replaceAll(r'\Delta', 'Δ')
-         .replaceAll(r'\lambda', 'λ')
-         .replaceAll(r'\mu', 'μ')
          .replaceAll(r'\infty', '∞')
-         .replaceAll(r'\neq', '≠');
-    // Superscripts ^2, ^3
-    s = s.replaceAll('^2', '²').replaceAll('^3', '³');
+         .replaceAll(r'\neq', '≠')
+         .replaceAll(r'\to', '→')
+         .replaceAll(r'\rightarrow', '→');
+
+    // 7. Subscripts: _{...} -> (...)
+    s = s.replaceAllMapped(RegExp(r'_\{([^}]+)\}'), (m) => '(${m.group(1)})');
+    s = s.replaceAll('_0', '₀').replaceAll('_1', '₁').replaceAll('_2', '₂').replaceAll('_3', '₃');
+
+    // 8. Superscripts: ^{...} -> ^(...)
+    s = s.replaceAllMapped(RegExp(r'\^\{([^}]+)\}'), (m) => '^(${m.group(1)})');
+    s = s.replaceAll('^2', '²').replaceAll('^3', '³').replaceAll('^4', '⁴').replaceAll('^n', 'ⁿ');
+
     return s;
   }
 
@@ -473,14 +647,17 @@ class FormattedTextWidget extends StatelessWidget {
     final baseStyle = customStyle ?? style ?? IDPTypography.bodyMd.copyWith(color: IDPColors.onSurface);
     final spans = <TextSpan>[];
 
-    // Markdown inline parser for **bold**, *italic*, `code`, and $math$
-    final regExp = RegExp(r'(\*\*.*?\*\*|\*.*?\*|`.*?`|\$[^\$]+?\$)');
+    // Pre-normalize encoding artifacts
+    final cleanRaw = rawText.replaceAll('¥', r'\');
+
+    // Markdown inline parser for **bold**, *italic*, `code`, $math$, and \(math\)
+    final regExp = RegExp(r'(\*\*.*?\*\*|\*.*?\*|`.*?`|\$[^\$]+?\$|\\\(.*?\\\))');
     int lastMatchEnd = 0;
 
-    for (final match in regExp.allMatches(rawText)) {
+    for (final match in regExp.allMatches(cleanRaw)) {
       if (match.start > lastMatchEnd) {
         spans.add(TextSpan(
-          text: rawText.substring(lastMatchEnd, match.start),
+          text: cleanRaw.substring(lastMatchEnd, match.start),
           style: baseStyle,
         ));
       }
@@ -507,8 +684,11 @@ class FormattedTextWidget extends StatelessWidget {
             backgroundColor: const Color(0xFFF1F5F9),
           ),
         ));
-      } else if (matchText.startsWith('\$') && matchText.endsWith('\$') && matchText.length >= 2) {
-        final content = matchText.substring(1, matchText.length - 1).trim();
+      } else if ((matchText.startsWith('\$') && matchText.endsWith('\$') && matchText.length >= 2) ||
+                 (matchText.startsWith(r'\(') && matchText.endsWith(r'\)') && matchText.length >= 4)) {
+        final content = matchText.startsWith('\$')
+            ? matchText.substring(1, matchText.length - 1).trim()
+            : matchText.substring(2, matchText.length - 2).trim();
         final readableMath = _normalizeMathExpression(content);
         spans.add(TextSpan(
           text: readableMath,
@@ -526,15 +706,15 @@ class FormattedTextWidget extends StatelessWidget {
       lastMatchEnd = match.end;
     }
 
-    if (lastMatchEnd < rawText.length) {
+    if (lastMatchEnd < cleanRaw.length) {
       spans.add(TextSpan(
-        text: rawText.substring(lastMatchEnd),
+        text: cleanRaw.substring(lastMatchEnd),
         style: baseStyle,
       ));
     }
 
     return SelectableText.rich(
-      TextSpan(children: spans.isEmpty ? [TextSpan(text: rawText, style: baseStyle)] : spans),
+      TextSpan(children: spans.isEmpty ? [TextSpan(text: cleanRaw, style: baseStyle)] : spans),
     );
   }
 }

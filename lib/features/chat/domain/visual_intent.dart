@@ -80,7 +80,8 @@ final class VisualIntent {
     try {
       final Map<String, dynamic> map;
       if (raw is String) {
-        final decoded = jsonDecode(raw.trim());
+        final sanitized = extractBalancedJsonObject(raw);
+        final decoded = jsonDecode(sanitized);
         if (decoded is! Map<String, dynamic>) return null;
         map = decoded;
       } else if (raw is Map<String, dynamic>) {
@@ -121,6 +122,41 @@ final class VisualIntent {
     } catch (_) {
       return null;
     }
+  }
+
+  /// Extracts the outermost balanced JSON object `{ ... }` from a string,
+  /// ignoring any trailing extraneous characters (such as extra closing braces or trailing markdown).
+  static String extractBalancedJsonObject(String raw) {
+    final start = raw.indexOf('{');
+    if (start == -1) return raw.trim();
+    var depth = 0;
+    var inString = false;
+    var isEscaped = false;
+    for (var i = start; i < raw.length; i++) {
+      final char = raw[i];
+      if (isEscaped) {
+        isEscaped = false;
+        continue;
+      }
+      if (char == r'\') {
+        isEscaped = true;
+        continue;
+      }
+      if (char == '"') {
+        inString = !inString;
+        continue;
+      }
+      if (!inString) {
+        if (char == '{') depth++;
+        if (char == '}') {
+          depth--;
+          if (depth == 0) {
+            return raw.substring(start, i + 1);
+          }
+        }
+      }
+    }
+    return raw.substring(start).trim();
   }
 
   @override

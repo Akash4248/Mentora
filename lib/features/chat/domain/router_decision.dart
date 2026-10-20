@@ -12,6 +12,9 @@ enum TutorRoute {
   /// Direct intent to launch or explore phone sensor laboratory routes.
   labRoute,
 
+  /// Interactive scientific, circuit, trajectory, or geometric visualization.
+  visualization,
+
   /// Core conceptual explanation, definitions, analogies, and intuitions.
   conceptualExplanation,
 

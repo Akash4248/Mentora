@@ -30,8 +30,10 @@ final class ParsedVisualTurn {
 final class VisualStreamParser {
   const VisualStreamParser();
 
-  static const _openFence1 = '```mentora-visual';
-  static const _openFence2 = '```json:mentora-visual';
+  static final _openFenceRegex = RegExp(
+    r'```(?:json:)?(?:mentora|merora|mentor|m)?[_\-]?visual\b\s*',
+    caseSensitive: false,
+  );
   static const _closeFence = '```';
 
   /// Parses text into cleaned prose and extracted [VisualIntent] objects.
@@ -46,17 +48,14 @@ final class VisualStreamParser {
 
     // Strip completed tool call blocks so raw JSON/function calls never leak into proseText
     var sanitizedText = rawText.replaceAll(
-      RegExp(r'```(?:json:)?mentora-tool-call[\s\S]*?```'),
+      RegExp(r'```(?:json:)?(?:mentora|merora|mentor|m)?[_\-]?tool-call[\s\S]*?```', caseSensitive: false),
       '',
     );
     // Strip trailing incomplete tool-call fence if currently streaming mid-block
-    final toolIdx1 = sanitizedText.indexOf('```mentora-tool-call');
-    final toolIdx2 = sanitizedText.indexOf('```json:mentora-tool-call');
-    final earliestToolIdx = (toolIdx1 != -1 && toolIdx2 != -1)
-        ? (toolIdx1 < toolIdx2 ? toolIdx1 : toolIdx2)
-        : (toolIdx1 != -1 ? toolIdx1 : toolIdx2);
-    if (earliestToolIdx != -1) {
-      sanitizedText = sanitizedText.substring(0, earliestToolIdx).trimRight();
+    final toolCallFenceRegex = RegExp(r'```(?:json:)?(?:mentora|merora|mentor|m)?[_\-]?tool-call', caseSensitive: false);
+    final toolMatch = toolCallFenceRegex.firstMatch(sanitizedText);
+    if (toolMatch != null) {
+      sanitizedText = sanitizedText.substring(0, toolMatch.start).trimRight();
     }
 
     final proseBuffer = StringBuffer();
@@ -67,34 +66,16 @@ final class VisualStreamParser {
     final length = sanitizedText.length;
 
     while (currentIndex < length) {
-      // Look for the next open fence
-      final idx1 = sanitizedText.indexOf(_openFence1, currentIndex);
-      final idx2 = sanitizedText.indexOf(_openFence2, currentIndex);
-
-      int openIdx = -1;
-      int fenceLen = 0;
-
-      if (idx1 != -1 && idx2 != -1) {
-        if (idx1 < idx2) {
-          openIdx = idx1;
-          fenceLen = _openFence1.length;
-        } else {
-          openIdx = idx2;
-          fenceLen = _openFence2.length;
-        }
-      } else if (idx1 != -1) {
-        openIdx = idx1;
-        fenceLen = _openFence1.length;
-      } else if (idx2 != -1) {
-        openIdx = idx2;
-        fenceLen = _openFence2.length;
-      }
-
-      if (openIdx == -1) {
+      // Look for the next open fence matching any visual variant
+      final match = _openFenceRegex.firstMatch(sanitizedText.substring(currentIndex));
+      if (match == null) {
         // No more visual blocks, append the rest to prose
         proseBuffer.write(sanitizedText.substring(currentIndex));
         break;
       }
+
+      final openIdx = currentIndex + match.start;
+      final fenceLen = match.end - match.start;
 
       // Append preceding text to prose
       proseBuffer.write(sanitizedText.substring(currentIndex, openIdx));

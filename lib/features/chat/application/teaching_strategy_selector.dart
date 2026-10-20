@@ -40,21 +40,23 @@ final class TeachingStrategySelector {
 
   /// Formats explicit pedagogical instructions corresponding to the selected strategy.
   String instructionForStrategy(TeachingStrategy strategy) {
+    const metaNote = ' Note: These instructions are internal guidance for your explanation. Do NOT output labels like "Pedagogical Directive", "Real-world analogy", or "Conceptual observation" as headings or diagram nodes. Explain naturally in conversational prose.';
+
     switch (strategy) {
       case TeachingStrategy.factualDefinition:
-        return 'Pedagogical Directive: Provide a concise, textbook-accurate definition. State the primary formula and standard SI units if applicable. Do not force unnecessary analogies or multi-step derivations.';
+        return 'Pedagogical Directive: Provide a concise, textbook-accurate definition. State the primary formula and standard SI units if applicable. Do not force unnecessary analogies or multi-step derivations.$metaNote';
 
       case TeachingStrategy.conceptualIntuition:
-        return 'Pedagogical Directive: Explain the core principle clearly. Include an intuitive real-world analogy. Explicitly state the limitation of the analogy so the student is not misled. Conclude with a conceptual observation check.';
+        return 'Pedagogical Directive: Explain the core principle clearly. Include an intuitive real-world analogy. Explicitly state the limitation of the analogy so the student is not misled. Conclude with a conceptual observation check.$metaNote';
 
       case TeachingStrategy.workedProblem:
-        return 'Pedagogical Directive: Structure the solution into clear steps:\n1. State Given parameters with SI units\n2. State the applicable Formula\n3. Show Substitution\n4. Show Calculation\n5. State Final Answer clearly with proper SI units.';
+        return 'Pedagogical Directive: Structure the solution into clear steps:\n1. State Given parameters with SI units\n2. State the applicable Formula\n3. Show Substitution\n4. Show Calculation\n5. State Final Answer clearly with proper SI units.$metaNote';
 
       case TeachingStrategy.stepwiseDerivation:
-        return 'Pedagogical Directive: Provide a rigorous, step-by-step mathematical derivation. For each algebraic step, clearly state the physical law or mathematical definition being applied.';
+        return 'Pedagogical Directive: Provide a rigorous, step-by-step mathematical derivation. For each algebraic step, clearly state the physical law or mathematical definition being applied.$metaNote';
 
       case TeachingStrategy.comparativeContrast:
-        return 'Pedagogical Directive: Contrast the two concepts clearly using parallel bullet points or a Markdown table comparing: Definition, Scalar vs. Vector nature, SI units, and Key Physical Difference.';
+        return 'Pedagogical Directive: Contrast the two concepts clearly using parallel bullet points or a Markdown table comparing: Definition, Scalar vs. Vector nature, SI units, and Key Physical Difference.$metaNote';
     }
   }
 

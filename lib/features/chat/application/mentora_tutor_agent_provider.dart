@@ -343,9 +343,9 @@ final class MentoraTutorAgentProvider {
     if (trailingToolResults.isNotEmpty) {
       final resultsSummary = trailingToolResults.join('\n');
       if (baseQuestion.isNotEmpty) {
-        return '$baseQuestion\n\n$resultsSummary\n\nPlease answer the question incorporating the tool result above.';
+        return '$baseQuestion\n\n[Available Reference Tools & Context]:\n$resultsSummary\n\nPlease answer the student\'s question directly. Use the reference context above to enrich your explanation if helpful, but do NOT output raw tool logs or flowchart the tool parameters.';
       }
-      return '$resultsSummary\n\nPlease proceed with the answer incorporating the tool result above.';
+      return '[Available Reference Tools & Context]:\n$resultsSummary\n\nPlease answer the student directly based on the reference context above. Do not output raw tool logs or flowchart the tool parameters.';
     }
 
     return baseQuestion;

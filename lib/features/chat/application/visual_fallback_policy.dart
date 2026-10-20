@@ -25,6 +25,21 @@ final class VisualFallbackPolicy {
     final clean = question.toLowerCase().trim();
 
     // 1. PhET Simulation Catalog keyword matching
+    if (clean.contains('some simulation') ||
+        clean.contains('any simulation') ||
+        clean == 'show simulation' ||
+        clean == 'show me a simulation' ||
+        clean.contains('anyway show me some simulation') ||
+        clean.contains('show me some simulation')) {
+      return const VisualIntent(
+        type: VisualType.simulationLauncher,
+        scenario: 'phet-bending-light',
+        inputs: {'simulation_id': 'phet-bending-light'},
+        title: 'Bending Light & Optics Simulation',
+        description: 'Explore refraction, reflection, and Snell’s law interactively with PhET.',
+      );
+    }
+
     if (clean.contains('bending light') || clean.contains('refraction sim') || clean.contains('light bending')) {
       return const VisualIntent(
         type: VisualType.simulationLauncher,
@@ -79,6 +94,23 @@ final class VisualFallbackPolicy {
     }
 
     // 2. Trajectory motion intent matching
+    if (clean.contains('pendulum') ||
+        clean.contains('oscillation') ||
+        clean.contains('period of pendulum') ||
+        (clean.contains('bob') && clean.contains('string'))) {
+      return const VisualIntent(
+        type: VisualType.motionTrajectory,
+        scenario: 'projectile',
+        inputs: {
+          'launch_velocity_mps': 10.0,
+          'launch_angle_deg': 45.0,
+          'gravity_mps2': 9.8,
+        },
+        title: 'Interactive Pendulum & Motion Lab',
+        description: 'Adjust length (L) and gravitational acceleration (g) in real-time.',
+      );
+    }
+
     if (clean.contains('trajectory of') ||
         clean.contains('toss a ball') ||
         clean.contains('ball thrown upward') ||
@@ -103,8 +135,14 @@ final class VisualFallbackPolicy {
         clean.contains('convex lens') ||
         clean.contains('concave lens') ||
         clean.contains('ray diagram') ||
+        clean.contains('visualization of rays') ||
+        clean.contains('diagram of rays') ||
+        clean.contains('show rays') ||
+        clean.contains('light rays') ||
+        clean.contains('ray optics') ||
         clean.contains('mirror formula') ||
-        clean.contains('lens formula')) {
+        clean.contains('lens formula') ||
+        (clean.contains('ray') && (clean.contains('visual') || clean.contains('show') || clean.contains('draw') || clean.contains('diagram')))) {
       final isLens = clean.contains('lens');
       final isConvex = clean.contains('convex');
       final scenario = isLens
@@ -177,6 +215,19 @@ final class VisualFallbackPolicy {
     }
 
     // 6. Circuit schematic matching
+    if (clean.contains('kirchhoff') ||
+        clean.contains('kirchoff') ||
+        clean.contains('kcl') ||
+        clean.contains('kvl')) {
+      return const VisualIntent(
+        type: VisualType.circuitSchematic,
+        scenario: 'series_circuit',
+        inputs: {'voltage': 12.0, 'resistances': [10.0, 20.0]},
+        title: "Kirchhoff's Laws & Circuit Loop",
+        description: 'Demonstrating KCL (current conservation at junctions) and KVL (voltage drop around closed loops).',
+      );
+    }
+
     if (clean.contains('series circuit') ||
         clean.contains('resistors in series') ||
         clean.contains('series resistance')) {

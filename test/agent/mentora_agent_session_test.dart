@@ -250,6 +250,49 @@ void main() {
       );
       await session.dispose();
     });
+
+    test('auto-compresses older conversation history via overWindowRelief without throwing context exhausted', () async {
+      const tightModel = Model(
+        id: 'tight-model',
+        name: 'Tight model',
+        api: 'fake',
+        provider: 'fake',
+        baseUrl: 'https://unused.invalid',
+        contextWindow: 450,
+        maxTokens: 50,
+      );
+
+      final initialMessages = [
+        UserMessage.text('Turn 1 Question ' * 10, timestamp: DateTime.now()),
+        _assistantMessage(tightModel, content: [TextContent(text: 'Turn 1 Answer ' * 10)]),
+        UserMessage.text('Turn 2 Question ' * 10, timestamp: DateTime.now()),
+        _assistantMessage(tightModel, content: [TextContent(text: 'Turn 2 Answer ' * 10)]),
+      ];
+
+      final session = MentoraAgentSession(
+        model: tightModel,
+        initialMessages: initialMessages,
+        streamFunction: (model, context, {cancelToken}) {
+          final response = AssistantMessageEventStream();
+          const text = 'Relieved Turn 3 answer';
+          final message = _assistantMessage(model, content: [const TextContent(text: text)]);
+          response
+            ..push(StartEvent(partial: message))
+            ..push(TextStartEvent(contentIndex: 0, partial: message))
+            ..push(TextDeltaEvent(contentIndex: 0, delta: text, partial: message))
+            ..push(TextEndEvent(contentIndex: 0, content: text, partial: message))
+            ..push(DoneEvent(reason: StopReason.stop, message: message));
+          return response;
+        },
+      );
+
+      final events = await session.runTurn('Turn 3 Question').toList();
+      final turnCompleted = events.whereType<TutorTurnCompletedEvent>().singleOrNull;
+      expect(turnCompleted, isNotNull);
+      expect(turnCompleted!.text, 'Relieved Turn 3 answer');
+      expect(events.whereType<TutorTurnFailedEvent>(), isEmpty);
+      await session.dispose();
+    });
   });
 }
 

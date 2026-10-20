@@ -755,8 +755,15 @@ class MentoraBackendClient {
           'topic': topic,
           'grade': grade,
           'stream': true,
-          if (systemPrompt != null && systemPrompt.isNotEmpty)
+          if (systemPrompt != null && systemPrompt.isNotEmpty) ...{
             'systemPrompt': systemPrompt,
+            'system_prompt': systemPrompt,
+          },
+          if (history.isNotEmpty) ...{
+            'history': history,
+            'conversation_history': history,
+            'conversationHistory': history,
+          },
           if (tools.isNotEmpty)
             'tools': tools.map((t) => {
               'name': t.name,
@@ -1142,6 +1149,20 @@ You are an expert NCERT school AI tutor for Class $grade $tClean.
 Answer directly and clearly using Markdown formatting, bullet points, and key formulas.$ragContextBlock$toolPromptSection
 IMPORTANT: If the user asks in Kannada or any regional language, respond in that language.
 Do not output internal monologues or planning steps.$historyBlock
+DIAGRAM & VISUAL RULES:
+- When a student asks for a visual explanation, simulation, dynamics, graph, circuit, or diagram, embed an interactive visualizer widget by emitting a ```mentora-visual block with JSON:
+```mentora-visual
+{"type": "motion.trajectory", "scenario": "projectile", "inputs": {"launch_velocity_mps": 20.0, "launch_angle_deg": 45.0}, "title": "Projectile Motion"}
+```
+Supported types:
+1. "motion.trajectory" (scenarios: "projectile", "vertical_toss"; inputs: launch_velocity_mps, launch_angle_deg)
+2. "circuit.schematic" (scenarios: "simple_circuit", "series_circuit", "parallel_circuit"; inputs: voltage, resistances)
+3. "optics.ray_diagram" (scenarios: "concave_mirror", "convex_mirror", "convex_lens", "concave_lens"; inputs: focal_length_cm, object_distance_cm)
+4. "geometry.construction" (scenarios: "right_triangle", "circle_tangents"; inputs: base, height, radius, distance)
+
+- Never use Mermaid diagrams (```mermaid) to flowchart answering steps, prompt instructions, lesson outlines, or tool summaries.
+- Mermaid diagrams are ONLY for actual domain scientific concepts (e.g. food webs, life cycles, state machines). Nodes must contain subject matter facts only.
+- Never output prompt instructions or meta-labels (such as 'Real-world analogy:', 'Conceptual observation:', or tool names) as diagram nodes or section headings.
 <|im_end|>''';
       }
 

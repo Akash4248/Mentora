@@ -92,10 +92,16 @@ class _DirectTutorChatScreenState extends State<DirectTutorChatScreen> {
 
           if (savedMessages.isNotEmpty) {
             _messages.clear();
-            for (final m in savedMessages) {
+            for (var i = 0; i < savedMessages.length; i++) {
+              final m = savedMessages[i];
+              String? question;
+              if (!m.isUser && i > 0 && savedMessages[i - 1].isUser) {
+                question = savedMessages[i - 1].text;
+              }
               _messages.add({
                 'isUser': m.isUser,
                 'text': m.text,
+                'question': question,
                 'timestamp': m.timestamp,
               });
             }
@@ -215,6 +221,7 @@ class _DirectTutorChatScreenState extends State<DirectTutorChatScreen> {
       _messages.add({
         'isUser': false,
         'text': '',
+        'question': clean,
         'timestamp': DateTime.now(),
         'toolStatus': null,
         'toolOutput': null,
@@ -705,6 +712,7 @@ class _DirectTutorChatScreenState extends State<DirectTutorChatScreen> {
           else
             FormattedTextWidget(
               text: message['text'] as String,
+              studentQuestion: message['question'] as String?,
               style: const TextStyle(
                 color: IDPColors.textPrimary,
                 fontSize: 15,

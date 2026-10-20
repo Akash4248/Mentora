@@ -124,10 +124,19 @@ class AppDatabase {
         }
         if (oldVersion < 20) {
           await _createRagV2FtsArtifacts(db);
-          await db.execute('''
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_chapter_video_unique
-            ON chapter_video_resources(chapter_id, video_id);
-          ''');
+          try {
+            await db.execute('''
+              DELETE FROM chapter_video_resources
+              WHERE id NOT IN (
+                SELECT MIN(id) FROM chapter_video_resources
+                GROUP BY chapter_id, video_id
+              );
+            ''');
+            await db.execute('''
+              CREATE UNIQUE INDEX IF NOT EXISTS idx_chapter_video_unique
+              ON chapter_video_resources(chapter_id, video_id);
+            ''');
+          } catch (_) {}
         }
         if (oldVersion < 21) {
           // Rebuild v2 FTS as FTS5 (was FTS4-only → bm25() threw).
@@ -143,10 +152,19 @@ class AppDatabase {
               SELECT id, chapter_id, content FROM rag_chunks_v2
             ''');
           } catch (_) {}
-          await db.execute('''
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_chapter_video_unique
-            ON chapter_video_resources(chapter_id, video_id);
-          ''');
+          try {
+            await db.execute('''
+              DELETE FROM chapter_video_resources
+              WHERE id NOT IN (
+                SELECT MIN(id) FROM chapter_video_resources
+                GROUP BY chapter_id, video_id
+              );
+            ''');
+            await db.execute('''
+              CREATE UNIQUE INDEX IF NOT EXISTS idx_chapter_video_unique
+              ON chapter_video_resources(chapter_id, video_id);
+            ''');
+          } catch (_) {}
         }
       },
     );

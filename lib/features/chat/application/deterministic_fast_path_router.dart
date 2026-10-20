@@ -27,6 +27,21 @@ final class DeterministicFastPathRouter {
       );
     }
 
+    // 0. Inquiry about available tools & capabilities
+    if (_isToolsInquiry(clean)) {
+      return const RouterDecision(
+        route: TutorRoute.generalFactual,
+        confidence: 0.98,
+        reasons: ['Inquiry about supported tutor tools and capabilities'],
+        selectedCapabilityIds: {
+          'math.calculate',
+          'simulation.lookup',
+          'lab.propose',
+          'visual.render',
+        },
+      );
+    }
+
     // 1. Simulation lookup intent
     if (_isSimulationIntent(clean, reasons)) {
       return RouterDecision(
@@ -37,7 +52,17 @@ final class DeterministicFastPathRouter {
       );
     }
 
-    // 2. Phone sensor lab intent
+    // 2. Interactive visualization intent
+    if (_isVisualizationIntent(clean, reasons)) {
+      return RouterDecision(
+        route: TutorRoute.visualization,
+        confidence: 0.95,
+        reasons: reasons,
+        selectedCapabilityIds: const {'visual.render'},
+      );
+    }
+
+    // 3. Phone sensor lab intent
     if (_isLabIntent(clean, reasons)) {
       return RouterDecision(
         route: TutorRoute.labRoute,
@@ -213,6 +238,57 @@ final class DeterministicFastPathRouter {
     for (final prefix in conceptualPrefixes) {
       if (clean.startsWith(prefix)) {
         reasons.add('Matched conceptual prefix "$prefix"');
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool _isToolsInquiry(String clean) {
+    return clean.contains('what tools') ||
+        clean.contains('which tools') ||
+        clean.contains('tools do you') ||
+        clean.contains('tools do u') ||
+        clean.contains('available tools') ||
+        clean.contains('list your tools') ||
+        clean.contains('list tools') ||
+        clean.contains('what capabilities') ||
+        clean.contains('supported tools');
+  }
+
+  bool _isVisualizationIntent(String clean, List<String> reasons) {
+    if (clean.startsWith('what does visualization mean') ||
+        clean.startsWith('define visualization')) {
+      return false;
+    }
+
+    // Do not steal pure simulation lookup queries like "simulation for motion"
+    if (clean.contains('simulation for') || clean.contains('find simulation')) {
+      return false;
+    }
+
+    final visualTriggers = [
+      'show me how',
+      'visualize',
+      'visualization',
+      'show diagram',
+      'show circuit',
+      'draw circuit',
+      'draw ray diagram',
+      'ray diagram',
+      'show pendulum',
+      'show trajectory',
+      'draw a ray',
+      'render circuit',
+      'render visual',
+      'interactive visual',
+      'kirchhoff',
+      'kirchoff',
+    ];
+
+    for (final trigger in visualTriggers) {
+      if (clean.contains(trigger)) {
+        reasons.add('Matched visualization trigger "$trigger"');
         return true;
       }
     }
