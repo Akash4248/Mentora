@@ -7,7 +7,6 @@ import '../../network/services/mentora_backend_client.dart';
 import '../../network/domain/backend_url_utils.dart';
 import '../../home/presentation/mentora_home_screen.dart';
 import 'model_selection_screen.dart';
-import 'manage_content_screen.dart';
 import '../../content_packs/presentation/content_pack_installer_screen.dart';
 import '../../rag/presentation/screens/document_rag_ingestion_screen.dart';
 import '../../language/providers/language_provider.dart';
@@ -96,10 +95,14 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(res['online']
-              ? '✅ Connected: ${res['activeUrl']} (${res['latencyMs']} ms)'
-              : '❌ Backend Discovery Failed: ${res['status']}'),
-          backgroundColor: res['online'] ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+          content: Text(
+            res['online']
+                ? '✅ Connected: ${res['activeUrl']} (${res['latencyMs']} ms)'
+                : '❌ Backend Discovery Failed: ${res['status']}',
+          ),
+          backgroundColor: res['online']
+              ? const Color(0xFF10B981)
+              : const Color(0xFFEF4444),
         ),
       );
     }
@@ -133,15 +136,21 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
         _isDiscovering = false;
         _latencyMs = isOnline ? latency : null;
         _connectedUrl = isOnline ? normalized : null;
-        _connectedDeviceName = isOnline ? 'Manual Backend Gateway ($normalized)' : null;
+        _connectedDeviceName = isOnline
+            ? 'Manual Backend Gateway ($normalized)'
+            : null;
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(isOnline
-              ? '✅ Connected to backend: $normalized (${latency ?? 0} ms)'
-              : '❌ Unreachable: $normalized — verify IP & backend server status'),
-          backgroundColor: isOnline ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+          content: Text(
+            isOnline
+                ? '✅ Connected to backend: $normalized (${latency ?? 0} ms)'
+                : '❌ Unreachable: $normalized — verify IP & backend server status',
+          ),
+          backgroundColor: isOnline
+              ? const Color(0xFF10B981)
+              : const Color(0xFFEF4444),
         ),
       );
     }
@@ -191,7 +200,11 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
         elevation: 0.5,
         title: const Text(
           'Settings & AI Engine',
-          style: TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.bold, fontSize: 18),
+          style: TextStyle(
+            color: Color(0xFF0F172A),
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
         ),
         iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
         actions: [
@@ -201,7 +214,9 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
             onPressed: () {
               Navigator.pushAndRemoveUntil(
                 context,
-                MaterialPageRoute(builder: (_) => const MentoraHomeScreen(initialTabIndex: 0)),
+                MaterialPageRoute(
+                  builder: (_) => const MentoraHomeScreen(initialTabIndex: 0),
+                ),
                 (route) => false,
               );
             },
@@ -237,64 +252,98 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
                                 children: [
                                   const Text(
                                     'Active Student Grade',
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
                                     'Currently configured for Grade $_selectedGrade NCERT',
-                                    style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                                    style: const TextStyle(
+                                      color: Color(0xFF64748B),
+                                      fontSize: 12,
+                                    ),
                                   ),
                                 ],
                               ),
                             ),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                              ),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFEEF2FF),
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: const Color(0xFFC7D2FE)),
+                                border: Border.all(
+                                  color: const Color(0xFFC7D2FE),
+                                ),
                               ),
                               child: DropdownButtonHideUnderline(
                                 child: Builder(
                                   builder: (context) {
-                                    final availableGrades = List.generate(12, (i) => i + 1);
-                                    final currentGrade = availableGrades.contains(_selectedGrade)
+                                    final availableGrades = List.generate(
+                                      12,
+                                      (i) => i + 1,
+                                    );
+                                    final currentGrade =
+                                        availableGrades.contains(_selectedGrade)
                                         ? _selectedGrade
                                         : 9;
                                     return DropdownButton<int>(
                                       value: currentGrade,
-                                      icon: const Icon(Icons.arrow_drop_down, color: primaryIndigo),
-                                      style: const TextStyle(color: primaryIndigo, fontWeight: FontWeight.bold, fontSize: 14),
+                                      icon: const Icon(
+                                        Icons.arrow_drop_down,
+                                        color: primaryIndigo,
+                                      ),
+                                      style: const TextStyle(
+                                        color: primaryIndigo,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
                                       items: availableGrades.map((grade) {
                                         return DropdownMenuItem<int>(
                                           value: grade,
                                           child: Text('Grade $grade - NCERT'),
                                         );
                                       }).toList(),
-                                       onChanged: (val) async {
-                                         if (val != null) {
-                                           setState(() => _selectedGrade = val);
-                                           final prefs = await SharedPreferences.getInstance();
-                                           await prefs.setInt('selected_grade', val);
-                                           if (context.mounted) {
-                                             ScaffoldMessenger.of(context).showSnackBar(
-                                               SnackBar(
-                                                 content: Text('Configured Grade $val NCERT. Manage Grade Packs to update offline content.'),
-                                                 action: SnackBarAction(
-                                                   label: 'Manage Packs',
-                                                   textColor: const Color(0xFF818CF8),
-                                                   onPressed: () {
-                                                     Navigator.push(
-                                                       context,
-                                                       MaterialPageRoute(builder: (_) => const ManageContentScreen()),
-                                                     );
-                                                   },
-                                                 ),
-                                               ),
-                                             );
-                                           }
-                                         }
-                                       },
+                                      onChanged: (val) async {
+                                        if (val != null) {
+                                          setState(() => _selectedGrade = val);
+                                          final prefs =
+                                              await SharedPreferences.getInstance();
+                                          await prefs.setInt(
+                                            'selected_grade',
+                                            val,
+                                          );
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  'Configured Grade $val NCERT. Manage Grade Packs to update offline content.',
+                                                ),
+                                                action: SnackBarAction(
+                                                  label: 'Manage Packs',
+                                                  textColor: const Color(
+                                                    0xFF818CF8,
+                                                  ),
+                                                  onPressed: () {
+                                                    Navigator.push(
+                                                      context,
+                                                      MaterialPageRoute(
+                                                        builder: (_) =>
+                                                            const ContentPackInstallerScreen(),
+                                                      ),
+                                                    );
+                                                  },
+                                                ),
+                                              ),
+                                            );
+                                          }
+                                        }
+                                      },
                                     );
                                   },
                                 ),
@@ -310,15 +359,25 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
                                 onPressed: () {
                                   Navigator.push(
                                     context,
-                                    MaterialPageRoute(builder: (context) => const ManageContentScreen()),
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          const ContentPackInstallerScreen(),
+                                    ),
                                   );
                                 },
-                                icon: const Icon(Icons.cloud_download_outlined, color: primaryIndigo),
-                                label: const Text('Download & Manage Grade Packs'),
+                                icon: const Icon(
+                                  Icons.cloud_download_outlined,
+                                  color: primaryIndigo,
+                                ),
+                                label: const Text(
+                                  'Download & Manage Grade Packs',
+                                ),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: primaryIndigo,
                                   side: const BorderSide(color: primaryIndigo),
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
                                 ),
                               ),
                             ),
@@ -343,35 +402,77 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
                   child: Column(
                     children: [
                       ListTile(
-                        leading: const Icon(Icons.language_rounded, color: primaryIndigo),
-                        title: const Text('App Language & Locales', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                        subtitle: const Text('Configure regional display language for tutor and UI', style: TextStyle(fontSize: 12)),
+                        leading: const Icon(
+                          Icons.language_rounded,
+                          color: primaryIndigo,
+                        ),
+                        title: const Text(
+                          'App Language & Locales',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                        subtitle: const Text(
+                          'Configure regional display language for tutor and UI',
+                          style: TextStyle(fontSize: 12),
+                        ),
                         trailing: const Icon(Icons.chevron_right_rounded),
                         onTap: () => _showLanguageSelectionDialog(context),
                       ),
                       const Divider(height: 1, color: borderColor),
                       ListTile(
-                        leading: const Icon(Icons.folder_zip_outlined, color: primaryIndigo),
-                        title: const Text('Content Pack Installer', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                        subtitle: const Text('Manage NCERT textbook and offline video packages', style: TextStyle(fontSize: 12)),
+                        leading: const Icon(
+                          Icons.folder_zip_outlined,
+                          color: primaryIndigo,
+                        ),
+                        title: const Text(
+                          'Content Pack Installer',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                        subtitle: const Text(
+                          'Manage NCERT textbook and offline video packages',
+                          style: TextStyle(fontSize: 12),
+                        ),
                         trailing: const Icon(Icons.chevron_right_rounded),
                         onTap: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (_) => const ContentPackInstallerScreen()),
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  const ContentPackInstallerScreen(),
+                            ),
                           );
                         },
                       ),
                       const Divider(height: 1, color: borderColor),
                       ListTile(
-                        leading: const Icon(Icons.picture_as_pdf_outlined, color: primaryIndigo),
-                        title: const Text('Document RAG Ingestion', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                        subtitle: const Text('Process custom PDFs for offline AI retrieval', style: TextStyle(fontSize: 12)),
+                        leading: const Icon(
+                          Icons.picture_as_pdf_outlined,
+                          color: primaryIndigo,
+                        ),
+                        title: const Text(
+                          'Document RAG Ingestion',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                        subtitle: const Text(
+                          'Process custom PDFs for offline AI retrieval',
+                          style: TextStyle(fontSize: 12),
+                        ),
                         trailing: const Icon(Icons.chevron_right_rounded),
                         onTap: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (_) => const DocumentRagIngestionScreen()),
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  const DocumentRagIngestionScreen(),
+                            ),
                           );
                         },
                       ),
@@ -403,15 +504,23 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    _isHybridMode ? 'Hybrid Cloud Mode' : '100% Offline GGUF Mode',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                    _isHybridMode
+                                        ? 'Hybrid Cloud Mode'
+                                        : '100% Offline GGUF Mode',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
                                     _isHybridMode
                                         ? 'Routes to Cloud API when online, GGUF when offline'
                                         : 'Runs fully on-device with zero network requests',
-                                    style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                                    style: const TextStyle(
+                                      color: Color(0xFF64748B),
+                                      fontSize: 12,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -433,7 +542,10 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
                           const Divider(height: 24, color: borderColor),
                           const Text(
                             'Cloud Provider',
-                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
                           ),
                           const SizedBox(height: 6),
                           Container(
@@ -467,7 +579,10 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
                           const SizedBox(height: 16),
                           const Text(
                             'User Cloud API Key',
-                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
                           ),
                           const SizedBox(height: 6),
                           TextField(
@@ -478,20 +593,32 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
                               hintText: 'Enter API Key (e.g. AIzaSy...)',
                               filled: true,
                               fillColor: slateBg,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 12,
+                              ),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(color: borderColor),
+                                borderSide: const BorderSide(
+                                  color: borderColor,
+                                ),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(color: primaryIndigo),
+                                borderSide: const BorderSide(
+                                  color: primaryIndigo,
+                                ),
                               ),
                               suffixIcon: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   IconButton(
-                                    icon: Icon(_obscureKey ? Icons.visibility_off : Icons.visibility, size: 20),
+                                    icon: Icon(
+                                      _obscureKey
+                                          ? Icons.visibility_off
+                                          : Icons.visibility,
+                                      size: 20,
+                                    ),
                                     onPressed: () {
                                       setState(() {
                                         _obscureKey = !_obscureKey;
@@ -500,7 +627,13 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
                                   ),
                                   TextButton(
                                     onPressed: _pasteFromClipboard,
-                                    child: const Text('Paste', style: TextStyle(color: primaryIndigo, fontWeight: FontWeight.bold)),
+                                    child: const Text(
+                                      'Paste',
+                                      style: TextStyle(
+                                        color: primaryIndigo,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -509,12 +642,19 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
                           const SizedBox(height: 8),
                           Row(
                             children: const [
-                              Icon(Icons.lock_outline, size: 14, color: Color(0xFF64748B)),
+                              Icon(
+                                Icons.lock_outline,
+                                size: 14,
+                                color: Color(0xFF64748B),
+                              ),
                               SizedBox(width: 4),
                               Expanded(
                                 child: Text(
                                   'Stored locally in device Keychain. Free offline mode active when empty.',
-                                  style: TextStyle(color: Color(0xFF64748B), fontSize: 11),
+                                  style: TextStyle(
+                                    color: Color(0xFF64748B),
+                                    fontSize: 11,
+                                  ),
                                 ),
                               ),
                             ],
@@ -540,10 +680,19 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
                     leading: const Icon(Icons.memory, color: primaryIndigo),
                     title: Text(
                       _ggufModel,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
                     ),
-                    subtitle: const Text('Resident RAM Footprint: ~1.3 GB (llama.cpp ARM64)'),
-                    trailing: const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 20),
+                    subtitle: const Text(
+                      'Resident RAM Footprint: ~1.3 GB (llama.cpp ARM64)',
+                    ),
+                    trailing: const Icon(
+                      Icons.check_circle,
+                      color: Color(0xFF10B981),
+                      size: 20,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -571,15 +720,23 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    _isPiHubMode ? 'PiHub Local Discovery (LAN & Hostname)' : 'Cloud / Custom Internet Backend',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                    _isPiHubMode
+                                        ? 'PiHub Local Discovery (LAN & Hostname)'
+                                        : 'Cloud / Custom Internet Backend',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
                                     _isPiHubMode
                                         ? 'Auto-discovers Raspberry Pi / Laptop hostname gateway on local LAN'
                                         : 'Connects directly over internet to configured URL',
-                                    style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                                    style: const TextStyle(
+                                      color: Color(0xFF64748B),
+                                      fontSize: 12,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -600,12 +757,18 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
                         const Divider(height: 24, color: borderColor),
                         const Text(
                           'Backend Gateway URL / Laptop Host IP',
-                          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
                         ),
                         const SizedBox(height: 4),
                         const Text(
                           'Enter your laptop IP (e.g. 10.35.98.193 or akash-Ubuntu:8000)',
-                          style: TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                          style: TextStyle(
+                            color: Color(0xFF64748B),
+                            fontSize: 12,
+                          ),
                         ),
                         const SizedBox(height: 8),
                         Row(
@@ -613,19 +776,28 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
                             Expanded(
                               child: TextField(
                                 controller: _serverUrlController,
-                                onSubmitted: (val) => _saveAndProbeCustomUrl(val),
+                                onSubmitted: (val) =>
+                                    _saveAndProbeCustomUrl(val),
                                 decoration: InputDecoration(
-                                  hintText: 'http://10.35.98.193:8000 or akash-Ubuntu:8000',
+                                  hintText:
+                                      'http://10.35.98.193:8000 or akash-Ubuntu:8000',
                                   filled: true,
                                   fillColor: slateBg,
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 12,
+                                  ),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(8),
-                                    borderSide: const BorderSide(color: borderColor),
+                                    borderSide: const BorderSide(
+                                      color: borderColor,
+                                    ),
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(8),
-                                    borderSide: const BorderSide(color: primaryIndigo),
+                                    borderSide: const BorderSide(
+                                      color: primaryIndigo,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -636,10 +808,18 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: primaryIndigo,
                                 foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 14,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
                               ),
-                              child: const Text('Connect', style: TextStyle(fontWeight: FontWeight.bold)),
+                              child: const Text(
+                                'Connect',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
                             ),
                           ],
                         ),
@@ -658,19 +838,24 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     Expanded(
                                       child: Text(
                                         _isDiscovering
                                             ? 'Probing Subnet (${_discoveryProgress?.step ?? 0}/${_discoveryProgress?.totalSteps ?? 1})'
-                                            : (_connectedUrl != null ? '✅ Connected Device Found' : '❌ Device Not Found'),
+                                            : (_connectedUrl != null
+                                                  ? '✅ Connected Device Found'
+                                                  : '❌ Device Not Found'),
                                         style: TextStyle(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 13,
                                           color: _isDiscovering
                                               ? primaryIndigo
-                                              : (_connectedUrl != null ? const Color(0xFF10B981) : const Color(0xFFEF4444)),
+                                              : (_connectedUrl != null
+                                                    ? const Color(0xFF10B981)
+                                                    : const Color(0xFFEF4444)),
                                         ),
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -679,7 +864,11 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
                                       const SizedBox(width: 8),
                                       Text(
                                         '$_latencyMs ms',
-                                        style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Color(0xFF64748B),
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
                                     ],
                                   ],
@@ -688,12 +877,16 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(4),
                                   child: LinearProgressIndicator(
-                                    value: _isDiscovering ? (_discoveryProgress?.progress ?? 0.0) : 1.0,
+                                    value: _isDiscovering
+                                        ? (_discoveryProgress?.progress ?? 0.0)
+                                        : 1.0,
                                     backgroundColor: const Color(0xFFE2E8F0),
                                     valueColor: AlwaysStoppedAnimation<Color>(
                                       _isDiscovering
                                           ? primaryIndigo
-                                          : (_connectedUrl != null ? const Color(0xFF10B981) : const Color(0xFFEF4444)),
+                                          : (_connectedUrl != null
+                                                ? const Color(0xFF10B981)
+                                                : const Color(0xFFEF4444)),
                                     ),
                                     minHeight: 6,
                                   ),
@@ -702,8 +895,13 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
                                 Text(
                                   _isDiscovering
                                       ? 'Testing candidate: ${_discoveryProgress?.currentCandidate ?? ""}'
-                                      : (_connectedDeviceName ?? _connectedUrl ?? 'Offline'),
-                                  style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
+                                      : (_connectedDeviceName ??
+                                            _connectedUrl ??
+                                            'Offline'),
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF475569),
+                                  ),
                                 ),
                               ],
                             ),
@@ -719,18 +917,36 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
                                 _isPiHubMode
                                     ? 'Probing Laptop Host & Subnet IPs...'
                                     : 'Active URL: ${_serverUrlController.text}',
-                                style: const TextStyle(color: Color(0xFF64748B), fontSize: 12, overflow: TextOverflow.ellipsis),
+                                style: const TextStyle(
+                                  color: Color(0xFF64748B),
+                                  fontSize: 12,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                             ),
                             const SizedBox(width: 8),
                             ElevatedButton.icon(
-                              onPressed: _isDiscovering ? null : _runBackendDiscovery,
-                              icon: Icon(_isDiscovering ? Icons.sync : Icons.bolt, size: 16, color: Colors.white),
-                              label: Text(
-                                _isDiscovering ? 'Discovering...' : 'Test Connection',
-                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                              onPressed: _isDiscovering
+                                  ? null
+                                  : _runBackendDiscovery,
+                              icon: Icon(
+                                _isDiscovering ? Icons.sync : Icons.bolt,
+                                size: 16,
+                                color: Colors.white,
                               ),
-                              style: ElevatedButton.styleFrom(backgroundColor: primaryIndigo),
+                              label: Text(
+                                _isDiscovering
+                                    ? 'Discovering...'
+                                    : 'Test Connection',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: primaryIndigo,
+                              ),
                             ),
                           ],
                         ),
@@ -752,13 +968,26 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
                   ),
                   child: ListTile(
                     leading: const Icon(Icons.memory, color: primaryIndigo),
-                    title: const Text('Local .gguf Model Selection', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                    subtitle: Text('Active Model: $_ggufModel\nTap to pick a local .gguf model file or download Qwen2.5 GGUF.'),
-                    trailing: const Icon(Icons.chevron_right, color: Color(0xFF64748B)),
+                    title: const Text(
+                      'Local .gguf Model Selection',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                    subtitle: Text(
+                      'Active Model: $_ggufModel\nTap to pick a local .gguf model file or download Qwen2.5 GGUF.',
+                    ),
+                    trailing: const Icon(
+                      Icons.chevron_right,
+                      color: Color(0xFF64748B),
+                    ),
                     onTap: () async {
                       await Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const ModelSelectionScreen()),
+                        MaterialPageRoute(
+                          builder: (_) => const ModelSelectionScreen(),
+                        ),
                       );
                       _loadSettings();
                     },
@@ -777,9 +1006,20 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
                     side: const BorderSide(color: borderColor),
                   ),
                   child: const ListTile(
-                    leading: Icon(Icons.gavel_outlined, color: Color(0xFF64748B)),
-                    title: Text('Apache License 2.0', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                    subtitle: Text('Mentora Open Source Project (Grades 5-12 NCERT)'),
+                    leading: Icon(
+                      Icons.gavel_outlined,
+                      color: Color(0xFF64748B),
+                    ),
+                    title: Text(
+                      'Apache License 2.0',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                    subtitle: Text(
+                      'Mentora Open Source Project (Grades 5-12 NCERT)',
+                    ),
                   ),
                 ),
               ],
@@ -818,7 +1058,9 @@ class _MentoraSettingsScreenState extends State<MentoraSettingsScreen> {
                   return ListTile(
                     title: Text(lang.displayName),
                     subtitle: Text(lang.nativeName),
-                    trailing: isSelected ? const Icon(Icons.check, color: IDPColors.primary) : null,
+                    trailing: isSelected
+                        ? const Icon(Icons.check, color: IDPColors.primary)
+                        : null,
                     onTap: () async {
                       await languageProvider.setLanguage(lang);
                       if (context.mounted) {

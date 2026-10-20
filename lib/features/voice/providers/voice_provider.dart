@@ -41,7 +41,9 @@ class VoiceProviderState {
     return VoiceProviderState(
       state: state ?? this.state,
       hasPermission: hasPermission ?? this.hasPermission,
-      currentRecording: clearRecording ? null : (currentRecording ?? this.currentRecording),
+      currentRecording: clearRecording
+          ? null
+          : (currentRecording ?? this.currentRecording),
       recordingDuration: recordingDuration ?? this.recordingDuration,
       isPlaying: isPlaying ?? this.isPlaying,
     );
@@ -56,11 +58,11 @@ class VoiceNotifier extends StateNotifier<VoiceProviderState> {
     VoicePermissionService? permissionService,
     AudioRecorderService? recorderService,
     AudioPlayerService? playerService,
-  })  : _permissions = permissionService ?? VoicePermissionService(),
-        _recorder = recorderService ?? AudioRecorderService(),
-        _player = playerService ?? AudioPlayerService(),
-        _streamPlayer = VoiceStreamPlayer(),
-        super(const VoiceProviderState()) {
+  }) : _permissions = permissionService ?? VoicePermissionService(),
+       _recorder = recorderService ?? AudioRecorderService(),
+       _player = playerService ?? AudioPlayerService(),
+       _streamPlayer = VoiceStreamPlayer(),
+       super(const VoiceProviderState()) {
     _streamPlayer.onComplete = () {
       if (mounted && state.state == VoiceState.speaking) {
         state = state.copyWith(state: VoiceState.idle, isPlaying: false);
@@ -80,6 +82,9 @@ class VoiceNotifier extends StateNotifier<VoiceProviderState> {
   Timer? _durationTimer;
   StreamSubscription<bool>? _playingSub;
   StreamSubscription<VoiceEvent>? _socketEventSub;
+  final _offlineEventController = StreamController<VoiceEvent>.broadcast();
+
+  Stream<VoiceEvent> get offlineEventStream => _offlineEventController.stream;
 
   // ─── Public API ─────────────────────────────────────────────────
 
@@ -95,8 +100,9 @@ class VoiceNotifier extends StateNotifier<VoiceProviderState> {
 
     try {
       // Interrupt any playing response
+      await OfflineSpeechService().stopSpeaking();
       await _streamPlayer.interrupt();
-      
+
       await _recorder.startRecording();
       final conn = ref.read(voiceConnectionProvider.notifier);
       conn.socket.sendSessionStart(_languageCode);
@@ -111,7 +117,11 @@ class VoiceNotifier extends StateNotifier<VoiceProviderState> {
   }
 
   /// Stop recording, send to server, or process fully offline.
-  Future<void> stopRecording({Map<String, dynamic>? context}) async {
+  Future<void> stopRecording({
+    Map<String, dynamic>? context,
+    String? chapterTitle,
+    int? grade,
+  }) async {
     _stopDurationTimer();
     try {
       final path = await _recorder.stopRecording();
@@ -119,7 +129,7 @@ class VoiceNotifier extends StateNotifier<VoiceProviderState> {
         state: VoiceState.processing,
         currentRecording: path,
       );
-      
+
       if (path != null) {
         final conn = ref.read(voiceConnectionProvider.notifier);
         if (conn.socket.status == ConnectionStatus.connected) {
@@ -130,40 +140,91 @@ class VoiceNotifier extends StateNotifier<VoiceProviderState> {
               const chunkSize = 4096;
               int sequence = 1;
               for (int i = 0; i < bytes.length; i += chunkSize) {
-                final end = (i + chunkSize < bytes.length) ? i + chunkSize : bytes.length;
+                final end = (i + chunkSize < bytes.length)
+                    ? i + chunkSize
+                    : bytes.length;
                 final chunk = bytes.sublist(i, end);
                 conn.socket.sendAudioChunk(chunk, sequence++);
               }
-              conn.socket.sendAudioComplete(
-                _languageCode,
-                context: context,
-              );
+              conn.socket.sendAudioComplete(_languageCode, context: context);
             }
             try {
               await file.delete();
             } catch (_) {}
           }
         } else {
-          // Offline Fallback: STT -> GGUF LLM -> TTS
-          final chapter = context?['chapter']?.toString() ?? 'Science';
-          final grade = (context?['grade'] as num?)?.toInt() ?? 9;
+          final experiment = context?['experiment'];
+          final experimentName = experiment is Map
+              ? experiment['name']?.toString()
+              : null;
+          final resolvedChapter =
+              chapterTitle ??
+              context?['chapter']?.toString() ??
+              experimentName ??
+              'General Science & Mathematics';
+          final resolvedGrade =
+              grade ?? (context?['grade'] as num?)?.toInt() ?? 9;
 
-          await OfflineSpeechService().processOfflineVoiceQuery(
+          final result = await OfflineSpeechService().processOfflineVoiceQuery(
             wavPath: path,
-            chapterTitle: chapter,
-            grade: grade,
+            chapterTitle: resolvedChapter,
+            grade: resolvedGrade,
             languageCode: _languageCode,
           );
 
-          if (mounted) {
-            state = state.copyWith(
-              state: VoiceState.speaking,
-              isPlaying: true,
+          if (result.transcript.isNotEmpty &&
+              !_offlineEventController.isClosed) {
+            _offlineEventController.add(
+              VoiceEvent(
+                type: VoiceEventType.finalTranscript,
+                payload: {'text': result.transcript},
+                language: _languageCode,
+              ),
             );
+          }
+          if (!_offlineEventController.isClosed) {
+            _offlineEventController.add(
+              VoiceEvent(
+                type: VoiceEventType.assistantMessage,
+                payload: {'text': result.answer},
+                language: _languageCode,
+              ),
+            );
+          }
+
+          if (mounted) {
+            state = state.copyWith(state: VoiceState.speaking, isPlaying: true);
+          }
+
+          await OfflineSpeechService().speakText(
+            result.answer,
+            languageCode: _languageCode,
+          );
+
+          if (!_offlineEventController.isClosed) {
+            _offlineEventController.add(
+              VoiceEvent(
+                type: VoiceEventType.audioComplete,
+                payload: const {'status': 'offline_tts_complete'},
+                language: _languageCode,
+              ),
+            );
+          }
+
+          if (mounted) {
+            state = state.copyWith(state: VoiceState.idle, isPlaying: false);
           }
         }
       }
     } catch (_) {
+      if (!_offlineEventController.isClosed) {
+        _offlineEventController.add(
+          const VoiceEvent(
+            type: VoiceEventType.error,
+            payload: {'message': 'Voice processing failed.'},
+          ),
+        );
+      }
       state = state.copyWith(state: VoiceState.error);
     }
   }
@@ -183,6 +244,7 @@ class VoiceNotifier extends StateNotifier<VoiceProviderState> {
   /// Stop playback.
   Future<void> stopPlayback() async {
     try {
+      await OfflineSpeechService().stopSpeaking();
       await _streamPlayer.interrupt();
       await _player.stop();
       state = state.copyWith(state: VoiceState.idle, isPlaying: false);
@@ -228,7 +290,8 @@ class VoiceNotifier extends StateNotifier<VoiceProviderState> {
   void _startDurationTimer() {
     _durationTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
       state = state.copyWith(
-        recordingDuration: state.recordingDuration + const Duration(milliseconds: 100),
+        recordingDuration:
+            state.recordingDuration + const Duration(milliseconds: 100),
       );
     });
   }
@@ -282,6 +345,7 @@ class VoiceNotifier extends StateNotifier<VoiceProviderState> {
     _stopDurationTimer();
     _playingSub?.cancel();
     _socketEventSub?.cancel();
+    _offlineEventController.close();
     _recorder.dispose();
     _player.dispose();
     _streamPlayer.dispose();
@@ -291,7 +355,8 @@ class VoiceNotifier extends StateNotifier<VoiceProviderState> {
 
 // ─── Provider ───────────────────────────────────────────────────────
 
-final voiceProvider =
-    StateNotifierProvider<VoiceNotifier, VoiceProviderState>((ref) {
+final voiceProvider = StateNotifierProvider<VoiceNotifier, VoiceProviderState>((
+  ref,
+) {
   return VoiceNotifier(ref);
 });

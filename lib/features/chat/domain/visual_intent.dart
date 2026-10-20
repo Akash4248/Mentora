@@ -6,6 +6,8 @@ enum VisualType {
   stepsSolution('steps.solution'),
   mathFunctionGraph('math.function_graph'),
   simulationLauncher('simulation.launcher'),
+  opticsRayDiagram('optics.ray_diagram'),
+  geometryConstruction('geometry.construction'),
   physicsForceDiagram('physics.force_diagram'),
   conceptSequence('concept.sequence'),
   labSetup('lab.setup'),

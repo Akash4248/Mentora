@@ -1,6 +1,8 @@
 import '../../experiment/sensor_lab/domain/lab_experiment_definition.dart';
 import '../domain/visual_intent.dart';
+import 'geometry_engine.dart';
 import 'kinematics_engine.dart';
+import 'optics_engine.dart';
 import 'visual_schema_registry.dart';
 
 /// Resolved visual payload ready for rendering by the UI presentation layer.
@@ -63,6 +65,24 @@ final class LabSetupVisualPayload extends ResolvedVisualPayload {
   final LabExperimentDefinition definition;
 }
 
+final class OpticsVisualPayload extends ResolvedVisualPayload {
+  const OpticsVisualPayload({
+    required super.intent,
+    required this.result,
+  });
+
+  final OpticsRayResult result;
+}
+
+final class GeometryVisualPayload extends ResolvedVisualPayload {
+  const GeometryVisualPayload({
+    required super.intent,
+    required this.result,
+  });
+
+  final GeometryConstructionResult result;
+}
+
 final class FallbackTextVisualPayload extends ResolvedVisualPayload {
   const FallbackTextVisualPayload({
     required super.intent,
@@ -78,13 +98,19 @@ final class VisualResolver {
   const VisualResolver({
     VisualSchemaRegistry? schemaRegistry,
     KinematicsEngine? kinematicsEngine,
+    OpticsEngine? opticsEngine,
+    GeometryEngine? geometryEngine,
     Map<String, Map<String, String>>? simulationCatalog,
   })  : _schemaRegistry = schemaRegistry ?? const VisualSchemaRegistry(),
         _kinematicsEngine = kinematicsEngine ?? const KinematicsEngine(),
+        _opticsEngine = opticsEngine ?? const OpticsEngine(),
+        _geometryEngine = geometryEngine ?? const GeometryEngine(),
         _simulationCatalog = simulationCatalog ?? _defaultSimulationCatalog;
 
   final VisualSchemaRegistry _schemaRegistry;
   final KinematicsEngine _kinematicsEngine;
+  final OpticsEngine _opticsEngine;
+  final GeometryEngine _geometryEngine;
   final Map<String, Map<String, String>> _simulationCatalog;
 
   static const _defaultSimulationCatalog = {
@@ -141,6 +167,12 @@ final class VisualResolver {
 
         case VisualType.labSetup:
           return _resolveLabSetup(intent);
+
+        case VisualType.opticsRayDiagram:
+          return _resolveOpticsRayDiagram(intent);
+
+        case VisualType.geometryConstruction:
+          return _resolveGeometryConstruction(intent);
 
         case VisualType.physicsForceDiagram:
         case VisualType.conceptSequence:
@@ -246,6 +278,43 @@ final class VisualResolver {
     return LabSetupVisualPayload(
       intent: intent,
       definition: definition,
+    );
+  }
+
+  OpticsVisualPayload _resolveOpticsRayDiagram(VisualIntent intent) {
+    final inputs = intent.inputs;
+    final scenario = OpticsScenario.fromIdentifier(intent.scenario);
+    final rawF = inputs['focal_length_cm'] ?? inputs['f'] ?? 10.0;
+    final rawU = inputs['object_distance_cm'] ?? inputs['u'] ?? 15.0;
+    final rawH = inputs['object_height_cm'] ?? inputs['height'] ?? 3.0;
+
+    final focalLength = (rawF as num).toDouble();
+    final objectDistance = (rawU as num).toDouble();
+    final objectHeight = (rawH as num).toDouble();
+
+    final result = _opticsEngine.solve(
+      scenario: scenario,
+      focalLengthCm: focalLength,
+      objectDistanceCm: objectDistance,
+      objectHeightCm: objectHeight,
+    );
+
+    return OpticsVisualPayload(
+      intent: intent,
+      result: result,
+    );
+  }
+
+  GeometryVisualPayload _resolveGeometryConstruction(VisualIntent intent) {
+    final scenario = GeometryScenario.fromIdentifier(intent.scenario);
+    final result = _geometryEngine.solve(
+      scenario: scenario,
+      inputs: intent.inputs,
+    );
+
+    return GeometryVisualPayload(
+      intent: intent,
+      result: result,
     );
   }
 }

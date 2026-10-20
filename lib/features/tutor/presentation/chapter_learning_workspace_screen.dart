@@ -104,7 +104,9 @@ class _ChapterLearningWorkspaceScreenState
   void initState() {
     super.initState();
     _memoryManager = ThreeTierMemoryManager();
-    _capabilityRegistry = DefaultCapabilities.createDefaultRegistry(client: _client);
+    _capabilityRegistry = DefaultCapabilities.createDefaultRegistry(
+      client: _client,
+    );
     _contextBuilder = ContextBuilder(
       registry: _capabilityRegistry,
       memoryManager: _memoryManager,
@@ -194,6 +196,7 @@ class _ChapterLearningWorkspaceScreenState
   int _currentQuestionIndex = 0;
   int? _selectedOptionIndex;
   bool _showExplanation = false;
+  bool _quizComplete = false;
   int _score = 0;
 
   @override
@@ -604,7 +607,8 @@ class _ChapterLearningWorkspaceScreenState
                 if (status == TutorToolStatus.started) {
                   _messages[assistantIndex]['toolStatus'] = '⚙️ $label…';
                 } else if (status == TutorToolStatus.completed) {
-                  _messages[assistantIndex]['toolStatus'] = '✓ $label completed';
+                  _messages[assistantIndex]['toolStatus'] =
+                      '✓ $label completed';
                   if (output != null && output.isNotEmpty) {
                     _messages[assistantIndex]['toolOutput'] = output;
                   }
@@ -661,7 +665,10 @@ class _ChapterLearningWorkspaceScreenState
     }
   }
 
-  void _detectAndRecordLearningEvidence(String studentQuestion, String tutorAnswer) {
+  void _detectAndRecordLearningEvidence(
+    String studentQuestion,
+    String tutorAnswer,
+  ) {
     final lowerQ = studentQuestion.toLowerCase();
 
     // Struggle cues
@@ -702,7 +709,8 @@ class _ChapterLearningWorkspaceScreenState
             id: 'ev_${DateTime.now().millisecondsSinceEpoch}',
             topic: _activeChapterTitle,
             concept: _activeChapterTitle,
-            observation: 'Student expressed difficulty: "${studentQuestion.length > 60 ? '${studentQuestion.substring(0, 60)}…' : studentQuestion}"',
+            observation:
+                'Student expressed difficulty: "${studentQuestion.length > 60 ? '${studentQuestion.substring(0, 60)}…' : studentQuestion}"',
             isMastery: false,
             sourceType: EvidenceSourceType.directStudentStatement,
             timestamp: DateTime.now(),
@@ -716,7 +724,8 @@ class _ChapterLearningWorkspaceScreenState
             id: 'ev_${DateTime.now().millisecondsSinceEpoch}',
             topic: _activeChapterTitle,
             concept: _activeChapterTitle,
-            observation: 'Student confirmed mastery: "${studentQuestion.length > 60 ? '${studentQuestion.substring(0, 60)}…' : studentQuestion}"',
+            observation:
+                'Student confirmed mastery: "${studentQuestion.length > 60 ? '${studentQuestion.substring(0, 60)}…' : studentQuestion}"',
             isMastery: true,
             sourceType: EvidenceSourceType.directStudentStatement,
             timestamp: DateTime.now(),
@@ -780,7 +789,11 @@ class _ChapterLearningWorkspaceScreenState
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.build_circle_outlined, size: 14, color: IDPColors.primary),
+                  const Icon(
+                    Icons.build_circle_outlined,
+                    size: 14,
+                    color: IDPColors.primary,
+                  ),
                   const SizedBox(width: 6),
                   Flexible(
                     child: Text(
@@ -807,7 +820,11 @@ class _ChapterLearningWorkspaceScreenState
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.calculate_outlined, size: 16, color: IDPColors.primary),
+                  const Icon(
+                    Icons.calculate_outlined,
+                    size: 16,
+                    color: IDPColors.primary,
+                  ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
@@ -920,7 +937,11 @@ class _ChapterLearningWorkspaceScreenState
           runSpacing: 8,
           children: followUps.map((action) {
             return ActionChip(
-              avatar: const Icon(Icons.auto_awesome_outlined, size: 16, color: IDPColors.primary),
+              avatar: const Icon(
+                Icons.auto_awesome_outlined,
+                size: 16,
+                color: IDPColors.primary,
+              ),
               label: Text(action.label),
               labelStyle: const TextStyle(
                 color: IDPColors.textPrimary,
@@ -1167,14 +1188,18 @@ class _ChapterLearningWorkspaceScreenState
                         child: FilledButton(
                           style: FilledButton.styleFrom(
                             padding: EdgeInsets.zero,
-                            backgroundColor: _isSending ? Colors.red.shade600 : primaryIndigo,
+                            backgroundColor: _isSending
+                                ? Colors.red.shade600
+                                : primaryIndigo,
                             shape: const CircleBorder(),
                           ),
                           onPressed: _isSending
                               ? () => _coordinator.cancelActiveTurn()
                               : _sendMessage,
                           child: Icon(
-                            _isSending ? Icons.stop_rounded : Icons.arrow_upward_rounded,
+                            _isSending
+                                ? Icons.stop_rounded
+                                : Icons.arrow_upward_rounded,
                             color: Colors.white,
                           ),
                         ),
@@ -1783,6 +1808,10 @@ class _ChapterLearningWorkspaceScreenState
     if (questions.isEmpty)
       return const Center(child: CircularProgressIndicator());
 
+    if (_quizComplete) {
+      return _buildQuizResults(questions.length);
+    }
+
     final currentQ = questions[_currentQuestionIndex];
     final options = List<String>.from(currentQ['options']);
 
@@ -1999,23 +2028,30 @@ class _ChapterLearningWorkspaceScreenState
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  setState(() {
-                    _currentQuestionIndex = 0;
-                    _selectedOptionIndex = null;
-                    _showExplanation = false;
-                    _score = 0;
-                  });
+                  if (_currentQuestionIndex < questions.length - 1) {
+                    setState(() {
+                      _currentQuestionIndex += 1;
+                      _selectedOptionIndex = null;
+                      _showExplanation = false;
+                    });
+                  } else {
+                    setState(() {
+                      _quizComplete = true;
+                    });
+                  }
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF64748B),
+                  backgroundColor: primaryIndigo,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text(
-                  'Restart Quiz',
-                  style: TextStyle(
+                child: Text(
+                  _currentQuestionIndex < questions.length - 1
+                      ? 'Next Question'
+                      : 'View Results',
+                  style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                   ),
@@ -2023,6 +2059,70 @@ class _ChapterLearningWorkspaceScreenState
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuizResults(int totalQuestions) {
+    final percentage = totalQuestions == 0
+        ? 0
+        : ((_score / totalQuestions) * 100).round();
+    final passed = percentage >= 60;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          const SizedBox(height: 24),
+          Icon(
+            passed ? Icons.emoji_events_rounded : Icons.school_rounded,
+            size: 72,
+            color: passed ? const Color(0xFF10B981) : const Color(0xFF64748B),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            passed ? 'Quiz Complete!' : 'Keep Practising',
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF0F172A),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'You scored $_score out of $totalQuestions ($percentage%).',
+            style: const TextStyle(fontSize: 14, color: Color(0xFF64748B)),
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  _currentQuestionIndex = 0;
+                  _selectedOptionIndex = null;
+                  _showExplanation = false;
+                  _quizComplete = false;
+                  _score = 0;
+                });
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: IDPColors.primary,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                'Restart Quiz',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );

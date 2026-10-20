@@ -47,7 +47,7 @@ class ConversationProviderState {
 
 class ConversationNotifier extends StateNotifier<ConversationProviderState> {
   ConversationNotifier({required this.ref})
-      : super(const ConversationProviderState()) {
+    : super(const ConversationProviderState()) {
     // Auto-attach after the provider graph settles so voiceConnectionProvider
     // is fully initialised before we try to read it.
     Future.microtask(attachToSocket);
@@ -59,14 +59,21 @@ class ConversationNotifier extends StateNotifier<ConversationProviderState> {
   // players was the root cause of silent audio output (chunks were queued into
   // an unconnected player that nobody ever read from).
   StreamSubscription<VoiceEvent>? _eventSub;
+  StreamSubscription<VoiceEvent>? _offlineEventSub;
   DateTime? _requestTimestamp;
   int _messageCounter = 0;
 
-  /// Start listening to voice events from the socket.
+  /// Start listening to voice events from the socket and the offline pipeline.
   void attachToSocket() {
     final socket = ref.read(voiceConnectionProvider.notifier).socket;
     _eventSub?.cancel();
     _eventSub = socket.eventStream.listen(_onVoiceEvent);
+
+    _offlineEventSub?.cancel();
+    _offlineEventSub = ref
+        .read(voiceProvider.notifier)
+        .offlineEventStream
+        .listen(_onVoiceEvent);
   }
 
   // ─── Public API ─────────────────────────────────────────────────
@@ -80,18 +87,18 @@ class ConversationNotifier extends StateNotifier<ConversationProviderState> {
       partialTranscript: '',
       finalTranscript: '',
     );
-    await ref.read(voiceProvider.notifier).startRecording(languageCode: languageCode);
+    await ref
+        .read(voiceProvider.notifier)
+        .startRecording(languageCode: languageCode);
   }
 
   /// Stop recording and send audio to server.
   Future<void> stopListeningAndSend() async {
-    state = state.copyWith(state: ConversationState.uploading);
-    _requestTimestamp = DateTime.now();
-    await ref.read(voiceProvider.notifier).stopRecording(
-      context: _buildContextPayload(),
-    );
-
     state = state.copyWith(state: ConversationState.transcribing);
+    _requestTimestamp = DateTime.now();
+    await ref
+        .read(voiceProvider.notifier)
+        .stopRecording(context: _buildContextPayload());
   }
 
   Map<String, dynamic>? _buildContextPayload() {
@@ -102,10 +109,7 @@ class ConversationNotifier extends StateNotifier<ConversationProviderState> {
   /// Handle a transcript received from server.
   void onTranscriptReceived(String text, {required bool isFinal}) {
     if (isFinal) {
-      state = state.copyWith(
-        finalTranscript: text,
-        partialTranscript: '',
-      );
+      state = state.copyWith(finalTranscript: text, partialTranscript: '');
     } else {
       state = state.copyWith(partialTranscript: text);
     }
@@ -154,9 +158,7 @@ class ConversationNotifier extends StateNotifier<ConversationProviderState> {
       language: language,
       timestamp: DateTime.now(),
     );
-    state = state.copyWith(
-      messages: [...state.messages, message],
-    );
+    state = state.copyWith(messages: [...state.messages, message]);
   }
 
   /// Clear all history and return to idle.
@@ -218,7 +220,9 @@ class ConversationNotifier extends StateNotifier<ConversationProviderState> {
                 role: MessageRole.assistant,
                 text: chunk,
                 language: AppLanguage.fromCode(
-                  event.language ?? event.payload['language'] as String? ?? 'en',
+                  event.language ??
+                      event.payload['language'] as String? ??
+                      'en',
                 ),
                 timestamp: DateTime.now(),
               ),
@@ -275,6 +279,7 @@ class ConversationNotifier extends StateNotifier<ConversationProviderState> {
   @override
   void dispose() {
     _eventSub?.cancel();
+    _offlineEventSub?.cancel();
     super.dispose();
   }
 }
@@ -282,7 +287,8 @@ class ConversationNotifier extends StateNotifier<ConversationProviderState> {
 // ─── Provider ───────────────────────────────────────────────────────
 
 final conversationProvider =
-    StateNotifierProvider<ConversationNotifier, ConversationProviderState>(
-        (ref) {
-  return ConversationNotifier(ref: ref);
-});
+    StateNotifierProvider<ConversationNotifier, ConversationProviderState>((
+      ref,
+    ) {
+      return ConversationNotifier(ref: ref);
+    });

@@ -77,6 +77,14 @@ final class VisualSchemaRegistry {
         _validateLabSetup(intent, errors);
         break;
 
+      case VisualType.opticsRayDiagram:
+        _validateOpticsRayDiagram(intent, errors);
+        break;
+
+      case VisualType.geometryConstruction:
+        _validateGeometryConstruction(intent, errors);
+        break;
+
       case VisualType.conceptSequence:
       case VisualType.unknown:
         break;
@@ -100,8 +108,8 @@ final class VisualSchemaRegistry {
     final rawV = inputs['initial_velocity_mps'] ?? inputs['launch_velocity_mps'] ?? inputs['u'];
     if (rawV != null) {
       final v = (rawV as num).toDouble();
-      if (v < 0 || v > 1000) {
-        errors.add('Initial velocity out of realistic domain bounds [0, 1000] m/s: $v.');
+      if (v < -1000 || v > 1000) {
+        errors.add('Initial velocity out of realistic domain bounds [-1000, 1000] m/s: $v.');
       }
     }
 
@@ -175,6 +183,62 @@ final class VisualSchemaRegistry {
     }
     if (LabExperimentCatalog.getById(expId) == null && !expId.startsWith('exp_')) {
       errors.add('Experiment ID "$expId" is not an approved experiment in the catalog.');
+    }
+  }
+
+  void _validateOpticsRayDiagram(VisualIntent intent, List<String> errors) {
+    final inputs = intent.inputs;
+    final scenario = intent.scenario.toLowerCase().trim();
+    if (scenario.isEmpty) {
+      errors.add('optics.ray_diagram requires a scenario (e.g. concave_mirror, convex_lens).');
+    }
+
+    final rawF = inputs['focal_length_cm'] ?? inputs['f'];
+    if (rawF != null) {
+      final f = (rawF as num).toDouble();
+      if (f.abs() < 0.1 || f.abs() > 500) {
+        errors.add('Focal length out of realistic domain bounds [0.1, 500] cm: $f.');
+      }
+    }
+
+    final rawU = inputs['object_distance_cm'] ?? inputs['u'];
+    if (rawU != null) {
+      final u = (rawU as num).toDouble();
+      if (u.abs() < 0.1 || u.abs() > 1000) {
+        errors.add('Object distance out of realistic domain bounds [0.1, 1000] cm: $u.');
+      }
+    }
+  }
+
+  void _validateGeometryConstruction(VisualIntent intent, List<String> errors) {
+    final inputs = intent.inputs;
+    final scenario = intent.scenario.toLowerCase().trim();
+    if (scenario.isEmpty) {
+      errors.add('geometry.construction requires a scenario (e.g. right_triangle, circle_tangents).');
+    }
+
+    final rawBase = inputs['base'] ?? inputs['a'];
+    if (rawBase != null) {
+      final b = (rawBase as num).toDouble();
+      if (b <= 0 || b > 10000) {
+        errors.add('Geometry base length must be strictly positive and <= 10000: $b.');
+      }
+    }
+
+    final rawHeight = inputs['height'] ?? inputs['b'];
+    if (rawHeight != null) {
+      final h = (rawHeight as num).toDouble();
+      if (h <= 0 || h > 10000) {
+        errors.add('Geometry height must be strictly positive and <= 10000: $h.');
+      }
+    }
+
+    final rawRadius = inputs['radius'] ?? inputs['r'];
+    if (rawRadius != null) {
+      final r = (rawRadius as num).toDouble();
+      if (r <= 0 || r > 10000) {
+        errors.add('Geometry circle radius must be strictly positive: $r.');
+      }
     }
   }
 }

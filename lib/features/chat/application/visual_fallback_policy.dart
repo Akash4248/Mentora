@@ -97,7 +97,34 @@ final class VisualFallbackPolicy {
       );
     }
 
-    // 3. Sensor Lab intent matching
+    // 3. Optics ray diagram matching
+    if (clean.contains('concave mirror') ||
+        clean.contains('convex mirror') ||
+        clean.contains('convex lens') ||
+        clean.contains('concave lens') ||
+        clean.contains('ray diagram') ||
+        clean.contains('mirror formula') ||
+        clean.contains('lens formula')) {
+      final isLens = clean.contains('lens');
+      final isConvex = clean.contains('convex');
+      final scenario = isLens
+          ? (isConvex ? 'convex_lens' : 'concave_lens')
+          : (clean.contains('convex') ? 'convex_mirror' : 'concave_mirror');
+
+      return VisualIntent(
+        type: VisualType.opticsRayDiagram,
+        scenario: scenario,
+        inputs: {
+          'focal_length_cm': 10.0,
+          'object_distance_cm': 15.0,
+          'object_height_cm': 3.0,
+        },
+        title: isLens ? 'Thin Lens Ray Diagram' : 'Spherical Mirror Ray Diagram',
+        description: 'Ray tracing showing focal point, image location, and magnification.',
+      );
+    }
+
+    // 4. Sensor Lab intent matching
     if (clean.contains('sensor lab') ||
         clean.contains('incline experiment') ||
         clean.contains('friction experiment') ||
@@ -108,6 +135,44 @@ final class VisualFallbackPolicy {
         inputs: {'experiment_id': 'exp_incline_friction'},
         title: 'Incline Plane & Static Friction Experiment',
         description: 'Measure the tilt angle and static friction coefficient safely with phone accelerometer.',
+      );
+    }
+
+    // 5. Geometry construction matching
+    if (clean.contains('pythagor') ||
+        clean.contains('right triangle') ||
+        clean.contains('hypotenuse') ||
+        clean.contains('right angled')) {
+      return const VisualIntent(
+        type: VisualType.geometryConstruction,
+        scenario: 'right_triangle',
+        inputs: {'base': 4.0, 'height': 3.0},
+        title: 'Right Triangle & Pythagoras Theorem',
+        description: 'Interactive geometry showing perpendicular sides, hypotenuse, and right-angle marker.',
+      );
+    }
+
+    if (clean.contains('circle tangent') ||
+        clean.contains('tangents to a circle') ||
+        clean.contains('tangents from external point')) {
+      return const VisualIntent(
+        type: VisualType.geometryConstruction,
+        scenario: 'circle_tangents',
+        inputs: {'radius': 3.0, 'distance': 6.0},
+        title: 'Tangents to a Circle from External Point',
+        description: 'Proves that tangents drawn from an external point to a circle are equal in length.',
+      );
+    }
+
+    if (clean.contains('parallel lines') ||
+        clean.contains('transversal') ||
+        clean.contains('alternate interior angles')) {
+      return const VisualIntent(
+        type: VisualType.geometryConstruction,
+        scenario: 'parallel_transversal',
+        inputs: {'angle': 45.0},
+        title: 'Parallel Lines Cut by a Transversal',
+        description: 'Shows alternate interior, corresponding, and supplementary angle pairs.',
       );
     }
 

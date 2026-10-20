@@ -1,9 +1,16 @@
-import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import '../../chat/data/platform_tutor_inference_gateway.dart';
+import '../../chat/application/mentora_agent_session.dart';
+import '../../chat/application/mentora_tutor_agent_provider.dart';
+
+class OfflineVoiceResult {
+  const OfflineVoiceResult({required this.transcript, required this.answer});
+
+  final String transcript;
+  final String answer;
+}
 
 /// On-Device Offline Speech-To-Text & Text-To-Speech engine.
 ///
@@ -16,8 +23,6 @@ class OfflineSpeechService {
 
   static const MethodChannel _ttsChannel = MethodChannel('mentora/tts');
   static const MethodChannel _sttChannel = MethodChannel('mentora/stt');
-  final PlatformTutorInferenceGateway _llmGateway =
-      PlatformTutorInferenceGateway();
 
   bool _isSpeaking = false;
   bool get isSpeaking => _isSpeaking;
@@ -132,8 +137,10 @@ class OfflineSpeechService {
     } catch (_) {}
   }
 
-  /// Process voice query fully offline: STT -> GGUF LLM -> TTS
-  Future<String> processOfflineVoiceQuery({
+  /// Transcribes a voice query and answers it through the same tutor agent
+  /// used by text chat. Text-to-speech is deliberately left to the caller so
+  /// only the final assistant answer is spoken.
+  Future<OfflineVoiceResult> processOfflineVoiceQuery({
     required String wavPath,
     required String chapterTitle,
     required int grade,
@@ -143,23 +150,45 @@ class OfflineSpeechService {
       wavPath,
       languageCode: languageCode,
     );
-    final prompt = userQuery.isNotEmpty
+    final question = userQuery.isNotEmpty
         ? userQuery
         : 'Explain $chapterTitle for Grade $grade student.';
 
-    final stream = _llmGateway.streamResponse(
-      prompt: 'Topic: $chapterTitle\nQuestion: $prompt',
+    final session = MentoraTutorAgentProvider().createSession(
+      topic: chapterTitle,
+      grade: grade,
     );
 
     final buffer = StringBuffer();
-    await for (final chunk in stream) {
-      buffer.write(chunk);
+    var completedAnswer = '';
+
+    try {
+      await for (final event in session.runTurn(question)) {
+        switch (event) {
+          case TutorTextDeltaEvent(:final delta):
+            buffer.write(delta);
+          case TutorTurnCompletedEvent(:final text):
+            completedAnswer = text;
+          case TutorTurnFailedEvent(:final message):
+            completedAnswer = '⚠️ $message';
+          case TutorTurnAbortedEvent():
+            completedAnswer = 'Response cancelled.';
+          case TutorToolStatusEvent():
+            break;
+        }
+      }
+    } finally {
+      await session.dispose();
     }
 
-    final cleanAnswer = buffer.toString().trim();
-    if (cleanAnswer.isNotEmpty) {
-      unawaited(speakText(cleanAnswer, languageCode: languageCode));
+    var answer = completedAnswer.trim();
+    if (answer.isEmpty) {
+      answer = buffer.toString().trim();
     }
-    return cleanAnswer;
+    if (answer.isEmpty) {
+      answer = 'I could not generate an answer. Please try again.';
+    }
+
+    return OfflineVoiceResult(transcript: userQuery, answer: answer);
   }
 }
