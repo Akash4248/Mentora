@@ -14,7 +14,7 @@ import java.io.File
 
 class LlamaEngine(private val context: Context) {
     private var maxOutputTokens = 1024  // Allow up to 1024 output tokens by default for detailed answers
-    private var maxGenerationDurationMs = 120000  // 120 seconds timeout for phi-2 (30 seconds for tinyllama)
+    private var maxGenerationDurationMs = 300000  // 300 seconds timeout for on-device LLMs (e.g. Bonsai, Phi-2)
     private val defaultSystemPrompt = "You are a helpful educational tutor. Provide clear, comprehensive, and accurate explanations. Structure your response logically. Do not repeat phrases. Do not produce speaker labels like A:, B:, User:, Assistant:. Do not continue into another turn."
     private var activeSystemPrompt = defaultSystemPrompt
     private val prefs: SharedPreferences =
@@ -42,6 +42,29 @@ class LlamaEngine(private val context: Context) {
     private var systemPromptApplied = false
 
     fun getModelPath(): String = modelPath
+
+    fun getActiveModelName(): String {
+        val fileName = File(modelPath).name
+        return when {
+            fileName.isBlank() -> "unknown"
+            fileName.endsWith(".gguf", ignoreCase = true) -> fileName.substring(0, fileName.length - 5)
+            else -> fileName
+        }
+    }
+
+    fun getChatTemplateName(): String {
+        val name = getActiveModelName().lowercase(java.util.Locale.US)
+        return when {
+            name.contains("bonsai") -> "ChatML/Bonsai"
+            name.contains("phi-2") -> "ChatML/Phi-2"
+            name.contains("phi-3") || name.contains("phi-4") -> "Phi-3/4"
+            name.contains("llama-2") || name.contains("tinyllama") -> "Llama-2"
+            name.contains("llama-3") -> "Llama-3"
+            name.contains("gemma") -> "Gemma"
+            name.contains("qwen") -> "ChatML/Qwen"
+            else -> "ChatML/Generic"
+        }
+    }
 
     private fun resolveInitialModelPath(): String {
         val configuredPath = prefs.getString(modelPathKey, null)
@@ -140,6 +163,8 @@ class LlamaEngine(private val context: Context) {
             "generationMaxTokens" to maxOutputTokens,
             "generationTimeoutMs" to maxGenerationDurationMs,
             "lastEngineError" to lastEngineError,
+            "activeModel" to getActiveModelName(),
+            "chatTemplate" to getChatTemplateName(),
         )
     }
 
@@ -421,9 +446,10 @@ class LlamaEngine(private val context: Context) {
     fun askStreamFast(question: String, onToken: (String) -> Unit): String {
         Log.i("LLM", "[Engine] askStreamFast ENTER question='${question.take(40)}'")
         val startedAt = System.currentTimeMillis()
+        fun elapsed(): String = "+${System.currentTimeMillis() - startedAt}ms"
         
-        println("[Engine] 📝 Question: '${question.take(50)}...'")
-        println("[Engine] 🔄 System prompt applied: $systemPromptApplied")
+        println("[Engine] [${elapsed()}] 📝 Question: '${question.take(50)}...'")
+        println("[Engine] [${elapsed()}] 🔄 System prompt applied: $systemPromptApplied")
 
         ensureModelInAppStorage()
 
@@ -449,11 +475,16 @@ class LlamaEngine(private val context: Context) {
             return "Model cannot be used: $validationError"
         }
 
+        val activeModel = getActiveModelName()
+        val activeTemplate = getChatTemplateName()
+        val modelSizeBytes = if (modelFile.exists()) modelFile.length() else 0L
+        val modelSizeGbStr = String.format(java.util.Locale.US, "%.2fGB", modelSizeBytes.toDouble() / (1024 * 1024 * 1024))
+
         val output = try {
             runBlocking {
                 // Load model if needed
                 if (!loaded) {
-                    println("[Engine] 🚀 Loading model for first time...")
+                    println("[Engine] [${elapsed()}] 🚀 Loading model for first time...")
                     val loadStart = System.currentTimeMillis()
                     initAttempts += 1
                     ensureModelLoadedWithRecovery(modelPath)
@@ -462,12 +493,12 @@ class LlamaEngine(private val context: Context) {
                     lastInitAtMillis = System.currentTimeMillis()
                     loaded = true
                     systemPromptApplied = false
-                    println("[Engine] ✓ Model loaded in ${loadTimeMs}ms (phi-2, 1.66GB)")
-                    println("[MODEL] ACTIVE_MODEL=phi-2")
+                    println("[Engine] [${elapsed()}] ✓ Model loaded in ${loadTimeMs}ms ($activeModel, $modelSizeGbStr)")
+                    println("[MODEL] ACTIVE_MODEL=$activeModel")
                     println("[MODEL] MODEL_PATH=$modelPath")
-                    println("[MODEL] CHAT_TEMPLATE=ChatML/Phi-2")
+                    println("[MODEL] CHAT_TEMPLATE=$activeTemplate")
                 } else {
-                    println("[Engine] 📦 Model already loaded, using cached instance")
+                    println("[Engine] [${elapsed()}] 📦 Model already loaded, using cached instance ($activeModel)")
                 }
 
                 // TERMUX-STYLE OPTIMIZATION: Combine system + user on first question
@@ -480,16 +511,35 @@ class LlamaEngine(private val context: Context) {
                 // prompt as the user turn and NOT prepend an extra system block.
                 val trimmedQ = question.trim()
                 val isPreFormatted = trimmedQ.startsWith("<|im_start|") ||
-                    trimmedQ.startsWith("<s>[INST]")
+                    trimmedQ.startsWith("<s>[INST]") ||
+                    trimmedQ.startsWith("<start_of_turn>")
 
                 val promptToProcess = if (isPreFormatted) {
-                    println("[Engine] 📜 Pre-formatted prompt detected (ChatML/Llama-2), passing verbatim")
-                    trimmedQ
+                    println("[Engine] [${elapsed()}] 📜 Pre-formatted prompt detected ($activeTemplate)")
+                    if (activeTemplate == "Gemma" && trimmedQ.contains("<|im_start|>")) {
+                        // Translate ChatML format to Gemma native turn tokens
+                        val systemRegex = Regex("""<\|im_start\|>system\s*([\s\S]*?)<\|im_end\|>""")
+                        val userRegex = Regex("""<\|im_start\|>user\s*([\s\S]*?)<\|im_end\|>""")
+                        val sysMatch = systemRegex.find(trimmedQ)?.groupValues?.get(1)?.trim().orEmpty()
+                        val userMatch = userRegex.find(trimmedQ)?.groupValues?.get(1)?.trim().orEmpty()
+
+                        val combinedUser = if (sysMatch.isNotEmpty() && userMatch.isNotEmpty()) {
+                            "$sysMatch\n\n$userMatch"
+                        } else if (userMatch.isNotEmpty()) {
+                            userMatch
+                        } else {
+                            trimmedQ.replace(Regex("""<\|im_start\|>\w*"""), "").replace("<|im_end|>", "").replace("<|im_start|>assistant", "").trim()
+                        }
+                        println("[Engine] [${elapsed()}] 🔄 Converted ChatML prompt to Gemma native tokens (<start_of_turn>user ...)")
+                        "<start_of_turn>user\n$combinedUser<end_of_turn>\n<start_of_turn>model\n"
+                    } else {
+                        trimmedQ
+                    }
                 } else if (!systemPromptApplied) {
-                    println("[Engine] 🔗 Q1: Processing raw prompt from Dart layer")
+                    println("[Engine] [${elapsed()}] 🔗 Q1: Processing raw prompt from Dart layer")
                     trimmedQ
                 } else {
-                    println("[Engine] ⚡ Q2+: Processing user only (system cached)")
+                    println("[Engine] [${elapsed()}] ⚡ Q2+: Processing user only (system cached)")
                     trimmedQ
                 }
 
@@ -499,29 +549,29 @@ class LlamaEngine(private val context: Context) {
                 var tokenCount = 0
                 var firstTokenAt = 0L
 
-                println("[Engine] [TRACE] THREAD=${Thread.currentThread().name}")
-                println("[Engine] [TRACE] PROMPT_LENGTH=${promptToProcess.length}")
-                println("[Engine] [TRACE] PROMPT_FIRST_200=${promptToProcess.take(200)}")
-                println("[Engine] [TRACE] BEFORE_SEND_USER_PROMPT")
-                println("[Engine] [TRACE] SEND_USER_PROMPT_START")
+                println("[Engine] [${elapsed()}] [TRACE] THREAD=${Thread.currentThread().name}")
+                println("[Engine] [${elapsed()}] [TRACE] PROMPT_LENGTH=${promptToProcess.length}")
+                println("[Engine] [${elapsed()}] [TRACE] PROMPT_FIRST_200=${promptToProcess.take(200)}")
+                println("[Engine] [${elapsed()}] [TRACE] BEFORE_SEND_USER_PROMPT")
+                println("[Engine] [${elapsed()}] [TRACE] SEND_USER_PROMPT_START")
 
                 val flow = inferenceEngine.sendUserPrompt(
                     message = promptToProcess,
                     predictLength = maxOutputTokens,
                 )
 
-                println("[Engine] [TRACE] SEND_USER_PROMPT_FLOW_CREATED")
-                println("[Engine] [TRACE] COLLECT_START")
+                println("[Engine] [${elapsed()}] [TRACE] SEND_USER_PROMPT_FLOW_CREATED")
+                println("[Engine] [${elapsed()}] [TRACE] COLLECT_START (evaluating prompt on CPU/NPU...)")
 
                 flow.collect { token ->
                     tokenCount++
                     if (firstTokenAt == 0L) {
                         firstTokenAt = System.currentTimeMillis()
                         val ttft = firstTokenAt - genStart
-                        println("[Engine] [TRACE] FIRST_TOKEN_AFTER_MS=${ttft}")
+                        println("[Engine] [${elapsed()}] [TRACE] FIRST_TOKEN_AFTER_MS=${ttft} (TTFT: ${ttft}ms)")
                     }
                     if (tokenCount <= 5 || tokenCount % 20 == 0) {
-                        println("[Engine] [TRACE] TOKEN_RECEIVED count=$tokenCount length=${token.length} thread=${Thread.currentThread().name}")
+                        println("[Engine] [${elapsed()}] [TRACE] TOKEN_RECEIVED count=$tokenCount length=${token.length} thread=${Thread.currentThread().name}")
                     }
                     result.append(token)
                     onToken(token)
@@ -529,15 +579,15 @@ class LlamaEngine(private val context: Context) {
                     // Guard against runaway loops like repeated A:/B: turns or repeated syllables.
                     val current = result.toString()
                     if (isRunawayRepetition(current)) {
-                        println("[Engine] 🛑 Repetition loop detected, stopping generation")
+                        println("[Engine] [${elapsed()}] 🛑 Repetition loop detected, stopping generation")
                         inferenceEngine.stopGeneration()
                     }
                 }
 
-                println("[Engine] [TRACE] COLLECT_COMPLETE")
+                println("[Engine] [${elapsed()}] [TRACE] COLLECT_COMPLETE")
                 val genTimeMs = System.currentTimeMillis() - genStart
-                println("[Engine] [TRACE] TOTAL_GENERATION_TIME=$genTimeMs")
-                println("[Engine] [TRACE] TOKENS_GENERATED=$tokenCount")
+                println("[Engine] [${elapsed()}] [TRACE] TOTAL_GENERATION_TIME=${genTimeMs}ms (prefill + generation)")
+                println("[Engine] [${elapsed()}] [TRACE] TOKENS_GENERATED=$tokenCount")
                 
                 // Mark system as applied after first question processes it
                 systemPromptApplied = true
@@ -580,7 +630,7 @@ class LlamaEngine(private val context: Context) {
                     }
                 }
                 
-                println("[Engine] 💬 Generated ${cleanedResponse.length} chars in ${genTimeMs}ms")
+                println("[Engine] [${elapsed()}] 💬 Generated ${cleanedResponse.length} chars in ${genTimeMs}ms")
 
                 cleanedResponse.ifBlank {
                     "I could not generate an answer. Please try again."
@@ -590,14 +640,14 @@ class LlamaEngine(private val context: Context) {
             val stateName = inferenceEngine.state.value.javaClass.simpleName
             lastEngineError = "${e.message ?: "unknown runtime error"} (state=$stateName)"
             Log.e("LLM", "[Engine] askStreamFast ERROR: $lastEngineError", e)
-            println("[Engine] ❌ Error: $lastEngineError")
+            println("[Engine] [${elapsed()}] ❌ Error: $lastEngineError")
             // KEEP MODEL LOADED: Don't unload on transient errors
             // Model is now permanently cached in native memory
             return "Failed to run local model: ${lastEngineError}"
         }
         
         val elapsedMs = System.currentTimeMillis() - startedAt
-        println("[Engine] ✅ Done in ${elapsedMs}ms | Output: ${output.length} chars")
+        println("[Engine] [${elapsed()}] ✅ Done in ${elapsedMs}ms | Output: ${output.length} chars")
 
         totalInferenceCount += 1
         lastInferenceAtMillis = System.currentTimeMillis()

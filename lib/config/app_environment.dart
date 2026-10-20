@@ -8,7 +8,9 @@ enum LogTag {
   discovery,
   routing,
   recovery,
-  websocket;
+  websocket,
+  tutor,
+  eval;
 
   @override
   String toString() => name.toUpperCase();

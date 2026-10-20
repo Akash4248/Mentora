@@ -534,8 +534,11 @@ Java_com_arm_aichat_internal_InferenceEngineImpl_processUserPrompt(
     std::string formatted_user_prompt(user_prompt_str);
     env->ReleaseStringUTFChars(juser_prompt, user_prompt);
 
-    // Format user prompt if applicable
-    const bool has_chat_template = use_chat_template();
+    // Format user prompt if applicable (never re-wrap already formatted turn templates)
+    const bool is_already_formatted = (user_prompt_str.rfind("<|im_start|", 0) == 0) ||
+                                      (user_prompt_str.rfind("<s>[INST]", 0) == 0) ||
+                                      (user_prompt_str.rfind("<start_of_turn>", 0) == 0);
+    const bool has_chat_template = use_chat_template() && !is_already_formatted;
     if (has_chat_template) {
         // Keep turns stateless for speed: persist only system prompt, not every user/assistant turn.
         formatted_user_prompt = chat_add_and_format(ROLE_USER, user_prompt_str, false);

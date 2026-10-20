@@ -720,6 +720,7 @@ class MentoraBackendClient {
     CancelToken? cancelToken,
     List<String> history = const [],
     List<AgentTool> tools = const [],
+    String? systemPrompt,
   }) async* {
     if (cancelToken?.isCancelled == true) {
       yield const TutorStreamErrorEvent('Tutor response cancelled.', aborted: true);
@@ -737,6 +738,7 @@ class MentoraBackendClient {
         cancelToken: cancelToken,
         history: history,
         tools: tools,
+        systemPrompt: systemPrompt,
       );
       return;
     }
@@ -753,6 +755,8 @@ class MentoraBackendClient {
           'topic': topic,
           'grade': grade,
           'stream': true,
+          if (systemPrompt != null && systemPrompt.isNotEmpty)
+            'systemPrompt': systemPrompt,
           if (tools.isNotEmpty)
             'tools': tools.map((t) => {
               'name': t.name,
@@ -863,6 +867,7 @@ class MentoraBackendClient {
           cancelToken: cancelToken,
           history: history,
           tools: tools,
+          systemPrompt: systemPrompt,
         );
         return;
       } else {
@@ -884,6 +889,7 @@ class MentoraBackendClient {
           cancelToken: cancelToken,
           history: history,
           tools: tools,
+          systemPrompt: systemPrompt,
         );
         return;
       }
@@ -969,6 +975,7 @@ class MentoraBackendClient {
     CancelToken? cancelToken,
     List<String> history = const [],
     List<AgentTool> tools = const [],
+    String? systemPrompt,
   }) async* {
     try {
       if (cancelToken?.isCancelled == true) {
@@ -1110,13 +1117,35 @@ class MentoraBackendClient {
         toolPromptSection.writeln('```');
       }
 
-      // Single-layer prompt serialization: No double wrapping
-      final prompt = '''<|im_start|>system
+      // Dynamic systemBlock incorporating memory and tool prompt section
+      final String systemBlock;
+      if (systemPrompt != null && systemPrompt.trim().isNotEmpty) {
+        var sp = systemPrompt.trim();
+        final tpStr = toolPromptSection.toString().trim();
+        if (tpStr.isNotEmpty && !sp.contains('```mentora-tool-call')) {
+          if (sp.contains('<|im_end|>')) {
+            sp = sp.replaceFirst('<|im_end|>', '\n$tpStr\n<|im_end|>');
+          } else {
+            sp = '$sp\n\n$tpStr';
+          }
+        }
+        if (!sp.startsWith('<|im_start|>system')) {
+          sp = '<|im_start|>system\n$sp';
+        }
+        if (!sp.endsWith('<|im_end|>')) {
+          sp = '$sp\n<|im_end|>';
+        }
+        systemBlock = sp;
+      } else {
+        systemBlock = '''<|im_start|>system
 You are an expert NCERT school AI tutor for Class $grade $tClean.
 Answer directly and clearly using Markdown formatting, bullet points, and key formulas.$ragContextBlock$toolPromptSection
 IMPORTANT: If the user asks in Kannada or any regional language, respond in that language.
 Do not output internal monologues or planning steps.$historyBlock
-<|im_end|>
+<|im_end|>''';
+      }
+
+      final prompt = '''$systemBlock
 <|im_start|>user
 $cleanStudentQuestion
 <|im_end|>
@@ -1139,12 +1168,16 @@ $cleanStudentQuestion
           final current = rawBuffer.toString();
           if (tools.isEmpty) {
             yield TutorStreamChunkEvent(pushed);
-          } else if (!current.trimLeft().startsWith('```mentora-tool-call')) {
-            if (!emittedBuffered) {
-              emittedBuffered = true;
-              yield TutorStreamChunkEvent(current);
-            } else {
-              yield TutorStreamChunkEvent(pushed);
+          } else {
+            final toolFenceOpen = current.contains('```mentora-tool-call') ||
+                                  current.contains('```json:mentora-tool-call');
+            if (!toolFenceOpen) {
+              if (!emittedBuffered) {
+                emittedBuffered = true;
+                yield TutorStreamChunkEvent(current);
+              } else {
+                yield TutorStreamChunkEvent(pushed);
+              }
             }
           }
         }
@@ -1155,18 +1188,22 @@ $cleanStudentQuestion
         final current = rawBuffer.toString();
         if (tools.isEmpty) {
           yield TutorStreamChunkEvent(flushed);
-        } else if (!current.trimLeft().startsWith('```mentora-tool-call')) {
-          if (!emittedBuffered) {
-            emittedBuffered = true;
-            yield TutorStreamChunkEvent(current);
-          } else {
-            yield TutorStreamChunkEvent(flushed);
+        } else {
+          final toolFenceOpen = current.contains('```mentora-tool-call') ||
+                                current.contains('```json:mentora-tool-call');
+          if (!toolFenceOpen) {
+            if (!emittedBuffered) {
+              emittedBuffered = true;
+              yield TutorStreamChunkEvent(current);
+            } else {
+              yield TutorStreamChunkEvent(flushed);
+            }
           }
         }
       }
 
       final fullRaw = rawBuffer.toString();
-      final toolCallMatch = RegExp(r'```mentora-tool-call\s*(\{[\s\S]*?\})\s*```').firstMatch(fullRaw);
+      final toolCallMatch = RegExp(r'```(?:json:)?mentora-tool-call\s*(\{[\s\S]*?\})\s*```').firstMatch(fullRaw);
       if (toolCallMatch != null) {
         try {
           final jsonStr = toolCallMatch.group(1)!;
@@ -1186,21 +1223,14 @@ $cleanStudentQuestion
         } catch (_) {}
       }
 
-      if (!emittedBuffered && rawBuffer.isNotEmpty && tools.isNotEmpty) {
-        yield TutorStreamChunkEvent(rawBuffer.toString());
-      }
-
-      var fullAnswer = ReasoningOutputFilter.stripComplete(rawBuffer.toString());
+      var fullAnswer = fullRaw.replaceAll(RegExp(r'```(?:json:)?mentora-tool-call[\s\S]*?```'), '').trim();
+      fullAnswer = ReasoningOutputFilter.stripComplete(fullAnswer);
       fullAnswer = _deduplicateTopicHeaders(fullAnswer, tClean);
       fullAnswer = MarkdownFormatNormalizer.normalize(fullAnswer);
 
       if (fullAnswer.isNotEmpty) {
-        final formattedAnswer = fullAnswer.startsWith('###')
-            ? fullAnswer
-            : '### $tClean Explained\n\n$fullAnswer';
-
         yield TutorStreamCompletedEvent(
-          fullText: '📱 **[On-Device Local AI Tutor]**\n\n$formattedAnswer',
+          fullText: fullAnswer,
           source: 'on_device_local_llm',
         );
       } else {

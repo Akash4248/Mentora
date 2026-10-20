@@ -16,7 +16,7 @@ void main() {
     );
 
     expect(tester.takeException(), isNull);
-    expect(find.text('MENTORA · TUTOR'), findsOneWidget);
+    expect(find.text('ON-DEVICE LOCAL AI TUTOR'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
   });

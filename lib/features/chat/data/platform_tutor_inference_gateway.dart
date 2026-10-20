@@ -32,19 +32,22 @@ class PlatformTutorInferenceGateway implements TutorInferenceGateway, LocalInfer
 
   @override
   Stream<String> streamResponse({required String prompt}) async* {
-    print('[DIAGNOSTICS] ENTERING PlatformTutorInferenceGateway.streamResponse()');
-    print('[DIAGNOSTICS] GENERATION_START (PLATFORM)');
+    final stopwatch = Stopwatch()..start();
+    String elapsed() => '+${stopwatch.elapsedMilliseconds}ms';
+
+    print('[DIAGNOSTICS] [${elapsed()}] ENTERING PlatformTutorInferenceGateway.streamResponse()');
+    print('[DIAGNOSTICS] [${elapsed()}] GENERATION_START (PLATFORM) - promptLength=${prompt.length}');
     Stream<String> sourceStream;
 
     final ffiReady = await _ffiGateway.isAvailable();
     if (ffiReady) {
-      print('[DIAGNOSTICS] Routing through FfiTutorInferenceGateway');
+      print('[DIAGNOSTICS] [${elapsed()}] Routing through FfiTutorInferenceGateway');
       sourceStream = _ffiGateway.streamResponse(prompt: prompt);
     } else if (Platform.isLinux) {
-      print('[DIAGNOSTICS] Routing through LinuxTutorInferenceGateway (llama-cli process)');
+      print('[DIAGNOSTICS] [${elapsed()}] Routing through LinuxTutorInferenceGateway (llama-cli process)');
       sourceStream = _linuxGateway.streamResponse(prompt: prompt);
     } else {
-      print('[DIAGNOSTICS] Routing through MethodChannel (LlamaEngine.kt)');
+      print('[DIAGNOSTICS] [${elapsed()}] Routing through MethodChannel (LlamaEngine.kt)');
       sourceStream = _streamChannel
           .receiveBroadcastStream(<String, dynamic>{'question': prompt})
           .where((event) => event is String)
@@ -53,16 +56,20 @@ class PlatformTutorInferenceGateway implements TutorInferenceGateway, LocalInfer
     }
 
     var isFirstToken = true;
+    var tokenCount = 0;
     try {
       await for (final chunk in sourceStream) {
+        tokenCount++;
         if (isFirstToken) {
-          print('[DIAGNOSTICS] FIRST_TOKEN (PLATFORM)');
+          print('[DIAGNOSTICS] [${elapsed()}] FIRST_TOKEN (PLATFORM) - TTFT: ${stopwatch.elapsedMilliseconds}ms');
           isFirstToken = false;
+        } else if (tokenCount <= 5 || tokenCount % 20 == 0) {
+          print('[DIAGNOSTICS] [${elapsed()}] TOKEN #$tokenCount (chunk: ${chunk.length} chars)');
         }
         yield chunk;
       }
     } finally {
-      print('[DIAGNOSTICS] GENERATION_END (PLATFORM)');
+      print('[DIAGNOSTICS] [${elapsed()}] GENERATION_END (PLATFORM) - Total: ${stopwatch.elapsedMilliseconds}ms, Tokens: $tokenCount');
     }
   }
 

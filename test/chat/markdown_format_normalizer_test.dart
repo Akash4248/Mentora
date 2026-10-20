@@ -15,5 +15,24 @@ void main() {
       expect(normalized, contains('\n- All angles are right angles (90°).'));
       expect(normalized, contains('\n\n## Properties of a Cube\n\nA cube has'));
     });
+
+    test('preserves Mermaid and code blocks byte-for-byte without altering symbols', () {
+      const raw = '''
+Here is the diagram:
+```mermaid
+graph TD
+  A[Newton's Laws of Motion] --> B[Step-by-step Explanation]
+  B --> C[Formulae.Properties]
+  C --> D[Real-World Analogy #1]
+```
+That completes the overview.
+''';
+
+      final normalized = MarkdownFormatNormalizer.normalize(raw);
+
+      expect(normalized, contains("```mermaid\ngraph TD\n  A[Newton's Laws of Motion] --> B[Step-by-step Explanation]\n  B --> C[Formulae.Properties]\n  C --> D[Real-World Analogy #1]\n```"));
+      expect(normalized, contains("Here is the diagram:"));
+      expect(normalized, contains("That completes the overview."));
+    });
   });
 }

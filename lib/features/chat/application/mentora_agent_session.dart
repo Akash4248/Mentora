@@ -18,10 +18,17 @@ final class TutorTextDeltaEvent extends TutorAgentEvent {
 enum TutorToolStatus { started, completed, failed }
 
 final class TutorToolStatusEvent extends TutorAgentEvent {
-  const TutorToolStatusEvent({required this.label, required this.status});
+  const TutorToolStatusEvent({
+    required this.label,
+    required this.status,
+    this.toolName,
+    this.output,
+  });
 
   final String label;
   final TutorToolStatus status;
+  final String? toolName;
+  final String? output;
 }
 
 final class TutorTurnCompletedEvent extends TutorAgentEvent {
@@ -52,8 +59,10 @@ final class MentoraAgentSession {
     List<Message> initialMessages = const [],
     this.maxModelTurns = 6,
     this.maxToolCalls = 4,
-    this.maxRunDuration = const Duration(seconds: 60),
-    this.maxToolDuration = const Duration(seconds: 10),
+    this.maxRunDuration = const Duration(seconds: 300),
+    this.maxToolDuration = const Duration(seconds: 15),
+    this.inactivityTimeout = const Duration(seconds: 90),
+    this.maxTurnCeiling = const Duration(minutes: 10),
   }) {
     if (maxModelTurns <= 0 || maxToolCalls < 0) {
       throw ArgumentError(
@@ -61,8 +70,11 @@ final class MentoraAgentSession {
         'must not be negative.',
       );
     }
-    if (maxRunDuration <= Duration.zero || maxToolDuration <= Duration.zero) {
-      throw ArgumentError('Run and tool durations must be greater than zero.');
+    if (maxRunDuration <= Duration.zero ||
+        maxToolDuration <= Duration.zero ||
+        inactivityTimeout <= Duration.zero ||
+        maxTurnCeiling <= Duration.zero) {
+      throw ArgumentError('Durations and timeouts must be greater than zero.');
     }
 
     final registeredTools = tools.map(_withTimeout).toList(growable: false);
@@ -142,6 +154,8 @@ final class MentoraAgentSession {
   final int maxToolCalls;
   final Duration maxRunDuration;
   final Duration maxToolDuration;
+  final Duration inactivityTimeout;
+  final Duration maxTurnCeiling;
 
   late final Agent _agent;
   late final void Function() _unsubscribe;
@@ -149,6 +163,7 @@ final class MentoraAgentSession {
   late final Map<String, String> _toolLabels;
   StreamController<TutorAgentEvent>? _activeController;
   Timer? _runTimer;
+  DateTime? _turnStartTime;
   var _modelTurns = 0;
   var _toolCalls = 0;
   var _runTimedOut = false;
@@ -160,7 +175,7 @@ final class MentoraAgentSession {
   ///
   /// Tool arguments, raw tool results, provider payloads, and hidden reasoning
   /// are intentionally not part of this UI event contract.
-  Stream<TutorAgentEvent> runTurn(String prompt) {
+  Stream<TutorAgentEvent> runTurn(String prompt, {String? systemPrompt}) {
     if (_disposed) throw StateError('The tutor session has been disposed.');
     if (_activeController != null) {
       throw StateError('A tutor turn is already running.');
@@ -169,9 +184,14 @@ final class MentoraAgentSession {
       throw ArgumentError.value(prompt, 'prompt', 'Must not be empty.');
     }
 
+    if (systemPrompt != null && systemPrompt.trim().isNotEmpty) {
+      _agent.state.systemPrompt = systemPrompt.trim();
+    }
+
     _modelTurns = 0;
     _toolCalls = 0;
     _runTimedOut = false;
+    _turnStartTime = DateTime.now();
     final controller = StreamController<TutorAgentEvent>(sync: true);
     _activeController = controller;
     controller.onCancel = cancelCurrentTurn;
@@ -181,6 +201,23 @@ final class MentoraAgentSession {
     });
     unawaited(_run(prompt, controller));
     return controller.stream;
+  }
+
+  void _resetInactivityTimer() {
+    if (_runTimedOut || _disposed || _activeController == null) return;
+    if (_turnStartTime != null &&
+        DateTime.now().difference(_turnStartTime!) >= maxTurnCeiling) {
+      _runTimedOut = true;
+      _agent.abort();
+      return;
+    }
+    _runTimer?.cancel();
+    final effectiveTimeout =
+        maxRunDuration < inactivityTimeout ? maxRunDuration : inactivityTimeout;
+    _runTimer = Timer(effectiveTimeout, () {
+      _runTimedOut = true;
+      _agent.abort();
+    });
   }
 
   void cancelCurrentTurn() {
@@ -193,6 +230,8 @@ final class MentoraAgentSession {
     cancelCurrentTurn();
     await _agent.waitForIdle();
     _runTimer?.cancel();
+    _runTimer = null;
+    _turnStartTime = null;
     _unsubscribe();
   }
 
@@ -207,6 +246,7 @@ final class MentoraAgentSession {
     } finally {
       _runTimer?.cancel();
       _runTimer = null;
+      _turnStartTime = null;
       if (identical(_activeController, controller)) {
         _activeController = null;
       }
@@ -218,6 +258,8 @@ final class MentoraAgentSession {
     final controller = _activeController;
     if (controller == null || controller.isClosed) return;
 
+    _resetInactivityTimer();
+
     switch (event) {
       case MessageUpdateEvent(
         assistantMessageEvent: TextDeltaEvent(:final delta),
@@ -228,15 +270,22 @@ final class MentoraAgentSession {
           TutorToolStatusEvent(
             label: _toolLabels[toolName] ?? 'Learning tool',
             status: TutorToolStatus.started,
+            toolName: toolName,
           ),
         );
-      case ToolExecutionEndEvent(:final toolName, :final isError):
+      case ToolExecutionEndEvent(:final toolName, :final result, :final isError):
+        final outText = result.content
+            .whereType<TextContent>()
+            .map((c) => c.text)
+            .join();
         controller.add(
           TutorToolStatusEvent(
             label: _toolLabels[toolName] ?? 'Learning tool',
             status: isError
                 ? TutorToolStatus.failed
                 : TutorToolStatus.completed,
+            toolName: toolName,
+            output: outText.isNotEmpty ? outText : null,
           ),
         );
       case AgentEndEvent(:final messages):

@@ -29,6 +29,11 @@ import '../../chat/presentation/widgets/chat_memory_policy_sheet.dart';
 import '../../chat/application/mentora_agent_session.dart';
 import '../../chat/application/mentora_tutor_agent_provider.dart';
 import '../../chat/application/tutor_session_coordinator.dart';
+import '../../chat/application/context_builder.dart';
+import '../../chat/application/three_tier_memory_manager.dart';
+import '../../chat/domain/capability_registry.dart';
+import '../../chat/domain/default_capabilities.dart';
+import '../../chat/domain/learning_evidence.dart';
 import '../../language/providers/language_provider.dart';
 import '../../voice/services/offline_speech_service.dart';
 
@@ -57,6 +62,9 @@ class _ChapterLearningWorkspaceScreenState
   final ScrollController _scrollController = ScrollController();
   final MentoraBackendClient _client = MentoraBackendClient();
   final MentoraTutorAgentProvider _agentProvider = MentoraTutorAgentProvider();
+  late final ThreeTierMemoryManager _memoryManager;
+  late final CapabilityRegistry _capabilityRegistry;
+  late final ContextBuilder _contextBuilder;
   late final TutorSessionCoordinator _coordinator;
 
   String _activeChapterTitle = 'Motion';
@@ -95,10 +103,18 @@ class _ChapterLearningWorkspaceScreenState
   @override
   void initState() {
     super.initState();
+    _memoryManager = ThreeTierMemoryManager();
+    _capabilityRegistry = DefaultCapabilities.createDefaultRegistry(client: _client);
+    _contextBuilder = ContextBuilder(
+      registry: _capabilityRegistry,
+      memoryManager: _memoryManager,
+    );
     _coordinator = TutorSessionCoordinator(
       agentProvider: _agentProvider,
       initialTopic: _activeChapterTitle,
       initialGrade: _activeGrade,
+      capabilityRegistry: _capabilityRegistry,
+      contextBuilder: _contextBuilder,
     );
     _tabController = TabController(length: 6, vsync: this);
     _tabController.addListener(() {
@@ -249,6 +265,9 @@ class _ChapterLearningWorkspaceScreenState
       backgroundColor: Colors.transparent,
       builder: (context) => ChatMemoryPolicySheet(
         policy: policy,
+        memoryManager: _memoryManager,
+        sessionId: _sessionId,
+        topic: _activeChapterTitle,
         onPolicyChanged:
             ({
               shortTermWindow,
@@ -559,7 +578,11 @@ class _ChapterLearningWorkspaceScreenState
     final answer = StringBuffer();
     var answerToPersist = '';
     try {
-      await for (final event in _coordinator.submitQuestion(text, rawHistory: _messages)) {
+      await for (final event in _coordinator.submitQuestion(
+        text,
+        sessionId: _sessionId,
+        rawHistory: _messages,
+      )) {
         switch (event) {
           case TutorTextDeltaEvent(:final delta):
             answer.write(delta);
@@ -575,8 +598,21 @@ class _ChapterLearningWorkspaceScreenState
             answerToPersist = '⚠️ $message';
           case TutorTurnAbortedEvent():
             answerToPersist = 'Response cancelled.';
-          case TutorToolStatusEvent():
-            break;
+          case TutorToolStatusEvent(:final label, :final status, :final output):
+            if (mounted) {
+              setState(() {
+                if (status == TutorToolStatus.started) {
+                  _messages[assistantIndex]['toolStatus'] = '⚙️ $label…';
+                } else if (status == TutorToolStatus.completed) {
+                  _messages[assistantIndex]['toolStatus'] = '✓ $label completed';
+                  if (output != null && output.isNotEmpty) {
+                    _messages[assistantIndex]['toolOutput'] = output;
+                  }
+                } else if (status == TutorToolStatus.failed) {
+                  _messages[assistantIndex]['toolStatus'] = '⚠️ $label failed';
+                }
+              });
+            }
         }
       }
     } catch (error) {
@@ -590,6 +626,10 @@ class _ChapterLearningWorkspaceScreenState
     if (answerToPersist.isEmpty) {
       answerToPersist = '⚠️ The tutor returned no answer. Please try again.';
     }
+
+    // Automatic concept and learning evidence extraction
+    _memoryManager.recordSessionConcept(_sessionId, _activeChapterTitle);
+    _detectAndRecordLearningEvidence(text, answerToPersist);
 
     try {
       await chatRepo.ensureSessionExists(
@@ -621,6 +661,70 @@ class _ChapterLearningWorkspaceScreenState
     }
   }
 
+  void _detectAndRecordLearningEvidence(String studentQuestion, String tutorAnswer) {
+    final lowerQ = studentQuestion.toLowerCase();
+
+    // Struggle cues
+    final struggleTriggers = [
+      "i don't understand",
+      "i do not understand",
+      "i'm confused",
+      "i am confused",
+      "not clear",
+      "still don't get",
+      "can't solve",
+      "cannot solve",
+      "hard for me",
+      "explain again",
+      "too difficult",
+    ];
+
+    // Mastery cues
+    final masteryTriggers = [
+      "i understand now",
+      "understood",
+      "i get it now",
+      "i got it",
+      "makes sense now",
+      "that makes sense",
+      "clear now",
+      "solved it",
+      "now i understand",
+    ];
+
+    final isStruggle = struggleTriggers.any(lowerQ.contains);
+    final isMastery = masteryTriggers.any(lowerQ.contains);
+
+    if (isStruggle) {
+      unawaited(
+        _memoryManager.addEvidence(
+          LearningEvidence(
+            id: 'ev_${DateTime.now().millisecondsSinceEpoch}',
+            topic: _activeChapterTitle,
+            concept: _activeChapterTitle,
+            observation: 'Student expressed difficulty: "${studentQuestion.length > 60 ? '${studentQuestion.substring(0, 60)}…' : studentQuestion}"',
+            isMastery: false,
+            sourceType: EvidenceSourceType.directStudentStatement,
+            timestamp: DateTime.now(),
+          ),
+        ),
+      );
+    } else if (isMastery) {
+      unawaited(
+        _memoryManager.addEvidence(
+          LearningEvidence(
+            id: 'ev_${DateTime.now().millisecondsSinceEpoch}',
+            topic: _activeChapterTitle,
+            concept: _activeChapterTitle,
+            observation: 'Student confirmed mastery: "${studentQuestion.length > 60 ? '${studentQuestion.substring(0, 60)}…' : studentQuestion}"',
+            isMastery: true,
+            sourceType: EvidenceSourceType.directStudentStatement,
+            timestamp: DateTime.now(),
+          ),
+        ),
+      );
+    }
+  }
 
   Widget _buildChatMessage(Map<String, dynamic> message) {
     final isUser = message['isUser'] as bool;
@@ -653,7 +757,9 @@ class _ChapterLearningWorkspaceScreenState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            isUser ? 'YOU' : 'MENTORA · TUTOR',
+            isUser ? 'YOU' : 'ON-DEVICE LOCAL AI TUTOR',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: isUser ? Colors.white70 : IDPColors.textSecondary,
               fontSize: 10,
@@ -662,6 +768,61 @@ class _ChapterLearningWorkspaceScreenState
             ),
           ),
           const SizedBox(height: 6),
+          if (!isUser && message['toolStatus'] != null) ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFCBD5E1)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.build_circle_outlined, size: 14, color: IDPColors.primary),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      message['toolStatus'] as String,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: IDPColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          if (!isUser && message['toolOutput'] != null) ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.calculate_outlined, size: 16, color: IDPColors.primary),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      message['toolOutput'] as String,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontFamily: 'monospace',
+                        color: IDPColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           if (isUser)
             Text(
               message['text'] as String,
@@ -731,18 +892,6 @@ class _ChapterLearningWorkspaceScreenState
             : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          if (!isUser) ...[
-            const CircleAvatar(
-              radius: 16,
-              backgroundColor: IDPColors.primaryContainer,
-              child: Icon(
-                Icons.school_rounded,
-                color: IDPColors.primary,
-                size: 18,
-              ),
-            ),
-            const SizedBox(width: 8),
-          ],
           Flexible(child: bubble),
           if (isUser) ...[
             const SizedBox(width: 8),
@@ -762,6 +911,33 @@ class _ChapterLearningWorkspaceScreenState
   }
 
   Widget _buildChatSuggestions() {
+    final followUps = _coordinator.latestFollowUps;
+    if (followUps.isNotEmpty) {
+      return Padding(
+        padding: const EdgeInsets.only(left: 40, bottom: 16),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: followUps.map((action) {
+            return ActionChip(
+              avatar: const Icon(Icons.auto_awesome_outlined, size: 16, color: IDPColors.primary),
+              label: Text(action.label),
+              labelStyle: const TextStyle(
+                color: IDPColors.textPrimary,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+              backgroundColor: Colors.white,
+              side: const BorderSide(color: Color(0xFFCBD5E1)),
+              onPressed: () {
+                _sendMessageWithTopic(action.intentQuery);
+              },
+            );
+          }).toList(),
+        ),
+      );
+    }
+
     const suggestions = [
       ('Explain simply', Icons.auto_awesome_outlined),
       ('Give a real-life example', Icons.lightbulb_outline),

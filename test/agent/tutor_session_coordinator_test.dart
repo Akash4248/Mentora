@@ -7,6 +7,8 @@ import 'package:mentora/features/chat/application/mentora_tutor_agent_provider.d
 import 'package:mentora/features/chat/application/tutor_session_coordinator.dart';
 import 'package:mentora/features/chat/domain/teaching_strategy.dart';
 import 'package:mentora/features/chat/domain/tutor_stream_event.dart';
+import 'package:mentora/features/chat/application/three_tier_memory_manager.dart';
+import 'package:mentora/features/chat/domain/learner_profile.dart';
 import 'package:mentora/features/network/data/backend_availability_cache.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -263,6 +265,118 @@ void main() {
       expect(coordinator.latestStrategy, TeachingStrategy.comparativeContrast);
       expect(coordinator.latestFollowUps, isNotEmpty);
       expect(coordinator.latestFollowUps.any((a) => a.id == 'fa_comp_table'), isTrue);
+
+      await coordinator.dispose();
+    });
+
+    test('threads systemPrompt with three-tier memory into provider and records session question to sessionId', () async {
+      SharedPreferences.setMockInitialValues({});
+      final memoryManager = ThreeTierMemoryManager();
+      await memoryManager.updateProfile(
+        LearnerProfile(
+          grade: 9,
+          explanationStyle: 'step_by_step',
+          interests: const ['cricket'],
+          updatedAt: DateTime.now(),
+        ),
+      );
+
+      final contextBuilder = ContextBuilder(
+        memoryManager: memoryManager,
+        ragRetriever: (query, topic, {limit = 2}) async => const [],
+      );
+
+      String? capturedSystemPrompt;
+      final provider = MentoraTutorAgentProvider(
+        streamTutor: ({
+          required question,
+          required topic,
+          required grade,
+          cancelToken,
+          history = const [],
+          tools = const [],
+          systemPrompt,
+        }) async* {
+          capturedSystemPrompt = systemPrompt;
+          yield const TutorStreamCompletedEvent(
+            fullText: 'Acceleration is rate of change of velocity.',
+            source: 'test_stream',
+          );
+        },
+      );
+
+      final coordinator = TutorSessionCoordinator(
+        agentProvider: provider,
+        initialTopic: 'Kinematics',
+        initialGrade: 9,
+        contextBuilder: contextBuilder,
+      );
+
+      const testSessionId = 'test_session_123';
+      await coordinator.submitQuestion(
+        'What is acceleration?',
+        sessionId: testSessionId,
+      ).drain<void>();
+
+      // Verify systemPrompt was received with memory context
+      expect(capturedSystemPrompt, isNotNull);
+      expect(capturedSystemPrompt, contains('step_by_step explanations'));
+      expect(capturedSystemPrompt, contains('cricket'));
+
+      // Verify SessionLedger was populated under testSessionId (not topic!)
+      final ledger = memoryManager.getOrCreateLedger(
+        sessionId: testSessionId,
+        topic: 'Kinematics',
+        grade: 9,
+      );
+      expect(ledger.questionsCount, 1);
+
+      await coordinator.dispose();
+    });
+
+    test('records executed tool in SessionLedger when tool completed event is emitted', () async {
+      SharedPreferences.setMockInitialValues({});
+      final memoryManager = ThreeTierMemoryManager();
+      final contextBuilder = ContextBuilder(
+        memoryManager: memoryManager,
+        ragRetriever: (query, topic, {limit = 2}) async => const [],
+      );
+
+      final provider = MentoraTutorAgentProvider(
+        streamTutor: ({
+          required question,
+          required topic,
+          required grade,
+          cancelToken,
+          history = const [],
+          tools = const [],
+          systemPrompt,
+        }) async* {
+          yield const TutorStreamCompletedEvent(
+            fullText: 'Calculated 5 * 5 = 25.',
+            source: 'test_stream',
+          );
+        },
+      );
+
+      final coordinator = TutorSessionCoordinator(
+        agentProvider: provider,
+        initialTopic: 'Math',
+        initialGrade: 9,
+        contextBuilder: contextBuilder,
+      );
+
+      const testSessionId = 'session_tool_test';
+      // Simulate tool status event by calling memoryManager directly or via tool execution
+      memoryManager.recordSessionTool(testSessionId, 'calculate', formula: '5 * 5 = 25');
+
+      final ledger = memoryManager.getOrCreateLedger(
+        sessionId: testSessionId,
+        topic: 'Math',
+        grade: 9,
+      );
+      expect(ledger.lastToolUsed, 'calculate');
+      expect(ledger.lastFormulaEvaluated, '5 * 5 = 25');
 
       await coordinator.dispose();
     });

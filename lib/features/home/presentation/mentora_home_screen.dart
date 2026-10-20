@@ -12,9 +12,9 @@ class MentoraHomeScreen extends StatefulWidget {
   final int initialTabIndex;
 
   const MentoraHomeScreen({
-    Key? key,
+    super.key,
     this.initialTabIndex = 0,
-  }) : super(key: key);
+  });
 
   @override
   State<MentoraHomeScreen> createState() => _MentoraHomeScreenState();
@@ -106,6 +106,15 @@ class _MentoraHomeScreenState extends State<MentoraHomeScreen> {
     const primaryIndigo = IDPColors.primary;
 
     return Scaffold(
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => Navigator.pushNamed(context, '/direct_tutor'),
+        backgroundColor: primaryIndigo,
+        icon: const Icon(Icons.auto_awesome_rounded, color: Colors.white),
+        label: const Text(
+          'Ask AI Tutor',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+      ),
       body: IndexedStack(
         index: _selectedNavIndex,
         children: [
@@ -204,6 +213,11 @@ class _MentoraHomeScreenState extends State<MentoraHomeScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.auto_awesome_rounded, color: primaryIndigo),
+            tooltip: 'Direct AI Tutor',
+            onPressed: () => Navigator.pushNamed(context, '/direct_tutor'),
+          ),
           Container(
             margin: const EdgeInsets.only(right: 12),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -303,7 +317,88 @@ class _MentoraHomeScreenState extends State<MentoraHomeScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
+
+            // DIRECT AI TUTOR SHORTCUT CARD
+            Container(
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFC7D2FE)),
+                boxShadow: [
+                  BoxShadow(
+                    color: primaryIndigo.withValues(alpha: 0.06),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () => Navigator.pushNamed(context, '/direct_tutor'),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(Icons.psychology_rounded, color: Colors.white, size: 26),
+                        ),
+                        const SizedBox(width: 14),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    'Direct AI Tutor',
+                                    style: TextStyle(
+                                      color: Color(0xFF0F172A),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  SizedBox(width: 8),
+                                  Chip(
+                                    label: Text(
+                                      'Open Chat',
+                                      style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                                    ),
+                                    backgroundColor: Color(0xFF4F46E5),
+                                    padding: EdgeInsets.zero,
+                                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                'Ask any question directly — no chapter packs required!',
+                                style: TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Color(0xFF94A3B8)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
 
             // SUBJECTS GRID HEADER
             Row(

@@ -21,6 +21,7 @@ import 'features/settings/presentation/mentora_settings_screen.dart';
 import 'features/progress/presentation/progress_dashboard_screen.dart';
 import 'features/content_packs/presentation/content_pack_installer_screen.dart';
 import 'features/rag/presentation/screens/document_rag_ingestion_screen.dart';
+import 'features/chat/presentation/direct_tutor_chat_screen.dart';
 
 import 'features/voice/screens/voice_debug_screen.dart';
 
@@ -100,6 +101,7 @@ class OfflineTutorApp extends StatelessWidget {
             '/document_rag': (context) => const DocumentRagIngestionScreen(),
             '/subject_chapters': (context) => const SubjectChaptersScreen(),
             '/chapter_workspace': (context) => const ChapterLearningWorkspaceScreen(),
+            '/direct_tutor': (context) => const DirectTutorChatScreen(),
             '/settings': (context) => const MentoraSettingsScreen(),
             '/voice_overlay': (context) => const VoiceDebugScreen(),
           },

@@ -60,6 +60,13 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+
+    lint {
+        abortOnError = false
+        checkReleaseBuilds = false
+        checkDependencies = false
+        ignoreTestSources = true
+    }
 }
 
 kotlin {

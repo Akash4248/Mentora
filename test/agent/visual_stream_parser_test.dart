@@ -92,5 +92,23 @@ The ball travels upwards.
       expect(result.visualIntents, isEmpty);
       expect(result.proseText, text);
     });
+
+    test('strips mentora-tool-call blocks completely from prose output', () {
+      const textWithTool = '''
+General Science & Mathematics Explained
+
+```mentora-tool-call
+{"name": "lookup_simulation", "arguments": {"topic": "Interactive Pendulum & Motion Lab"}}
+```
+
+Here is the explanation for the pendulum motion.
+''';
+
+      final result = parser.parse(textWithTool);
+      expect(result.proseText, contains('General Science & Mathematics Explained'));
+      expect(result.proseText, contains('Here is the explanation for the pendulum motion.'));
+      expect(result.proseText, isNot(contains('mentora-tool-call')));
+      expect(result.proseText, isNot(contains('lookup_simulation')));
+    });
   });
 }

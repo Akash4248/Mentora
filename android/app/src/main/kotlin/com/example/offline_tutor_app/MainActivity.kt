@@ -208,11 +208,12 @@ class MainActivity : FlutterActivity() {
 							}
 
 							try {
-								println("[LLM] [TRACE] STREAM_JOB_STARTED")
-								println("[LLM] 🚀 Starting inference: '${trimmed.take(50)}...'")
-								println("[LLM] [TRACE] CALLING_ASK_STREAM_FAST promptLength=${trimmed.length}")
+								fun elapsed(): String = "+${SystemClock.elapsedRealtime() - startTime}ms"
+								println("[LLM] [${elapsed()}] [TRACE] STREAM_JOB_STARTED")
+								println("[LLM] [${elapsed()}] 🚀 Starting inference: '${trimmed.take(50)}...'")
+								println("[LLM] [${elapsed()}] [TRACE] CALLING_ASK_STREAM_FAST promptLength=${trimmed.length}")
 
-								println("[LLM] Inference starting (may take 30-60s for large models)...")
+								println("[LLM] [${elapsed()}] Inference starting (may take 30-90s for on-device mobile prompt prefill)...")
 								val finalAnswer = llamaEngine.askStreamFast(trimmed) { token ->
 									if (token.isEmpty()) {
 										return@askStreamFast
@@ -243,7 +244,7 @@ class MainActivity : FlutterActivity() {
 									}
 								}
 
-								println("[LLM] [TRACE] ASK_STREAM_FAST_RETURNED answerLength=${finalAnswer.length}")
+								println("[LLM] [${elapsed()}] [TRACE] ASK_STREAM_FAST_RETURNED answerLength=${finalAnswer.length}")
 								flushBufferedTokens(force = true)
 
 								val totalTimeMs = SystemClock.elapsedRealtime() - startTime
@@ -255,7 +256,7 @@ class MainActivity : FlutterActivity() {
 									0
 								}
 
-								println("[LLM] ✓ Complete: ${totalTimeMs}ms | Speed: $tokensPerSec t/s | Tokens: $estimatedTokens")
+								println("[LLM] [${elapsed()}] ✓ Complete: ${totalTimeMs}ms | Speed: $tokensPerSec t/s | Tokens: $estimatedTokens")
 
 								val failed =
 									finalAnswer.startsWith("Failed to") || finalAnswer.startsWith("Model cannot")

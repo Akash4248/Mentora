@@ -80,16 +80,19 @@ class ThreeTierMemoryManager {
     );
   }
 
-  void recordSessionQuestion(String sessionId, String question) {
-    _activeLedgers[sessionId]?.recordQuestion(question);
+  void recordSessionQuestion(String sessionId, String question, {String topic = 'General', int grade = 9}) {
+    final ledger = getOrCreateLedger(sessionId: sessionId, topic: topic, grade: grade);
+    ledger.recordQuestion(question);
   }
 
-  void recordSessionConcept(String sessionId, String concept) {
-    _activeLedgers[sessionId]?.recordConcept(concept);
+  void recordSessionConcept(String sessionId, String concept, {String topic = 'General', int grade = 9}) {
+    final ledger = getOrCreateLedger(sessionId: sessionId, topic: topic, grade: grade);
+    ledger.recordConcept(concept);
   }
 
-  void recordSessionTool(String sessionId, String toolName, {String? formula}) {
-    _activeLedgers[sessionId]?.recordTool(toolName, formula: formula);
+  void recordSessionTool(String sessionId, String toolName, {String? formula, String topic = 'General', int grade = 9}) {
+    final ledger = getOrCreateLedger(sessionId: sessionId, topic: topic, grade: grade);
+    ledger.recordTool(toolName, formula: formula);
   }
 
   // --------------------------------------------------------------------------
@@ -136,6 +139,19 @@ class ThreeTierMemoryManager {
       current.removeRange(0, current.length - _maxEvidenceItems);
     }
 
+    _cachedEvidence = current;
+    try {
+      final prefs = await _prefsFuture;
+      await prefs.setString(
+        _kEvidenceKey,
+        jsonEncode(current.map((e) => e.toJson()).toList()),
+      );
+    } catch (_) {}
+  }
+
+  Future<void> removeEvidence(String id) async {
+    final current = (await getEvidence()).toList();
+    current.removeWhere((e) => e.id == id);
     _cachedEvidence = current;
     try {
       final prefs = await _prefsFuture;

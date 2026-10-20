@@ -12,6 +12,7 @@ import '../domain/teaching_strategy.dart';
 import 'context_builder.dart';
 import 'mentora_agent_session.dart';
 import 'mentora_tutor_agent_provider.dart';
+import 'tutor_evaluation_logger.dart';
 
 enum TutorRunState {
   idle,
@@ -97,6 +98,7 @@ final class TutorSessionCoordinator {
   /// any late events from superseded runs.
   Stream<TutorAgentEvent> submitQuestion(
     String question, {
+    String? sessionId,
     List<Map<String, dynamic>> rawHistory = const [],
     List<Message> initialMessages = const [],
   }) async* {
@@ -116,33 +118,62 @@ final class TutorSessionCoordinator {
     final currentRunId = ++_activeRunId;
     _stateNotifier.value = TutorRunState.generating;
 
+    // Filter out active question and placeholder messages so history strictly contains prior turns
+    final cleanQuestion = question.trim();
+    final sanitizedRawHistory = <Map<String, dynamic>>[];
+    for (var i = 0; i < rawHistory.length; i++) {
+      final entry = rawHistory[i];
+      final text = (entry['text'] as String? ?? '').trim();
+      if (text.isEmpty ||
+          text.startsWith('Welcome to Grade ') ||
+          text.startsWith('Thinking…') ||
+          text == 'Thinking…') {
+        continue;
+      }
+      if (i >= rawHistory.length - 2 &&
+          entry['isUser'] == true &&
+          text == cleanQuestion) {
+        continue;
+      }
+      sanitizedRawHistory.add(entry);
+    }
+
+    String? resolvedSystemPrompt;
     // Resolve context, pedagogical strategy, and follow-ups if contextBuilder is configured
     if (_contextBuilder != null) {
-      final stringHistory = rawHistory
+      final stringHistory = sanitizedRawHistory
           .map((e) => (e['text'] as String? ?? '').trim())
-          .where((s) => s.isNotEmpty && !s.startsWith('Welcome to Grade ') && !s.startsWith('Thinking…'))
           .toList(growable: false);
       try {
-        final built = await _contextBuilder!.build(
+        final built = await _contextBuilder.build(
           question: question,
           topic: _topic,
           grade: _grade,
+          sessionId: sessionId,
           rawHistory: stringHistory,
         );
         _latestFollowUps = built.followUpActions;
         _latestStrategy = built.strategy;
+        resolvedSystemPrompt = built.systemPrompt;
       } catch (_) {}
     }
 
     // Convert raw history to harness messages if provided
     final messages = initialMessages.isNotEmpty
         ? initialMessages
-        : _convertHistoryToMessages(rawHistory);
+        : _convertHistoryToMessages(sanitizedRawHistory);
 
     final session = _ensureSession(messages);
+    final evaluation = TutorTurnEvaluation(
+      sessionId: sessionId ?? _topic,
+      grade: _grade,
+      topic: _topic,
+      question: question,
+      strategy: _latestStrategy?.name,
+    );
 
     try {
-      await for (final event in session.runTurn(question)) {
+      await for (final event in session.runTurn(question, systemPrompt: resolvedSystemPrompt)) {
         if (_activeRunId != currentRunId) {
           // A newer run started or turn was cancelled: drop late events
           return;
@@ -151,23 +182,42 @@ final class TutorSessionCoordinator {
         switch (event) {
           case TutorTextDeltaEvent():
             yield event;
-          case TutorTurnCompletedEvent():
+          case TutorTurnCompletedEvent(:final text):
             _stateNotifier.value = TutorRunState.completed;
-            _contextBuilder?.memoryManager.recordSessionQuestion(_topic, question);
+            evaluation.finishTurn(answer: text);
+            final activeSessionId = sessionId ?? _topic;
+            _contextBuilder?.memoryManager.recordSessionQuestion(activeSessionId, question);
             yield event;
           case TutorTurnAbortedEvent():
             _stateNotifier.value = TutorRunState.aborted;
+            evaluation.finishTurn(answer: '', err: 'Aborted by user');
             yield event;
-          case TutorTurnFailedEvent():
+          case TutorTurnFailedEvent(:final message):
             _stateNotifier.value = TutorRunState.failed;
+            evaluation.finishTurn(answer: '', err: message);
             yield event;
-          case TutorToolStatusEvent():
+          case TutorToolStatusEvent(:final status, :final toolName, :final label, :final output):
+            final tName = toolName ?? label;
+            if (status == TutorToolStatus.started) {
+              evaluation.startToolCall(toolName: tName, arguments: {});
+            } else if (status == TutorToolStatus.completed) {
+              evaluation.completeToolCall(toolName: tName, output: output);
+              final activeSessionId = sessionId ?? _topic;
+              _contextBuilder?.memoryManager.recordSessionTool(
+                activeSessionId,
+                tName,
+                formula: tName == 'calculate' ? output : null,
+              );
+            } else if (status == TutorToolStatus.failed) {
+              evaluation.failToolCall(toolName: tName, error: output);
+            }
             yield event;
         }
       }
     } catch (error) {
       if (_activeRunId == currentRunId) {
         _stateNotifier.value = TutorRunState.failed;
+        evaluation.finishTurn(answer: '', err: error.toString());
         yield TutorTurnFailedEvent('Tutor execution error: $error');
       }
     } finally {

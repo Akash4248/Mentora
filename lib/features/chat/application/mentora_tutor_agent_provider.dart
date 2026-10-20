@@ -21,17 +21,57 @@ typedef TutorStreamQuery = Stream<TutorStreamEvent> Function({
   dio.CancelToken? cancelToken,
   List<String> history,
   List<AgentTool> tools,
+  String? systemPrompt,
 });
 
 final class MentoraTutorAgentProvider {
   MentoraTutorAgentProvider({
     MentoraBackendClient? backendClient,
     TutorQuery? queryTutor,
-    TutorStreamQuery? streamTutor,
-  }) : _streamTutor = streamTutor ??
-            (queryTutor != null
+    Function? streamTutor,
+  }) : _streamTutor = streamTutor != null
+            ? _normalizeStreamTutor(streamTutor)
+            : (queryTutor != null
                 ? _adaptLegacyQuery(queryTutor)
                 : (backendClient ?? MentoraBackendClient()).streamAiTutor);
+
+  static TutorStreamQuery _normalizeStreamTutor(Function streamTutor) {
+    if (streamTutor is TutorStreamQuery) {
+      return streamTutor;
+    }
+    return ({
+      required String question,
+      required String topic,
+      required int grade,
+      dio.CancelToken? cancelToken,
+      List<String> history = const [],
+      List<AgentTool> tools = const [],
+      String? systemPrompt,
+    }) {
+      try {
+        final res = (streamTutor as dynamic)(
+          question: question,
+          topic: topic,
+          grade: grade,
+          cancelToken: cancelToken,
+          history: history,
+          tools: tools,
+          systemPrompt: systemPrompt,
+        );
+        return res as Stream<TutorStreamEvent>;
+      } on NoSuchMethodError {
+        final res = (streamTutor as dynamic)(
+          question: question,
+          topic: topic,
+          grade: grade,
+          cancelToken: cancelToken,
+          history: history,
+          tools: tools,
+        );
+        return res as Stream<TutorStreamEvent>;
+      }
+    };
+  }
 
   // Native Android runtime uses 2048 token KV cache by default (DEFAULT_CONTEXT_SIZE)
   static const _model = Model(
@@ -52,6 +92,7 @@ final class MentoraTutorAgentProvider {
     List<Message> initialMessages = const [],
     Iterable<AgentTool> tools = const [],
     TutorToolAuthorization? authorizeToolCall,
+    String? systemPrompt,
   }) {
     final toolList = tools.toList(growable: false);
     return MentoraAgentSession(
@@ -59,11 +100,12 @@ final class MentoraTutorAgentProvider {
       initialMessages: initialMessages,
       tools: toolList,
       authorizeToolCall: authorizeToolCall,
-      systemPrompt:
+      systemPrompt: systemPrompt ??
           'You are Mentora, a clear and patient school tutor for grade $grade. '
           'Teach the current topic, answer the latest question, and use prior '
           'conversation context when it helps. Do not reveal private reasoning.',
-      maxRunDuration: const Duration(seconds: 130),
+      maxRunDuration: const Duration(seconds: 300),
+      inactivityTimeout: const Duration(seconds: 90),
       streamFunction: (model, context, {cancelToken}) {
         final response = AssistantMessageEventStream();
         unawaited(
@@ -115,6 +157,7 @@ final class MentoraTutorAgentProvider {
         cancelToken: requestCancelToken,
         history: history,
         tools: tools,
+        systemPrompt: context.systemPrompt,
       )) {
         cancelToken?.throwIfCancelled();
         switch (event) {
@@ -239,6 +282,7 @@ final class MentoraTutorAgentProvider {
       dio.CancelToken? cancelToken,
       List<String> history = const [],
       List<AgentTool> tools = const [],
+      String? systemPrompt,
     }) async* {
       try {
         final queryPrompt = history.isNotEmpty
@@ -313,8 +357,14 @@ final class MentoraTutorAgentProvider {
         .toList();
     if (messages.length <= 1) return const [];
 
-    // Exclude the current question (the last message)
-    final historyMessages = messages.sublist(0, messages.length - 1);
+    // Exclude the current question (the last message) and any duplicate of it
+    final currentQuestionText = messages.last is UserMessage
+        ? _messageText(messages.last).trim()
+        : '';
+    final historyMessages = messages
+        .sublist(0, messages.length - 1)
+        .where((m) => !(m is UserMessage && _messageText(m).trim() == currentQuestionText))
+        .toList();
     // Take strictly the last 2 turns
     final recent = historyMessages.length > 2
         ? historyMessages.sublist(historyMessages.length - 2)

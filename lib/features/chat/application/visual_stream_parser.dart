@@ -44,17 +44,32 @@ final class VisualStreamParser {
       );
     }
 
+    // Strip completed tool call blocks so raw JSON/function calls never leak into proseText
+    var sanitizedText = rawText.replaceAll(
+      RegExp(r'```(?:json:)?mentora-tool-call[\s\S]*?```'),
+      '',
+    );
+    // Strip trailing incomplete tool-call fence if currently streaming mid-block
+    final toolIdx1 = sanitizedText.indexOf('```mentora-tool-call');
+    final toolIdx2 = sanitizedText.indexOf('```json:mentora-tool-call');
+    final earliestToolIdx = (toolIdx1 != -1 && toolIdx2 != -1)
+        ? (toolIdx1 < toolIdx2 ? toolIdx1 : toolIdx2)
+        : (toolIdx1 != -1 ? toolIdx1 : toolIdx2);
+    if (earliestToolIdx != -1) {
+      sanitizedText = sanitizedText.substring(0, earliestToolIdx).trimRight();
+    }
+
     final proseBuffer = StringBuffer();
     final intents = <VisualIntent>[];
     var hasIncomplete = false;
 
     var currentIndex = 0;
-    final length = rawText.length;
+    final length = sanitizedText.length;
 
     while (currentIndex < length) {
       // Look for the next open fence
-      final idx1 = rawText.indexOf(_openFence1, currentIndex);
-      final idx2 = rawText.indexOf(_openFence2, currentIndex);
+      final idx1 = sanitizedText.indexOf(_openFence1, currentIndex);
+      final idx2 = sanitizedText.indexOf(_openFence2, currentIndex);
 
       int openIdx = -1;
       int fenceLen = 0;
@@ -77,16 +92,16 @@ final class VisualStreamParser {
 
       if (openIdx == -1) {
         // No more visual blocks, append the rest to prose
-        proseBuffer.write(rawText.substring(currentIndex));
+        proseBuffer.write(sanitizedText.substring(currentIndex));
         break;
       }
 
       // Append preceding text to prose
-      proseBuffer.write(rawText.substring(currentIndex, openIdx));
+      proseBuffer.write(sanitizedText.substring(currentIndex, openIdx));
 
       // Locate closing fence after open fence
       final contentStart = openIdx + fenceLen;
-      final closeIdx = rawText.indexOf(_closeFence, contentStart);
+      final closeIdx = sanitizedText.indexOf(_closeFence, contentStart);
 
       if (closeIdx == -1) {
         // Fenced block is currently being streamed, wait for completion
@@ -95,7 +110,7 @@ final class VisualStreamParser {
       }
 
       // Extract JSON content between fences
-      final jsonBlock = rawText.substring(contentStart, closeIdx).trim();
+      final jsonBlock = sanitizedText.substring(contentStart, closeIdx).trim();
       final parsed = VisualIntent.tryParse(jsonBlock);
       if (parsed != null) {
         intents.add(parsed);
