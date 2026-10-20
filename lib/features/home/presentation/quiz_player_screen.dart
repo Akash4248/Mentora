@@ -5,11 +5,15 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import '../../course/domain/curriculum_models.dart';
+import '../../assessment/application/quiz_question_loader.dart';
 import '../../assessment/data/local/quiz_result_repository.dart';
 import '../../assessment/domain/quiz_result.dart';
 
 
 import '../../../core/theme/idp_theme.dart';
+import '../../educational/data/educational_repository.dart';
+import '../../network/data/backend_availability_cache.dart';
+import '../../network/services/mentora_backend_client.dart';
 
 
 class QuizQuestion {
@@ -68,76 +72,103 @@ class _QuizPlayerScreenState extends State<QuizPlayerScreen> {
     });
 
     try {
-      final quizPath = p.join(widget.chapter.rootPath, 'quizzes.json');
-      final file = File(quizPath);
-      if (!await file.exists()) {
-        setState(() {
-          _questions = [];
-          _loading = false;
-        });
-        return;
-      }
-
-      print('[QUIZ] Loading quizzes from path: $quizPath');
-      final content = await file.readAsString();
-      final List<dynamic> decoded = jsonDecode(content);
-      
-      final List<Map<String, dynamic>> rawQuizzes = [];
-      for (final item in decoded) {
-        if (item is Map) {
-          rawQuizzes.add(Map<String, dynamic>.from(item));
-        }
-      }
-      print('[QUIZ] Successfully parsed ${rawQuizzes.length} raw quizzes.');
-
-      final random = Random();
       final List<QuizQuestion> parsedQuestions = [];
 
-      for (var i = 0; i < rawQuizzes.length; i++) {
-        final current = rawQuizzes[i];
-        final question = current['question'] as String? ?? '';
-        final correct = (current['correct_answer'] ?? current['answer'] ?? '') as String;
-
-        if (question.isEmpty || correct.isEmpty) {
-          continue;
+      // 0. Canonical loader first: installed pack → live backend → mock.
+      try {
+        final canonical = await QuizQuestionLoader.load(
+          grade: widget.chapter.grade,
+          subject: widget.chapter.subject,
+          chapterTitle: widget.chapter.title,
+        );
+        for (final q in canonical) {
+          final opts = List<String>.from(q['options'] as List? ?? []);
+          parsedQuestions.add(QuizQuestion(
+            question: (q['question'] ?? '').toString(),
+            correctAnswer: (q['explanation'] ?? '').toString(),
+            options: opts,
+            correctIndex: (q['correctIndex'] as num?)?.toInt() ?? 0,
+          ));
         }
+      } catch (_) {}
 
-        // Get distractors from other questions
-        final otherAnswers = rawQuizzes
-            .map((q) => (q['correct_answer'] ?? q['answer'] ?? '') as String)
-            .where((a) => a.isNotEmpty && a != correct)
-            .toList();
+      // 1. Try local content pack quizzes.json
+      if (parsedQuestions.isEmpty && widget.chapter.rootPath.isNotEmpty) {
+        final quizPath = p.join(widget.chapter.rootPath, 'quizzes.json');
+        final file = File(quizPath);
+        if (await file.exists()) {
+          final content = await file.readAsString();
+          final List<dynamic> decoded = jsonDecode(content);
+          final random = Random();
 
-        otherAnswers.shuffle(random);
-        
-        final List<String> options = [correct];
-        options.addAll(otherAnswers.take(2));
+          for (final item in decoded) {
+            if (item is Map) {
+              final mapItem = Map<String, dynamic>.from(item);
+              final question = mapItem['question'] as String? ?? '';
+              final correct = (mapItem['correct_answer'] ?? mapItem['answer'] ?? '') as String;
+              if (question.isNotEmpty && correct.isNotEmpty) {
+                final List<String> options = List<String>.from(mapItem['options'] ?? [correct]);
+                if (options.length < 4) {
+                  options.addAll(['None of the above', 'All of the above', 'Not applicable'].where((o) => !options.contains(o)));
+                }
+                options.shuffle(random);
+                final correctIndex = options.indexOf(correct);
 
-        // Add static fallbacks if not enough options
-        final fallbacks = [
-          "Information not specified in this section.",
-          "None of the above statements are correct.",
-          "All of the above statements apply here.",
-          "Both options A and B are incorrect."
-        ];
-        fallbacks.shuffle(random);
-        
-        while (options.length < 4) {
-          final f = fallbacks.removeLast();
-          if (!options.contains(f)) {
-            options.add(f);
+                parsedQuestions.add(QuizQuestion(
+                  question: question,
+                  correctAnswer: mapItem['explanation'] as String? ?? correct,
+                  options: options,
+                  correctIndex: correctIndex >= 0 ? correctIndex : 0,
+                ));
+              }
+            }
           }
         }
+      }
 
-        options.shuffle(random);
-        final correctIndex = options.indexOf(correct);
+      // 2. Try local SQLite EducationalRepository
+      final chapterIdInt = int.tryParse(widget.chapter.packId);
+      if (parsedQuestions.isEmpty && chapterIdInt != null) {
+        try {
+          final dbQuizzes = await EducationalRepository.getQuizzesByChapterId(chapterIdInt);
+          for (final quiz in dbQuizzes) {
+            if (quiz.id != null) {
+              final questions = await EducationalRepository.getQuizQuestions(quiz.id!);
+              for (final q in questions) {
+                final opts = q.options.isNotEmpty ? q.options : [q.correctAnswer];
+                final cIdx = opts.indexOf(q.correctAnswer);
+                parsedQuestions.add(QuizQuestion(
+                  question: q.question,
+                  correctAnswer: (q.explanation != null && q.explanation!.isNotEmpty) ? q.explanation! : q.correctAnswer,
+                  options: opts,
+                  correctIndex: cIdx >= 0 ? cIdx : 0,
+                ));
+              }
+            }
+          }
+        } catch (_) {}
+      }
 
-        parsedQuestions.add(QuizQuestion(
-          question: question,
-          correctAnswer: correct,
-          options: options,
-          correctIndex: correctIndex,
-        ));
+      // 3. Fetch directly from backend API /quizzes/{chapter} if available and needed
+      if (parsedQuestions.isEmpty && BackendAvailabilityCache().isOnline) {
+        try {
+          final backendQuiz = await MentoraBackendClient().getQuizForChapter(widget.chapter.title);
+          final qList = backendQuiz['questions'] as List? ?? [];
+          for (final item in qList) {
+            if (item is Map) {
+              final mapItem = Map<String, dynamic>.from(item);
+              final opts = List<String>.from(mapItem['options'] ?? []);
+              final cIdx = (mapItem['correctIndex'] as num?)?.toInt() ?? 0;
+              final correctStr = cIdx < opts.length ? opts[cIdx] : '';
+              parsedQuestions.add(QuizQuestion(
+                question: mapItem['question'] as String? ?? 'Question',
+                correctAnswer: mapItem['explanation'] as String? ?? correctStr,
+                options: opts,
+                correctIndex: cIdx,
+              ));
+            }
+          }
+        } catch (_) {}
       }
 
       if (mounted) {

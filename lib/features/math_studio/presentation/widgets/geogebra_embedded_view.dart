@@ -1,0 +1,254 @@
+import 'dart:io';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../../../../core/theme/idp_colors.dart';
+import '../../../../core/theme/idp_typography.dart';
+
+/// Online GeoGebra embed. There is no offline bundle (the web app is tens of
+/// MB and versioned upstream); offline graphing is the native 3D canvas.
+/// This widget pre-checks connectivity so offline devices skip the doomed
+/// load, and reports [onOfflineFallback] so the parent auto-switches.
+class GeogebraEmbeddedView extends StatefulWidget {
+  final String initialApp;
+  final VoidCallback? onOfflineFallback;
+
+  const GeogebraEmbeddedView({
+    super.key,
+    this.initialApp = '3d',
+    this.onOfflineFallback,
+  });
+
+  @override
+  State<GeogebraEmbeddedView> createState() => _GeogebraEmbeddedViewState();
+}
+
+class _GeogebraEmbeddedViewState extends State<GeogebraEmbeddedView> {
+  InAppWebViewController? _webViewController;
+  bool _isLoading = true;
+  bool _hasError = false;
+  bool _fallbackNotified = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _precheckConnectivity();
+  }
+
+  Future<void> _precheckConnectivity() async {
+    try {
+      final results = await Connectivity().checkConnectivity();
+      final offline = results.isEmpty ||
+          results.every((r) => r == ConnectivityResult.none);
+      if (offline && mounted) {
+        setState(() {
+          _isLoading = false;
+          _hasError = true;
+        });
+        _notifyFallback();
+      }
+    } catch (_) {}
+  }
+
+  void _notifyFallback() {
+    if (_fallbackNotified) return;
+    _fallbackNotified = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      widget.onOfflineFallback?.call();
+    });
+  }
+
+  bool get _isWebViewSupported =>
+      !kIsWeb &&
+      !Platform.isLinux &&
+      !Platform.isWindows &&
+      InAppWebViewPlatform.instance != null;
+
+  String get _appUrl {
+    switch (widget.initialApp) {
+      case 'geometry':
+        return 'https://www.geogebra.org/geometry';
+      case 'classic':
+        return 'https://www.geogebra.org/classic';
+      case '3d':
+      default:
+        return 'https://www.geogebra.org/3d';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_isWebViewSupported) {
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.view_in_ar_rounded, size: 56, color: IDPColors.primary),
+                const SizedBox(height: 16),
+                Text(
+                  'GeoGebra Interactive Suite (${widget.initialApp.toUpperCase()})',
+                  style: IDPTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Desktop fallback mode active. Use Mentora Native 3D Canvas Engine for offline GPU-accelerated surface rendering.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: IDPColors.onSurfaceVariant),
+                ),
+                const SizedBox(height: 20),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.open_in_new_rounded),
+                      label: const Text('Open Online GeoGebra'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: IDPColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      ),
+                      onPressed: () async {
+                        final uri = Uri.parse(_appUrl);
+                        if (await canLaunchUrl(uri)) {
+                          await launchUrl(uri, mode: LaunchMode.externalApplication);
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Stack(
+          children: [
+            InAppWebView(
+              initialUrlRequest: URLRequest(
+                url: WebUri(_appUrl),
+              ),
+              initialSettings: InAppWebViewSettings(
+                javaScriptEnabled: true,
+                domStorageEnabled: true,
+                useHybridComposition: true,
+                transparentBackground: false,
+                cacheMode: CacheMode.LOAD_CACHE_ELSE_NETWORK,
+              ),
+              onWebViewCreated: (controller) {
+                _webViewController = controller;
+              },
+              onLoadStart: (controller, url) {
+                setState(() {
+                  _isLoading = true;
+                  _hasError = false;
+                });
+              },
+              onLoadStop: (controller, url) {
+                setState(() {
+                  _isLoading = false;
+                });
+              },
+              onReceivedError: (controller, request, error) {
+                setState(() {
+                  _isLoading = false;
+                  _hasError = true;
+                });
+                _notifyFallback();
+              },
+            ),
+
+            if (_isLoading)
+              const Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(color: IDPColors.primary),
+                    SizedBox(height: 12),
+                    Text(
+                      'Loading GeoGebra 3D Engine...',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
+
+            if (_hasError)
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.wifi_off_rounded, size: 48, color: Colors.orangeAccent),
+                      const SizedBox(height: 12),
+                      Text(
+                        'GeoGebra Offline Fallback',
+                        style: IDPTypography.titleSmall.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Unable to reach online GeoGebra suite. Switch to Mentora Native 3D GPU Canvas for offline graphing.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: IDPColors.onSurfaceVariant),
+                      ),
+                      const SizedBox(height: 16),
+                      Wrap(
+                        spacing: 12,
+                        alignment: WrapAlignment.center,
+                        children: [
+                          ElevatedButton.icon(
+                            icon: const Icon(Icons.refresh_rounded),
+                            label: const Text('Retry Web Connection'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: IDPColors.primary,
+                              foregroundColor: Colors.white,
+                            ),
+                            onPressed: () {
+                              _webViewController?.reload();
+                            },
+                          ),
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.view_in_ar_rounded),
+                            label: const Text('Use Offline Canvas'),
+                            onPressed: () => _notifyFallback(),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}

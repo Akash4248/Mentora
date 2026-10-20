@@ -3,7 +3,10 @@ package com.example.offline_tutor_app
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Bundle
 import android.os.SystemClock
+import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -13,6 +16,10 @@ import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 
 import androidx.lifecycle.lifecycleScope
+import java.io.File
+import java.util.Locale
+import java.util.UUID
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -29,13 +36,25 @@ class MainActivity : FlutterActivity() {
 	private val metricsChannelName = "offline_tutor/llm_metrics"
 	private val modelCopyProgressChannelName = "offline_tutor/model_copy_progress"
 	private val p2pChannelName = "offline_tutor/p2p"
+	private val ttsChannelName = "mentora/tts"
+	private val sttChannelName = "mentora/stt"
+	private val sttEngine = MlKitSttEngine()
 	private lateinit var llamaEngine: LlamaEngine
 	private lateinit var p2pManager: P2PManager
+	private var activeSttJob: Job? = null
+	private var pendingSttResult: MethodChannel.Result? = null
 	private var pendingP2PPermissionResult: MethodChannel.Result? = null
 	private var modelCopyProgressSink: EventChannel.EventSink? = null
 	private var llmMetricsSink: EventChannel.EventSink? = null
 	@Volatile
 	private var activeInferenceJob: Job? = null
+	private var tts: TextToSpeech? = null
+	private var ttsReady = false
+	private var ttsInitializationFailed = false
+	private val pendingTtsRequests = mutableListOf<() -> Unit>()
+	private var pendingTtsResult: MethodChannel.Result? = null
+	private var pendingTtsRequestId: String? = null
+	private var pendingTtsLastUtteranceId: String? = null
 
 	override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
 		super.configureFlutterEngine(flutterEngine)
@@ -43,6 +62,75 @@ class MainActivity : FlutterActivity() {
 			sharedLlamaEngine = it
 		}
 		p2pManager = P2PManager(applicationContext)
+		initializeTts()
+
+		MethodChannel(flutterEngine.dartExecutor.binaryMessenger, ttsChannelName)
+			.setMethodCallHandler { call, result ->
+				when (call.method) {
+					"speak" -> {
+						val text = call.argument<String>("text")?.trim().orEmpty()
+						val language = call.argument<String>("language") ?: "en"
+						if (text.isEmpty()) {
+							result.error("INVALID_INPUT", "text is required", null)
+						} else {
+							speakWithTts(text, language, result)
+						}
+					}
+
+					"stop" -> {
+						tts?.stop()
+						finishPendingTts(false)
+						result.success(true)
+					}
+
+					"isLanguageAvailable" -> {
+						val language = call.argument<String>("language") ?: "en"
+						val engine = tts
+						result.success(
+							engine != null && ttsReady && isTtsLanguageAvailable(engine, language),
+						)
+					}
+
+					else -> result.notImplemented()
+				}
+			}
+
+		MethodChannel(flutterEngine.dartExecutor.binaryMessenger, sttChannelName)
+			.setMethodCallHandler { call, result ->
+				when (call.method) {
+					"transcribe" -> {
+						val wavPath = call.argument<String>("wavPath")?.trim().orEmpty()
+						val language = call.argument<String>("language") ?: "en"
+						if (wavPath.isEmpty()) {
+							result.error("INVALID_INPUT", "wavPath is required", null)
+						} else {
+							startSttTranscription(wavPath, language, result)
+						}
+					}
+
+					"isAvailable" -> {
+						val language = call.argument<String>("language") ?: "en"
+						lifecycleScope.launch {
+							val available = sttEngine.isAvailable(language)
+							runOnUiThread { result.success(available) }
+						}
+					}
+
+					"cancel" -> {
+						pendingSttResult?.error(
+							"STT_CANCELLED",
+							"Speech recognition cancelled.",
+							null,
+						)
+						pendingSttResult = null
+						activeSttJob?.cancel()
+						activeSttJob = null
+						result.success(true)
+					}
+
+					else -> result.notImplemented()
+				}
+			}
 
 		EventChannel(flutterEngine.dartExecutor.binaryMessenger, streamChannelName)
 			.setStreamHandler(
@@ -120,11 +208,12 @@ class MainActivity : FlutterActivity() {
 							}
 
 							try {
-								println("[LLM] [TRACE] STREAM_JOB_STARTED")
-								println("[LLM] 🚀 Starting inference: '${trimmed.take(50)}...'")
-								println("[LLM] [TRACE] CALLING_ASK_STREAM_FAST promptLength=${trimmed.length}")
+								fun elapsed(): String = "+${SystemClock.elapsedRealtime() - startTime}ms"
+								println("[LLM] [${elapsed()}] [TRACE] STREAM_JOB_STARTED")
+								println("[LLM] [${elapsed()}] 🚀 Starting inference: '${trimmed.take(50)}...'")
+								println("[LLM] [${elapsed()}] [TRACE] CALLING_ASK_STREAM_FAST promptLength=${trimmed.length}")
 
-								println("[LLM] Inference starting (may take 30-60s for large models)...")
+								println("[LLM] [${elapsed()}] Inference starting (may take 30-90s for on-device mobile prompt prefill)...")
 								val finalAnswer = llamaEngine.askStreamFast(trimmed) { token ->
 									if (token.isEmpty()) {
 										return@askStreamFast
@@ -155,7 +244,7 @@ class MainActivity : FlutterActivity() {
 									}
 								}
 
-								println("[LLM] [TRACE] ASK_STREAM_FAST_RETURNED answerLength=${finalAnswer.length}")
+								println("[LLM] [${elapsed()}] [TRACE] ASK_STREAM_FAST_RETURNED answerLength=${finalAnswer.length}")
 								flushBufferedTokens(force = true)
 
 								val totalTimeMs = SystemClock.elapsedRealtime() - startTime
@@ -167,7 +256,7 @@ class MainActivity : FlutterActivity() {
 									0
 								}
 
-								println("[LLM] ✓ Complete: ${totalTimeMs}ms | Speed: $tokensPerSec t/s | Tokens: $estimatedTokens")
+								println("[LLM] [${elapsed()}] ✓ Complete: ${totalTimeMs}ms | Speed: $tokensPerSec t/s | Tokens: $estimatedTokens")
 
 								val failed =
 									finalAnswer.startsWith("Failed to") || finalAnswer.startsWith("Model cannot")
@@ -421,6 +510,262 @@ class MainActivity : FlutterActivity() {
 			}
 	}
 
+	private fun startSttTranscription(
+		wavPath: String,
+		languageCode: String,
+		result: MethodChannel.Result,
+	) {
+		val file = File(wavPath)
+		if (!file.exists()) {
+			result.error("STT_FILE_NOT_FOUND", "Audio file not found.", null)
+			return
+		}
+
+		pendingSttResult?.error(
+			"STT_CANCELLED",
+			"Another speech recognition request started.",
+			null,
+		)
+		pendingSttResult = result
+		activeSttJob?.cancel()
+		activeSttJob = lifecycleScope.launch {
+			try {
+				val text = sttEngine.transcribe(file, languageCode)
+				runOnUiThread {
+					if (pendingSttResult === result) {
+						pendingSttResult = null
+						result.success(text)
+					}
+				}
+			} catch (e: CancellationException) {
+				throw e
+			} catch (e: MlKitSttException) {
+				runOnUiThread {
+					if (pendingSttResult === result) {
+						pendingSttResult = null
+						result.error(e.code, e.message, null)
+					}
+				}
+			} catch (e: Throwable) {
+				runOnUiThread {
+					if (pendingSttResult === result) {
+						pendingSttResult = null
+						result.error(
+							"STT_FAILED",
+							e.message ?: "Speech recognition failed.",
+							null,
+						)
+					}
+				}
+			}
+		}
+	}
+
+	private fun initializeTts() {
+		if (tts != null || ttsInitializationFailed) {
+			return
+		}
+
+		tts = TextToSpeech(applicationContext) { status ->
+			if (status == TextToSpeech.SUCCESS) {
+				val engine = tts
+				if (engine == null) {
+					ttsInitializationFailed = true
+				} else {
+					engine.setOnUtteranceProgressListener(
+						object : UtteranceProgressListener() {
+							override fun onStart(utteranceId: String?) {}
+
+							override fun onDone(utteranceId: String?) {
+								runOnUiThread {
+									if (utteranceId == pendingTtsLastUtteranceId) {
+										finishPendingTts(true)
+									}
+								}
+							}
+
+							@Deprecated("Deprecated in Java")
+							override fun onError(utteranceId: String?) {
+								finishTtsErrorIfCurrent(utteranceId, "Speech synthesis failed.")
+							}
+
+							override fun onError(utteranceId: String?, errorCode: Int) {
+								finishTtsErrorIfCurrent(
+									utteranceId,
+									"Speech synthesis failed ($errorCode).",
+								)
+							}
+						},
+					)
+					ttsReady = true
+					ttsInitializationFailed = false
+				}
+			} else {
+				ttsInitializationFailed = true
+			}
+			drainPendingTtsRequests()
+		}
+	}
+
+	private fun drainPendingTtsRequests() {
+		val pending = pendingTtsRequests.toList()
+		pendingTtsRequests.clear()
+		pending.forEach { it() }
+	}
+
+	private fun speakWithTts(
+		text: String,
+		languageCode: String,
+		result: MethodChannel.Result,
+	) {
+		val engine = tts
+		if (engine == null || !ttsReady) {
+			if (ttsInitializationFailed) {
+				result.error(
+					"TTS_UNAVAILABLE",
+					"Text-to-speech is not available on this device.",
+					null,
+				)
+			} else {
+				pendingTtsRequests.add { speakWithTts(text, languageCode, result) }
+			}
+			return
+		}
+
+		finishPendingTts(false)
+		engine.stop()
+
+		if (!applyTtsLanguage(engine, languageCode)) {
+			result.error(
+				"TTS_LANGUAGE_UNAVAILABLE",
+				"No offline voice is installed for '$languageCode'.",
+				null,
+			)
+			return
+		}
+
+		val chunks = splitTtsText(text)
+		if (chunks.isEmpty()) {
+			result.success(false)
+			return
+		}
+
+		pendingTtsResult = result
+		val requestId = UUID.randomUUID().toString()
+		pendingTtsRequestId = requestId
+		pendingTtsLastUtteranceId = "$requestId:${chunks.lastIndex}"
+
+		for ((index, chunk) in chunks.withIndex()) {
+			val utteranceId = "$requestId:$index"
+			val queueMode = if (index == 0) {
+				TextToSpeech.QUEUE_FLUSH
+			} else {
+				TextToSpeech.QUEUE_ADD
+			}
+			val params = Bundle().apply {
+				putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, utteranceId)
+			}
+			if (engine.speak(chunk, queueMode, params, utteranceId) != TextToSpeech.SUCCESS) {
+				finishPendingTtsError("TTS_SPEAK_FAILED", "Failed to enqueue speech.")
+				return
+			}
+		}
+	}
+
+	private fun isTtsLanguageAvailable(engine: TextToSpeech, languageCode: String): Boolean {
+		return ttsLocales(languageCode).any { locale ->
+			engine.isLanguageAvailable(locale) >= TextToSpeech.LANG_AVAILABLE
+		}
+	}
+
+	private fun applyTtsLanguage(engine: TextToSpeech, languageCode: String): Boolean {
+		for (locale in ttsLocales(languageCode)) {
+			if (
+				engine.isLanguageAvailable(locale) >= TextToSpeech.LANG_AVAILABLE &&
+				engine.setLanguage(locale) >= TextToSpeech.LANG_AVAILABLE
+			) {
+				return true
+			}
+		}
+		return false
+	}
+
+	private fun ttsLocales(languageCode: String): List<Locale> {
+		val normalized = languageCode.trim().lowercase().ifEmpty { "en" }
+		val base = normalized.substringBefore('-')
+		val preferredTag = if (normalized.contains('-')) {
+			normalized
+		} else {
+			when (base) {
+				"en" -> "en-in"
+				"hi" -> "hi-in"
+				"kn" -> "kn-in"
+				else -> normalized
+			}
+		}
+		val preferred = Locale.forLanguageTag(preferredTag)
+		val baseLocale = Locale.forLanguageTag(base)
+		val fallback = if (base == "en") listOf(Locale.US) else emptyList()
+		return listOf(preferred, baseLocale).plus(fallback).distinct()
+	}
+
+	private fun splitTtsText(text: String, maxLength: Int = 3000): List<String> {
+		val trimmed = text.trim()
+		if (trimmed.isEmpty()) {
+			return emptyList()
+		}
+		if (trimmed.length <= maxLength) {
+			return listOf(trimmed)
+		}
+
+		val chunks = mutableListOf<String>()
+		var remaining = trimmed
+		while (remaining.length > maxLength) {
+			var splitAt = remaining.lastIndexOfAny(
+				charArrayOf('.', '!', '?', '\n'),
+				maxLength,
+			)
+			if (splitAt < maxLength / 2) {
+				splitAt = remaining.lastIndexOf(' ', maxLength)
+			}
+			if (splitAt <= 0) {
+				splitAt = maxLength
+			}
+			chunks.add(remaining.substring(0, splitAt + 1).trim())
+			remaining = remaining.substring(splitAt + 1).trim()
+		}
+		if (remaining.isNotEmpty()) {
+			chunks.add(remaining)
+		}
+		return chunks
+	}
+
+	private fun finishTtsErrorIfCurrent(utteranceId: String?, message: String) {
+		runOnUiThread {
+			val requestId = pendingTtsRequestId
+			val id = utteranceId
+			if (requestId == null || id == null || id.startsWith("$requestId:")) {
+				finishPendingTtsError("TTS_ERROR", message)
+			}
+		}
+	}
+
+	private fun finishPendingTts(success: Boolean) {
+		val result = pendingTtsResult
+		pendingTtsResult = null
+		pendingTtsRequestId = null
+		pendingTtsLastUtteranceId = null
+		result?.success(success)
+	}
+
+	private fun finishPendingTtsError(code: String, message: String) {
+		val result = pendingTtsResult
+		pendingTtsResult = null
+		pendingTtsRequestId = null
+		pendingTtsLastUtteranceId = null
+		result?.error(code, message, null)
+	}
+
 	private fun getP2PPermissionStatus(): Map<String, Any> {
 		val locationGranted = ContextCompat.checkSelfPermission(
 			this,
@@ -487,6 +832,17 @@ class MainActivity : FlutterActivity() {
 	}
 
 	override fun onDestroy() {
+		pendingSttResult = null
+		activeSttJob?.cancel()
+		activeSttJob = null
+		pendingTtsRequests.clear()
+		pendingTtsResult = null
+		pendingTtsRequestId = null
+		pendingTtsLastUtteranceId = null
+		tts?.stop()
+		tts?.shutdown()
+		tts = null
+		ttsReady = false
 		if (::llamaEngine.isInitialized) {
 			llamaEngine.close()
 		}

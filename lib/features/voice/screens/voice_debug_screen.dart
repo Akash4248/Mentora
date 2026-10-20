@@ -1,11 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:offline_tutor_app/l10n/app_localizations.dart';
+import 'package:mentora/l10n/app_localizations.dart';
 
+import '../../language/providers/language_provider.dart';
 import '../../tutor/models/conversation_state.dart';
 import '../models/voice_state.dart';
 import '../providers/voice_provider.dart';
 import '../services/audio_recorder_service.dart';
+import '../services/offline_speech_service.dart';
 import '../widgets/mic_button.dart';
 import '../widgets/recording_waveform.dart';
 import '../widgets/tutor_avatar.dart';
@@ -24,11 +28,48 @@ class VoiceDebugScreen extends ConsumerStatefulWidget {
 
 class _VoiceDebugScreenState extends ConsumerState<VoiceDebugScreen> {
   final _recorder = AudioRecorderService();
+  final _speech = OfflineSpeechService();
+  bool _isTestingTts = false;
 
   @override
   void dispose() {
+    unawaited(_speech.stopSpeaking());
     _recorder.dispose();
     super.dispose();
+  }
+
+  Future<void> _testTts() async {
+    final languageCode = LanguageProvider.shared.languageCode;
+    final sample = languageCode == 'kn'
+        ? 'ನಮಸ್ಕಾರ! ಇದು ಮೆಂಟೋರಾ ಆಫ್‌ಲೈನ್ ಧ್ವನಿ ಪರೀಕ್ಷೆ.'
+        : 'Hello! This is Mentora speaking offline.';
+
+    setState(() => _isTestingTts = true);
+    final available = await _speech.isLanguageAvailable(languageCode);
+    if (!mounted) return;
+    if (!available) {
+      setState(() => _isTestingTts = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Native TTS unavailable for $languageCode')),
+      );
+      return;
+    }
+
+    final completed = await _speech.speakText(
+      sample,
+      languageCode: languageCode,
+    );
+    if (!mounted) return;
+    setState(() => _isTestingTts = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          completed
+              ? 'Native TTS completed ($languageCode)'
+              : 'Native TTS stopped ($languageCode)',
+        ),
+      ),
+    );
   }
 
   @override
@@ -41,6 +82,22 @@ class _VoiceDebugScreenState extends ConsumerState<VoiceDebugScreen> {
       appBar: AppBar(
         title: Text(l10n.voiceDebugTitle),
         actions: [
+          IconButton(
+            icon: _isTestingTts
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.volume_up_rounded),
+            onPressed: _isTestingTts ? null : _testTts,
+            tooltip: 'Test native TTS',
+          ),
+          IconButton(
+            icon: const Icon(Icons.stop_circle_outlined),
+            onPressed: () => _speech.stopSpeaking(),
+            tooltip: 'Stop native TTS',
+          ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             onPressed: () => ref.read(voiceProvider.notifier).reset(),
@@ -60,10 +117,10 @@ class _VoiceDebugScreenState extends ConsumerState<VoiceDebugScreen> {
                 state: voice.state == VoiceState.listening
                     ? ConversationState.listening
                     : voice.state == VoiceState.speaking
-                        ? ConversationState.speaking
-                        : voice.state == VoiceState.processing
-                            ? ConversationState.uploading
-                            : ConversationState.idle,
+                    ? ConversationState.speaking
+                    : voice.state == VoiceState.processing
+                    ? ConversationState.uploading
+                    : ConversationState.idle,
                 size: 140,
               ),
               const SizedBox(height: 24),

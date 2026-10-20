@@ -31,49 +31,49 @@ class ContentPackPolicyService {
 
     for (final medium in const <String>['English Medium', 'Kannada Medium']) {
       addRule(
-        id: 'math_${medium.startsWith('English') ? 'en' : 'kn'}_6_10',
+        id: 'math_${medium.startsWith('English') ? 'en' : 'kn'}_6_12',
         title:
-            'Mathematics Grades 6-10 (${medium == 'English Medium' ? 'EN' : 'KN'})',
+            'Mathematics Grades 6-12 (${medium == 'English Medium' ? 'EN' : 'KN'})',
         medium: medium,
         subject: 'Mathematics',
         gradeMin: 6,
-        gradeMax: 10,
+        gradeMax: 12,
       );
       addRule(
-        id: 'science_${medium.startsWith('English') ? 'en' : 'kn'}_6_10',
+        id: 'science_${medium.startsWith('English') ? 'en' : 'kn'}_6_12',
         title:
-            'Science Grades 6-10 (${medium == 'English Medium' ? 'EN' : 'KN'})',
+            'Science Grades 6-12 (${medium == 'English Medium' ? 'EN' : 'KN'})',
         medium: medium,
         subject: 'Science',
         gradeMin: 6,
-        gradeMax: 10,
+        gradeMax: 12,
       );
       addRule(
-        id: 'social_${medium.startsWith('English') ? 'en' : 'kn'}_6_10',
+        id: 'social_${medium.startsWith('English') ? 'en' : 'kn'}_6_12',
         title:
-            'Social Science Grades 6-10 (${medium == 'English Medium' ? 'EN' : 'KN'})',
+            'Social Science Grades 6-12 (${medium == 'English Medium' ? 'EN' : 'KN'})',
         medium: medium,
         subject: 'Social Science',
         gradeMin: 6,
-        gradeMax: 10,
+        gradeMax: 12,
       );
       addRule(
-        id: 'english_${medium.startsWith('English') ? 'en' : 'kn'}_6_10',
+        id: 'english_${medium.startsWith('English') ? 'en' : 'kn'}_6_12',
         title:
-            'English Grades 6-10 (${medium == 'English Medium' ? 'EN' : 'KN'})',
+            'English Grades 6-12 (${medium == 'English Medium' ? 'EN' : 'KN'})',
         medium: medium,
         subject: 'English',
         gradeMin: 6,
-        gradeMax: 10,
+        gradeMax: 12,
       );
       addRule(
-        id: 'kannada_${medium.startsWith('English') ? 'en' : 'kn'}_6_10',
+        id: 'kannada_${medium.startsWith('English') ? 'en' : 'kn'}_6_12',
         title:
-            'Kannada Grades 6-10 (${medium == 'English Medium' ? 'EN' : 'KN'})',
+            'Kannada Grades 6-12 (${medium == 'English Medium' ? 'EN' : 'KN'})',
         medium: medium,
         subject: 'Kannada',
         gradeMin: 6,
-        gradeMax: 10,
+        gradeMax: 12,
       );
     }
 

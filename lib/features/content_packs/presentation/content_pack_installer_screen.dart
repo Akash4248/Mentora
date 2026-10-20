@@ -14,6 +14,8 @@ import '../data/local/content_pack_repository.dart';
 import '../domain/content_pack_models.dart';
 import '../../network/data/backend_api_service.dart';
 import '../../network/domain/backend_config.dart';
+import '../../network/domain/endpoint_builder.dart';
+import '../../network/domain/runtime_backend_url.dart';
 import '../../shared/application/offline_error_taxonomy.dart';
 import '../../../config/app_environment.dart';
 
@@ -52,7 +54,16 @@ class _ContentPackInstallerScreenState extends State<ContentPackInstallerScreen>
   @override
   void initState() {
     super.initState();
-    _catalogUrlController.text = 'http://192.168.50.1:8080/catalog.json';
+    // Live gateway catalog via EndpointBuilder - eliminates hardcoded probe 404.
+    // Gateway route: GET /packs/catalog (via nginx, no hardcoded IP/port).
+    _catalogUrlController.text = EndpointBuilder.fromEnvironment().packsCatalog;
+    // Fallback to RuntimeBackendUrl if env baseUrl empty at boot (rare).
+    if (_catalogUrlController.text.isEmpty || _catalogUrlController.text == '/packs/catalog') {
+      final runtimeUrl = RuntimeBackendUrl().current;
+      if (runtimeUrl.isNotEmpty) {
+        _catalogUrlController.text = '$runtimeUrl/packs/catalog';
+      }
+    }
     _restoreCatalogUrlPreference();
     _refreshPacks();
     _bootstrapCatalogUrl();
@@ -465,9 +476,12 @@ class _ContentPackInstallerScreenState extends State<ContentPackInstallerScreen>
     if (value.endsWith('/')) {
       value = value.substring(0, value.length - 1);
     }
-    if (!value.toLowerCase().endsWith('/catalog.json')) {
-      value = '$value/catalog.json';
+    if (value.toLowerCase().endsWith('/packs/catalog') ||
+        value.toLowerCase().endsWith('/packs') ||
+        value.toLowerCase().endsWith('/catalog.json')) {
+      return value;
     }
+    value = '$value/packs/catalog';
     if (_catalogUrlController.text != value) {
       _catalogUrlController.text = value;
     }

@@ -1,10 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/network/application/confidence_evaluator.dart';
-import 'package:offline_tutor_app/features/network/application/educational_complexity_analyzer.dart';
-import 'package:offline_tutor_app/features/network/application/stream_recovery_manager.dart';
-import 'package:offline_tutor_app/features/network/application/stream_transition_manager.dart';
+import 'package:mentora/features/network/application/confidence_evaluator.dart';
+import 'package:mentora/features/network/application/educational_complexity_analyzer.dart';
+import 'package:mentora/features/network/application/stream_recovery_manager.dart';
+import 'package:mentora/features/network/application/stream_transition_manager.dart';
 
 void main() {
   test('confidence evaluator flags repeated and incomplete text', () {

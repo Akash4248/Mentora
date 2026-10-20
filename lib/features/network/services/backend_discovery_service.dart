@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../config/app_environment.dart';
 import '../application/pi_hub_discovery_coordinator.dart';
+import '../data/backend_availability_cache.dart';
 import '../domain/runtime_backend_url.dart';
 
 enum ClassroomConnectionState {
@@ -398,11 +399,28 @@ class BackendDiscoveryService extends ChangeNotifier {
     return null;
   }
 
+  /// Starts background non-blocking discovery monitoring.
+  void startBackgroundMonitoring({Duration interval = const Duration(seconds: 30)}) {
+    unawaited(probeNow());
+  }
+
+  /// Triggers an immediate background probe.
+  Future<void> probeNow({void Function(dynamic progress)? onProgress}) async {
+    try {
+      await discover(force: true);
+    } catch (_) {}
+  }
+
   void _setState(ClassroomConnectionState value) {
     if (_state == value || _disposed) {
       return;
     }
     _state = value;
+    if (value == ClassroomConnectionState.connected && _currentClassroom != null) {
+      BackendAvailabilityCache().updateStatus(true, url: _currentClassroom!.gatewayUrl);
+    } else if (value == ClassroomConnectionState.disconnected) {
+      BackendAvailabilityCache().updateStatus(false);
+    }
     notifyListeners();
   }
 

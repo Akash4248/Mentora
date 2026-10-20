@@ -4,12 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
-import '../../../config/app_environment.dart';
 import '../../../core/theme/idp_colors.dart';
 import '../../../core/widgets/idp_core_widgets.dart';
 import '../../../l10n/app_localizations.dart';
 
+import '../../chat/data/local/linux_llm_config_service.dart';
 import '../../chat/data/llm_admin_channel_service.dart';
+import '../services/user_api_key_service.dart';
 
 class ModelSelectionScreen extends StatefulWidget {
   const ModelSelectionScreen({super.key});
@@ -27,6 +28,7 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
   ModelMetadata? _metadata;
   GenerationConfig? _generationConfig;
   EngineStatus? _engineStatus;
+  LinuxLlmConfig? _linuxConfig;
 
   bool _loading = true;
   bool _updatingModelPath = false;
@@ -63,6 +65,10 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
       final metadata = await _service.getModelMetadata();
       final config = await _service.getGenerationConfig();
       final status = await _service.getEngineStatus();
+      LinuxLlmConfig? linuxCfg;
+      if (Platform.isLinux) {
+        linuxCfg = await LinuxLlmConfigService().load();
+      }
 
       if (!mounted) {
         return;
@@ -72,6 +78,7 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
         _metadata = metadata;
         _generationConfig = config;
         _engineStatus = status;
+        _linuxConfig = linuxCfg;
         _maxTokensController.text = config.maxTokens.toString();
         _timeoutMsController.text = config.timeoutMs.toString();
         _systemPromptController.text = config.systemPrompt;
@@ -90,7 +97,8 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
         return;
       }
       setState(() {
-        _error = e.message ?? AppLocalizations.of(context)!.settingsModelLoadFailed;
+        _error =
+            e.message ?? AppLocalizations.of(context)!.settingsModelLoadFailed;
         _loading = false;
       });
     }
@@ -118,12 +126,16 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
         return;
       }
 
-      if (!path.toLowerCase().endsWith('.gguf')) {
+      final lower = path.toLowerCase();
+      if (!lower.endsWith('.gguf') &&
+          !lower.endsWith('.bin') &&
+          !lower.contains('gguf') &&
+          !lower.contains('ggml')) {
         if (!mounted) {
           return;
         }
         setState(() {
-          _error = 'Please select a .gguf model file.';
+          _error = 'Selected file may not be a valid .gguf model file ($path).';
           _updatingModelPath = false;
         });
         return;
@@ -134,8 +146,11 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
         if (!mounted) {
           return;
         }
+        final status = await _service.getEngineStatus();
         setState(() {
-          _error = 'Model path was rejected by native engine. Ensure it is a readable .gguf file.';
+          _error = status.lastEngineError.trim().isNotEmpty
+              ? status.lastEngineError
+              : 'Model path was rejected. Ensure the model file exists and is readable ($path).';
           _updatingModelPath = false;
         });
         return;
@@ -147,7 +162,7 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
         return;
       }
       setState(() {
-        _error = 'Updating model path is not supported on this platform yet. Currently implemented on Android.';
+        _error = 'Updating model path is not supported on this platform.';
       });
     } on PlatformException catch (e) {
       if (!mounted) {
@@ -161,6 +176,67 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
         setState(() {
           _updatingModelPath = false;
         });
+      }
+    }
+  }
+
+  Future<void> _pickAndSetLinuxExecutable() async {
+    try {
+      final picked = await FilePicker.pickFiles(
+        type: FileType.any,
+        allowMultiple: false,
+      );
+      final path = picked?.files.single.path;
+      if (path != null && path.isNotEmpty) {
+        final configService = LinuxLlmConfigService();
+        await configService.update(executablePath: path);
+        await _load();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Updated Linux runner executable: $path')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _error = 'Failed to select runner executable: $e');
+      }
+    }
+  }
+
+  Future<void> _autoDetectLinuxModelAndBinary() async {
+    try {
+      final configService = LinuxLlmConfigService();
+      final exe = await configService.autoDetectExecutable();
+      final model = await configService.autoDetectModelPath();
+      if (exe != null || model != null) {
+        await configService.update(executablePath: exe, modelPath: model);
+        if (model != null) {
+          final userApiKeyService = await UserApiKeyService.getInstance();
+          final fileName = File(model).uri.pathSegments.last;
+          await userApiKeyService.setGgufModelName(fileName);
+        }
+        await _load();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Auto-detected: ${model != null ? File(model).uri.pathSegments.last : 'No model'} (${exe ?? 'No binary'})',
+              ),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          setState(
+            () => _error =
+                'No GGUF models or llama binaries found in default paths.',
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _error = 'Auto-detect error: $e');
       }
     }
   }
@@ -208,7 +284,8 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
         return;
       }
       setState(() {
-        _error = 'Model configuration is not available on this platform yet. Currently implemented on Android.';
+        _error =
+            'Model configuration is not available on this platform yet. Currently implemented on Android.';
       });
     } on PlatformException catch (e) {
       if (!mounted) {
@@ -273,9 +350,9 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Model engine reset.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Model engine reset.')));
     } on PlatformException catch (e) {
       if (!mounted) {
         return;
@@ -301,7 +378,11 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
   double _downloadProgress = 0.0;
   bool _downloadingModel = false;
 
-  Future<void> _downloadModelFromHub() async {
+  Future<void> _downloadModelFromUrl({
+    String url =
+        'https://huggingface.co/prism-ml/Ternary-Bonsai-2-4B-gguf/resolve/main/Ternary-Bonsai-2-4B-Q2_0.gguf',
+    String fileName = 'Ternary-Bonsai-2-4B-Q2_0.gguf',
+  }) async {
     setState(() {
       _downloadingModel = true;
       _downloadProgress = 0.0;
@@ -309,17 +390,20 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
     });
 
     try {
-      final baseUrl = AppEnvironment.backendBaseUrl;
-      final url = Uri.parse('$baseUrl/models/qwen2.5-1.5b.gguf');
-      final request = http.Request('GET', url);
-      final response = await http.Client().send(request).timeout(const Duration(minutes: 5));
+      final uri = Uri.parse(url);
+      final request = http.Request('GET', uri)
+        ..followRedirects = true
+        ..maxRedirects = 10;
+      final response = await http.Client()
+          .send(request)
+          .timeout(const Duration(minutes: 20));
 
       if (response.statusCode != 200) {
-        throw Exception('Server returned HTTP ${response.statusCode}');
+        throw Exception('HuggingFace returned HTTP ${response.statusCode}');
       }
 
       final appDir = await getApplicationDocumentsDirectory();
-      final targetFile = File('${appDir.path}/models/qwen2.5-1.5b.gguf');
+      final targetFile = File('${appDir.path}/models/$fileName');
       await targetFile.parent.create(recursive: true);
 
       final sink = targetFile.openWrite();
@@ -347,12 +431,16 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
       await _load();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Successfully downloaded & activated Qwen2.5 1.5B GGUF model!')),
+        SnackBar(
+          content: Text(
+            'Successfully downloaded & activated $fileName from HuggingFace!',
+          ),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = 'Failed to download model from PiHub server: $e';
+        _error = 'Failed to download model from HuggingFace: $e';
       });
     } finally {
       if (mounted) {
@@ -388,7 +476,9 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: IDPColors.primary))
+          ? const Center(
+              child: CircularProgressIndicator(color: IDPColors.primary),
+            )
           : SingleChildScrollView(
               padding: const EdgeInsets.all(IDPSpacing.md),
               child: Column(
@@ -399,25 +489,44 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
                       padding: const EdgeInsets.all(IDPSpacing.md),
                       decoration: BoxDecoration(
                         color: IDPColors.errorContainer,
-                        borderRadius: BorderRadius.circular(IDPRadius.defaultRadius),
-                        border: Border.all(color: IDPColors.error.withValues(alpha: 0.3)),
+                        borderRadius: BorderRadius.circular(
+                          IDPRadius.defaultRadius,
+                        ),
+                        border: Border.all(
+                          color: IDPColors.error.withValues(alpha: 0.3),
+                        ),
                       ),
-                      child: Text(_error!, style: IDPTypography.bodyMedium.copyWith(color: IDPColors.onErrorContainer)),
+                      child: Text(
+                        _error!,
+                        style: IDPTypography.bodyMedium.copyWith(
+                          color: IDPColors.onErrorContainer,
+                        ),
+                      ),
                     ),
                     const SizedBox(height: IDPSpacing.md),
                   ],
 
                   // Current Model Card
                   IDPCard(
-                    backgroundColor: IDPColors.primaryContainer.withValues(alpha: 0.5),
+                    backgroundColor: IDPColors.primaryContainer.withValues(
+                      alpha: 0.5,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.memory_rounded, color: IDPColors.primary),
+                            const Icon(
+                              Icons.memory_rounded,
+                              color: IDPColors.primary,
+                            ),
                             const SizedBox(width: IDPSpacing.sm),
-                            Text('Current Model', style: IDPTypography.titleSmall.copyWith(color: IDPColors.onPrimaryContainer)),
+                            Text(
+                              'Current Model',
+                              style: IDPTypography.titleSmall.copyWith(
+                                color: IDPColors.onPrimaryContainer,
+                              ),
+                            ),
                           ],
                         ),
                         const SizedBox(height: IDPSpacing.sm),
@@ -425,16 +534,22 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
                           metadata?.path.isNotEmpty == true
                               ? metadata!.path
                               : 'No model selected',
-                          style: IDPTypography.bodyMedium.copyWith(fontWeight: FontWeight.w500),
+                          style: IDPTypography.bodyMedium.copyWith(
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                         const SizedBox(height: IDPSpacing.xs),
                         Text(
                           'Size: ${((metadata?.sizeBytes ?? 0) / (1024 * 1024)).toStringAsFixed(1)} MB',
-                          style: IDPTypography.bodySmall.copyWith(color: IDPColors.onSurfaceVariant),
+                          style: IDPTypography.bodySmall.copyWith(
+                            color: IDPColors.onSurfaceVariant,
+                          ),
                         ),
                         Text(
                           'Last selected: ${selectedAt?.toLocal().toString() ?? 'n/a'}',
-                          style: IDPTypography.bodySmall.copyWith(color: IDPColors.onSurfaceVariant),
+                          style: IDPTypography.bodySmall.copyWith(
+                            color: IDPColors.onSurfaceVariant,
+                          ),
                         ),
                       ],
                     ),
@@ -447,50 +562,109 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              Icon(
-                                engineStatus.loaded ? Icons.check_circle_rounded : Icons.pending_rounded,
-                                color: engineStatus.loaded ? IDPColors.success : IDPColors.warning,
-                              ),
-                              const SizedBox(width: IDPSpacing.sm),
-                              Text('Engine Status', style: IDPTypography.titleSmall),
-                            ],
+                          Builder(
+                            builder: (context) {
+                              final ready = Platform.isLinux
+                                  ? engineStatus.ready
+                                  : engineStatus.loaded;
+                              final statusLabel = Platform.isLinux
+                                  ? 'Runner Status'
+                                  : 'Engine Status';
+                              return Row(
+                                children: [
+                                  Icon(
+                                    ready
+                                        ? Icons.check_circle_rounded
+                                        : Icons.pending_rounded,
+                                    color: ready
+                                        ? IDPColors.success
+                                        : IDPColors.warning,
+                                  ),
+                                  const SizedBox(width: IDPSpacing.sm),
+                                  Text(
+                                    statusLabel,
+                                    style: IDPTypography.titleSmall,
+                                  ),
+                                ],
+                              );
+                            },
                           ),
                           const SizedBox(height: IDPSpacing.sm),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text('Loaded:', style: IDPTypography.bodySmall),
-                              Text(engineStatus.loaded ? 'Yes ✓' : 'No ✗', style: IDPTypography.bodySmall.copyWith(fontWeight: FontWeight.bold, color: engineStatus.loaded ? IDPColors.success : IDPColors.error)),
+                              Text(
+                                Platform.isLinux ? 'Configured:' : 'Loaded:',
+                                style: IDPTypography.bodySmall,
+                              ),
+                              Text(
+                                (Platform.isLinux
+                                        ? engineStatus.ready
+                                        : engineStatus.loaded)
+                                    ? 'Yes ✓'
+                                    : 'No ✗',
+                                style: IDPTypography.bodySmall.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color:
+                                      (Platform.isLinux
+                                          ? engineStatus.ready
+                                          : engineStatus.loaded)
+                                      ? IDPColors.success
+                                      : IDPColors.error,
+                                ),
+                              ),
                             ],
                           ),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text('Total Inferences:', style: IDPTypography.bodySmall),
-                              Text('${engineStatus.totalInferenceCount}', style: IDPTypography.bodySmall.copyWith(fontWeight: FontWeight.bold)),
+                              Text(
+                                'Total Inferences:',
+                                style: IDPTypography.bodySmall,
+                              ),
+                              Text(
+                                '${engineStatus.totalInferenceCount}',
+                                style: IDPTypography.bodySmall.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ],
                           ),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text('Last Inference Duration:', style: IDPTypography.bodySmall),
-                              Text('${engineStatus.lastInferenceDurationMs} ms', style: IDPTypography.bodySmall),
+                              Text(
+                                'Last Inference Duration:',
+                                style: IDPTypography.bodySmall,
+                              ),
+                              Text(
+                                '${engineStatus.lastInferenceDurationMs} ms',
+                                style: IDPTypography.bodySmall,
+                              ),
                             ],
                           ),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text('Avg Inference Duration:', style: IDPTypography.bodySmall),
-                              Text('${engineStatus.avgInferenceDurationMs} ms', style: IDPTypography.bodySmall),
+                              Text(
+                                'Avg Inference Duration:',
+                                style: IDPTypography.bodySmall,
+                              ),
+                              Text(
+                                '${engineStatus.avgInferenceDurationMs} ms',
+                                style: IDPTypography.bodySmall,
+                              ),
                             ],
                           ),
-                          if (engineStatus.lastEngineError.trim().isNotEmpty) ...[
+                          if (engineStatus.lastEngineError
+                              .trim()
+                              .isNotEmpty) ...[
                             const SizedBox(height: IDPSpacing.xs),
                             Text(
                               'Last error: ${engineStatus.lastEngineError}',
-                              style: IDPTypography.bodySmall.copyWith(color: IDPColors.error),
+                              style: IDPTypography.bodySmall.copyWith(
+                                color: IDPColors.error,
+                              ),
                             ),
                           ],
                         ],
@@ -501,24 +675,35 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
 
                   // Action buttons
                   FilledButton.icon(
-                    onPressed: _downloadingModel ? null : _downloadModelFromHub,
+                    onPressed: _downloadingModel ? null : _downloadModelFromUrl,
                     style: FilledButton.styleFrom(
                       backgroundColor: IDPColors.primary,
-                      padding: const EdgeInsets.symmetric(vertical: IDPSpacing.md),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(IDPRadius.defaultRadius)),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: IDPSpacing.md,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(
+                          IDPRadius.defaultRadius,
+                        ),
+                      ),
                     ),
                     icon: _downloadingModel
                         ? const SizedBox(
                             width: 18,
                             height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
                           )
                         : const Icon(Icons.cloud_download_rounded),
                     label: Text(
                       _downloadingModel
                           ? 'Downloading GGUF Model (${(_downloadProgress * 100).toInt()}%)...'
-                          : 'Download Qwen2.5 1.5B GGUF from PiHub',
-                      style: IDPTypography.labelLarge.copyWith(color: Colors.white),
+                          : 'Download Bonsai 2 4B Q2_0 base model (1.21 GB)',
+                      style: IDPTypography.labelLarge.copyWith(
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                   const SizedBox(height: IDPSpacing.sm),
@@ -526,32 +711,96 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
                     onPressed: _updatingModelPath ? null : _pickAndSetModel,
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: IDPColors.primary),
-                      padding: const EdgeInsets.symmetric(vertical: IDPSpacing.md),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(IDPRadius.defaultRadius)),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: IDPSpacing.md,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(
+                          IDPRadius.defaultRadius,
+                        ),
+                      ),
                     ),
                     icon: _updatingModelPath
                         ? const SizedBox(
                             width: 18,
                             height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: IDPColors.primary),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: IDPColors.primary,
+                            ),
                           )
-                        : const Icon(Icons.folder_open_rounded, color: IDPColors.primary),
-                    label: Text('Pick Local .gguf File', style: IDPTypography.labelLarge.copyWith(color: IDPColors.primary)),
+                        : const Icon(
+                            Icons.folder_open_rounded,
+                            color: IDPColors.primary,
+                          ),
+                    label: Text(
+                      'Pick Local .gguf File',
+                      style: IDPTypography.labelLarge.copyWith(
+                        color: IDPColors.primary,
+                      ),
+                    ),
                   ),
+                  if (Platform.isLinux) ...[
+                    const SizedBox(height: IDPSpacing.sm),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _pickAndSetLinuxExecutable,
+                            style: OutlinedButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                  IDPRadius.defaultRadius,
+                                ),
+                              ),
+                            ),
+                            icon: const Icon(Icons.terminal_rounded, size: 18),
+                            label: const Text('Pick Runner Binary'),
+                          ),
+                        ),
+                        const SizedBox(width: IDPSpacing.sm),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _autoDetectLinuxModelAndBinary,
+                            style: OutlinedButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                  IDPRadius.defaultRadius,
+                                ),
+                              ),
+                            ),
+                            icon: const Icon(
+                              Icons.auto_awesome_rounded,
+                              size: 18,
+                            ),
+                            label: const Text('Auto-Detect Models'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: IDPSpacing.sm),
                   Row(
                     children: [
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: _validatingModel ? null : _validateSelectedModel,
+                          onPressed: _validatingModel
+                              ? null
+                              : _validateSelectedModel,
                           style: OutlinedButton.styleFrom(
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(IDPRadius.defaultRadius)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(
+                                IDPRadius.defaultRadius,
+                              ),
+                            ),
                           ),
                           icon: _validatingModel
                               ? const SizedBox(
                                   width: 16,
                                   height: 16,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 )
                               : const Icon(Icons.verified_rounded),
                           label: const Text('Validate'),
@@ -564,7 +813,11 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
                           style: OutlinedButton.styleFrom(
                             foregroundColor: IDPColors.error,
                             side: const BorderSide(color: IDPColors.errorLight),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(IDPRadius.defaultRadius)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(
+                                IDPRadius.defaultRadius,
+                              ),
+                            ),
                           ),
                           icon: const Icon(Icons.restart_alt_rounded),
                           label: const Text('Reset Engine'),
@@ -576,7 +829,10 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
                     const SizedBox(height: IDPSpacing.sm),
                     Text(
                       _validationMessage!,
-                      style: IDPTypography.bodySmall.copyWith(color: IDPColors.success, fontWeight: FontWeight.bold),
+                      style: IDPTypography.bodySmall.copyWith(
+                        color: IDPColors.success,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ],
                   const SizedBox(height: IDPSpacing.lg),
@@ -594,30 +850,30 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
                         label: const Text('Fast'),
                         backgroundColor: IDPColors.surfaceContainerHigh,
                         onPressed: () => _applyPreset(
-                          maxTokens: 128,
+                          maxTokens: 512,
                           timeoutMs: 60000,
                           systemPrompt:
-                              'You are a concise tutor. Give short, direct answers with one example.',
+                              'You are a clear educational tutor. Give direct answers with examples.',
                         ),
                       ),
                       ActionChip(
                         label: const Text('Balanced'),
                         backgroundColor: IDPColors.surfaceContainerHigh,
                         onPressed: () => _applyPreset(
-                          maxTokens: 256,
+                          maxTokens: 1024,
                           timeoutMs: 120000,
                           systemPrompt:
-                              'You are a helpful tutor. Explain clearly with step-by-step reasoning when needed.',
+                              'You are a helpful tutor. Explain clearly with step-by-step reasoning.',
                         ),
                       ),
                       ActionChip(
                         label: const Text('Deep Explain'),
                         backgroundColor: IDPColors.surfaceContainerHigh,
                         onPressed: () => _applyPreset(
-                          maxTokens: 512,
+                          maxTokens: 2048,
                           timeoutMs: 240000,
                           systemPrompt:
-                              'You are an expert tutor. Provide detailed explanations and structured steps.',
+                              'You are an expert tutor. Provide detailed, comprehensive explanations and structured steps.',
                         ),
                       ),
                     ],
@@ -628,7 +884,11 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
                       labelText: 'Max output tokens',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(IDPRadius.defaultRadius)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(
+                          IDPRadius.defaultRadius,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: IDPSpacing.sm),
@@ -637,7 +897,11 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
                       labelText: 'Timeout (ms)',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(IDPRadius.defaultRadius)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(
+                          IDPRadius.defaultRadius,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: IDPSpacing.sm),
@@ -647,7 +911,11 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
                     maxLines: 6,
                     decoration: InputDecoration(
                       labelText: 'System prompt',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(IDPRadius.defaultRadius)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(
+                          IDPRadius.defaultRadius,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: IDPSpacing.md),
@@ -655,23 +923,39 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
                     onPressed: _updatingConfig ? null : _saveGenerationConfig,
                     style: FilledButton.styleFrom(
                       backgroundColor: IDPColors.secondary,
-                      padding: const EdgeInsets.symmetric(vertical: IDPSpacing.md),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(IDPRadius.defaultRadius)),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: IDPSpacing.md,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(
+                          IDPRadius.defaultRadius,
+                        ),
+                      ),
                     ),
                     icon: _updatingConfig
                         ? const SizedBox(
                             width: 18,
                             height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
                           )
                         : const Icon(Icons.tune_rounded),
-                    label: Text('Save Configuration', style: IDPTypography.labelLarge.copyWith(color: Colors.white)),
+                    label: Text(
+                      'Save Configuration',
+                      style: IDPTypography.labelLarge.copyWith(
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
                   if (config != null) ...[
                     const SizedBox(height: IDPSpacing.sm),
                     Text(
                       'Active: ${config.maxTokens} tokens, ${config.timeoutMs} ms timeout',
-                      style: IDPTypography.bodySmall.copyWith(color: IDPColors.onSurfaceVariant),
+                      style: IDPTypography.bodySmall.copyWith(
+                        color: IDPColors.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ],

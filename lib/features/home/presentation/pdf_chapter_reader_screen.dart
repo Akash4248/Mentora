@@ -14,7 +14,6 @@ import '../../course/data/local/pdf_chapter_locator.dart';
 import '../../course/data/local/textbook_repository.dart';
 import '../../course/domain/textbook_models.dart';
 import '../../course/domain/course_tree.dart';
-import '../../chat/presentation/chapter_chat_screen.dart';
 import 'chapter_summary_screen.dart';
 import 'quiz_player_screen.dart';
 
@@ -121,30 +120,15 @@ class _PdfChapterReaderScreenState extends State<PdfChapterReaderScreen> {
   }
 
   void _openTutor() {
-    final legacyCourse = Course(
-      id: 'grade_${widget.chapter.grade}',
-      name: 'Grade ${widget.chapter.grade}',
-    );
-    final legacySubject = Subject(
-      id: 'sub_${widget.chapter.subject.toLowerCase()}',
-      courseId: legacyCourse.id,
-      name: widget.chapter.subject,
-    );
-    final legacyChapter = Chapter(
-      id: widget.chapter.packId,
-      subjectId: legacySubject.id,
-      title: widget.chapter.title,
-      summary: widget.chapter.summary,
-    );
-
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ChapterChatScreen(
-          course: legacyCourse,
-          subject: legacySubject,
-          chapter: legacyChapter,
-        ),
-      ),
+    // Canonical chat: chapter workspace, Chat tab (index 0).
+    Navigator.of(context).pushNamed(
+      '/chapter_workspace',
+      arguments: {
+        'chapterTitle': widget.chapter.title,
+        'subjectName': widget.chapter.subject,
+        'grade': widget.chapter.grade,
+        'initialTabIndex': 0,
+      },
     );
   }
 

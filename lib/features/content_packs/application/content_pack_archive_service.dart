@@ -185,8 +185,14 @@ class ContentPackArchiveService {
 
       for (final file in decodedArchive) {
         if (file.isFile) {
+          final targetPath = p.normalize(p.join(unpackDir.path, file.name));
+          if (!p.isWithin(unpackDir.path, targetPath)) {
+            throw Exception(
+              'Security error: Zip-Slip path traversal detected in entry: ${file.name}',
+            );
+          }
           final data = file.content as List<int>;
-          final outFile = File(p.join(unpackDir.path, file.name));
+          final outFile = File(targetPath);
           outFile.createSync(recursive: true);
           outFile.writeAsBytesSync(data);
         }
@@ -431,7 +437,7 @@ class ContentPackArchiveService {
       medium: remotePackOverride?.medium ?? manifest['medium'] as String? ?? 'Mixed',
       subject: remotePackOverride?.subject ?? manifest['subject'] as String? ?? 'All Subjects',
       gradeMin: remotePackOverride?.gradeMin ?? _readGrade(manifest) ?? 1,
-      gradeMax: remotePackOverride?.gradeMax ?? _readGrade(manifest) ?? 10,
+      gradeMax: remotePackOverride?.gradeMax ?? _readGrade(manifest) ?? 12,
       version: incomingVersion,
       manifestPath: manifestFile.path,
       rootPath: contentDir.path,

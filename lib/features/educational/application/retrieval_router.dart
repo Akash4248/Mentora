@@ -1,7 +1,10 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'local_search_service.dart';
 import '../models/educational_models.dart';
+import '../models/local_search_models.dart';
 import '../../../config/app_environment.dart';
+import '../../../features/course/data/local/app_database.dart';
+
+export '../models/local_search_models.dart';
 
 /// Routing decision for retrieval: local vs backend
 enum RetrievalRoute {
@@ -31,12 +34,6 @@ class RoutingDecision {
 }
 
 /// Intelligent retrieval router that decides between local and backend
-/// 
-/// Decision factors:
-/// - Local search result quality (relevance, count)
-/// - Network connectivity
-/// - Backend service availability
-/// - User preferences and feature flags
 class RetrievalRouter {
   static final RetrievalRouter _instance = RetrievalRouter._internal();
 
@@ -46,22 +43,50 @@ class RetrievalRouter {
 
   RetrievalRouter._internal();
 
-  final LocalSearchService _searchService = LocalSearchService();
+  Future<List<SearchResult>> _search(String query) async {
+    try {
+      final db = await AppDatabase.instance.database;
+      final results = <SearchResult>[];
+      final term = '%${query.trim()}%';
 
-  /// Primary entry point: route a query to optimal data source
-  /// 
-  /// Query flow:
-  /// 1. Execute local search
-  /// 2. Calculate confidence in local results
-  /// 3. Consider network state and feature flags
-  /// 4. Return routing decision with results
+      final conceptRows = await db.rawQuery(
+        'SELECT id, name, definition FROM concepts WHERE name LIKE ? OR definition LIKE ? LIMIT 10',
+        [term, term],
+      );
+      for (final r in conceptRows) {
+        results.add(SearchResult(
+          id: '${r['id']}',
+          title: r['name'] as String? ?? '',
+          content: r['definition'] as String? ?? '',
+          type: 'concept',
+        ));
+      }
+
+      final flashcardRows = await db.rawQuery(
+        'SELECT id, term, definition FROM flashcards WHERE term LIKE ? OR definition LIKE ? LIMIT 10',
+        [term, term],
+      );
+      for (final r in flashcardRows) {
+        results.add(SearchResult(
+          id: '${r['id']}',
+          title: r['term'] as String? ?? '',
+          content: r['definition'] as String? ?? '',
+          type: 'flashcard',
+        ));
+      }
+
+      return results;
+    } catch (_) {
+      return [];
+    }
+  }
+
   Future<RoutingDecision> routeQuery(String query) async {
     AppEnvironment.log('SYNC', '[RoutingRouter] Routing query: "$query"');
 
     try {
-      // Step 1: Local search
-      final localResults = await _searchService.search(query);
-      final confidence = await _searchService.calculateSearchConfidence(query, localResults);
+      final localResults = await _search(query);
+      final confidence = localResults.isEmpty ? 0.0 : (localResults.length > 3 ? 0.9 : 0.6);
 
       // Step 2: Check feature flags
       final offlineMode = dotenv.env['ENABLE_OFFLINE_PACKS']?.toLowerCase() == 'true';

@@ -80,7 +80,7 @@ class RemoteContentPack {
       subject: (map['subject'] as String? ?? 'All Subjects').trim(),
       chapter: map['chapter'] as String?,
       gradeMin: int.tryParse(map['grade']?.toString() ?? '') ?? map['gradeMin'] as int? ?? map['grade_min'] as int? ?? 1,
-      gradeMax: int.tryParse(map['grade']?.toString() ?? '') ?? map['gradeMax'] as int? ?? map['grade_max'] as int? ?? 10,
+      gradeMax: int.tryParse(map['grade']?.toString() ?? '') ?? map['gradeMax'] as int? ?? map['grade_max'] as int? ?? 12,
       version: parsedVersion,
       archiveUrl: archiveUri.hasScheme
           ? archiveUri
@@ -201,11 +201,25 @@ class ContentPackSyncService {
 
     final discovered = <String>{};
 
+    // Add active RuntimeBackendUrl as top priority source
+    try {
+      final activeRuntimeUrl = RuntimeBackendUrl().current;
+      if (activeRuntimeUrl.isNotEmpty) {
+        final catalogUrl = activeRuntimeUrl.endsWith('/')
+            ? '${activeRuntimeUrl}packs/catalog'
+            : '$activeRuntimeUrl/packs/catalog';
+        discovered.add(catalogUrl);
+        AppEnvironment.log('SYNC', 'Added runtime backend catalog: $catalogUrl');
+      }
+    } catch (e) {
+      AppEnvironment.log('SYNC', 'Failed to add runtime backend catalog URL: $e');
+    }
+
     // Add configured content pipeline URL as primary source
     try {
       final configuredUrl = AppEnvironment.contentPipelineUrl;
       if (configuredUrl.isNotEmpty) {
-        final catalogUrl = '$configuredUrl/catalog.json';
+        final catalogUrl = '$configuredUrl/packs/catalog';
         discovered.add(catalogUrl);
         AppEnvironment.log('SYNC', 'Added configured catalog: $catalogUrl');
       }
@@ -248,12 +262,12 @@ class ContentPackSyncService {
 
               for (final address in aRecords) {
                 discovered.add(
-                  'http://${address.address.address}:${service.port}/catalog.json',
+                  'http://${address.address.address}:${service.port}/packs/catalog',
                 );
               }
 
               discovered.add(
-                'http://${service.target}:${service.port}/catalog.json',
+                'http://${service.target}:${service.port}/packs/catalog',
               );
             }
           }
@@ -272,7 +286,7 @@ class ContentPackSyncService {
       final reachable = <String>{...discovered};
       for (final host in hosts) {
         for (final port in ports) {
-          final uri = Uri.parse('http://$host:$port/catalog.json');
+          final uri = Uri.parse('http://$host:$port/packs/catalog');
           final isReachable = await _isCatalogReachable(client, uri);
           if (isReachable) {
             reachable.add(uri.toString());
@@ -589,8 +603,8 @@ class ContentPackSyncService {
       }
       final body = await utf8.decodeStream(response);
       final decoded = jsonDecode(body);
-      return decoded is Map<String, dynamic> &&
-          decoded['packs'] is List<dynamic>;
+      return (decoded is Map<String, dynamic> && decoded['packs'] is List<dynamic>) ||
+          decoded is List<dynamic>;
     } catch (_) {
       return false;
     }
@@ -689,7 +703,7 @@ class ContentPackSyncService {
       if (octet < 1 || octet > 254) {
         return;
       }
-      final uri = Uri.parse('http://$prefix.$octet:$port/catalog.json');
+      final uri = Uri.parse('http://$prefix.$octet:$port/packs/catalog');
       final ok = await _isCatalogReachable(client, uri);
       if (ok) {
         found.add(uri.toString());
@@ -761,7 +775,7 @@ class ContentPackSyncService {
 
     final client = HttpClient();
     client.connectionTimeout = const Duration(milliseconds: 900);
-    final catalogUri = Uri.parse('http://$host:$port/catalog.json');
+    final catalogUri = Uri.parse('http://$host:$port/packs/catalog');
     final catalogReachable = await _isCatalogReachable(client, catalogUri);
     client.close(force: true);
 

@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:offline_tutor_app/features/voice/models/voice_state.dart';
-import 'package:offline_tutor_app/features/voice/providers/voice_provider.dart';
+import 'package:mentora/features/voice/models/voice_state.dart';
+import 'package:mentora/features/voice/providers/voice_provider.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

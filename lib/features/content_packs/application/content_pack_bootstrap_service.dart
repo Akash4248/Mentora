@@ -35,13 +35,6 @@ class ContentPackBootstrapService {
             importedAt: DateTime.now().millisecondsSinceEpoch,
           ),
           MediaResource(
-            mediaType: 'video',
-            title: 'Basic Science Overview',
-            localPath: 'assets/demo_video.mp4',
-            sizeBytes: 1024,
-            importedAt: DateTime.now().millisecondsSinceEpoch,
-          ),
-          MediaResource(
             mediaType: 'resource',
             title: 'Interactive Activities',
             localPath: 'assets/activities.zip',
@@ -63,7 +56,7 @@ class ContentPackBootstrapService {
         medium: 'Mixed',
         subject: 'All Subjects',
         gradeMin: 1,
-        gradeMax: 10,
+        gradeMax: 12,
         kind: 'pdf',
         items: textbooks,
       );
@@ -74,7 +67,7 @@ class ContentPackBootstrapService {
         medium: 'Mixed',
         subject: 'All Subjects',
         gradeMin: 1,
-        gradeMax: 10,
+        gradeMax: 12,
         kind: 'video',
         items: videos,
       );
@@ -85,7 +78,7 @@ class ContentPackBootstrapService {
         medium: 'Mixed',
         subject: 'All Subjects',
         gradeMin: 1,
-        gradeMax: 10,
+        gradeMax: 12,
         kind: 'resource',
         items: resources,
       );

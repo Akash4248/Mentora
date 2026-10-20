@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:offline_tutor_app/features/experiment/phet/data/phet_catalog_service.dart';
-import 'package:offline_tutor_app/features/experiment/phet/models/experiment_descriptor.dart';
+import 'package:mentora/features/experiment/phet/data/phet_catalog_service.dart';
+import 'package:mentora/features/experiment/phet/models/experiment_descriptor.dart';
 
 void main() {
   test('parses PiHub PhET catalog and resolves local simulation URL', () {

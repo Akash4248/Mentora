@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:path_provider/path_provider.dart';
 
@@ -40,18 +41,35 @@ class LinuxLlmConfig {
     return LinuxLlmConfig(
       modelPath: (json['modelPath'] as String?) ?? '',
       executablePath: (json['executablePath'] as String?) ?? '',
-      maxTokens: (json['maxTokens'] as int?) ?? 192,
+      maxTokens: (json['maxTokens'] as int?) ?? 1024,
     );
   }
 
   static const LinuxLlmConfig defaults = LinuxLlmConfig(
     modelPath: '',
-    executablePath: '/home/akash/Desktop/IDP/llama.cpp/build/bin/llama-cli',
-    maxTokens: 192,
+    executablePath: 'llama-cli',
+    maxTokens: 1024,
   );
 }
 
 class LinuxLlmConfigService {
+  Future<bool> isValidGgufHeader(String modelPath) async {
+    try {
+      final file = File(modelPath);
+      if (!await file.exists() || await file.length() < 4) return false;
+      final handle = await file.open(mode: FileMode.read);
+      final header = await handle.read(4);
+      await handle.close();
+      return header.length == 4 &&
+          header[0] == 0x47 &&
+          header[1] == 0x47 &&
+          header[2] == 0x55 &&
+          header[3] == 0x46;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<LinuxLlmConfig> load() async {
     try {
       final file = await _configFile();
@@ -94,7 +112,28 @@ class LinuxLlmConfigService {
   }
 
   Future<String?> autoDetectExecutable() async {
-    final candidates = <String>[
+    final candidates = <String>[];
+    final home = Platform.environment['HOME'];
+    if (home != null) {
+      final lmStudioBackends = Directory(
+        '$home/.lmstudio/extensions/backends',
+      );
+      if (await lmStudioBackends.exists()) {
+        final backendDirectories = await lmStudioBackends
+            .list(followLinks: false)
+            .where((entity) => entity is Directory)
+            .cast<Directory>()
+            .toList();
+        backendDirectories.sort(_compareBackendDirectories);
+        candidates.addAll(
+          backendDirectories.map((directory) => '${directory.path}/llama-server'),
+        );
+      }
+    }
+
+    candidates.addAll(const <String>[
+      '/home/akash/Desktop/AI/llama.cpp/build/bin/llama-server',
+      '/home/akash/Desktop/IDP/llama.cpp/build/bin/llama-server',
       '/home/akash/Desktop/IDP/llama.cpp/build/bin/llama-completion',
       '/home/akash/Desktop/IDP/llama.cpp/build/bin/llama-cli',
       '/usr/local/bin/llama-completion',
@@ -103,7 +142,7 @@ class LinuxLlmConfigService {
       '/usr/bin/llama-cli',
       'llama-completion',
       'llama-cli',
-    ];
+    ]);
 
     for (final candidate in candidates) {
       final resolved = await _resolveExecutable(candidate);
@@ -115,8 +154,107 @@ class LinuxLlmConfigService {
     return null;
   }
 
-  /// Copies the selected model file into the app support directory to
-  /// improve local access performance. Returns the new model path.
+  int _compareBackendVersions(String left, String right) {
+    final versionPattern = RegExp(r'-(\d+)\.(\d+)\.(\d+)$');
+    final leftMatch = versionPattern.firstMatch(left);
+    final rightMatch = versionPattern.firstMatch(right);
+    if (leftMatch == null || rightMatch == null) return 0;
+
+    for (var group = 1; group <= 3; group++) {
+      final comparison = int.parse(
+        leftMatch.group(group)!,
+      ).compareTo(int.parse(rightMatch.group(group)!));
+      if (comparison != 0) return comparison;
+    }
+    return 0;
+  }
+
+  int _compareBackendDirectories(Directory left, Directory right) {
+    final versionOrder = _compareBackendVersions(right.path, left.path);
+    if (versionOrder != 0) return versionOrder;
+    return _backendPreference(right.path).compareTo(
+      _backendPreference(left.path),
+    );
+  }
+
+  int _backendPreference(String path) {
+    final normalized = path.toLowerCase();
+    if (normalized.contains('cuda') || normalized.contains('nvidia')) return 0;
+    if (normalized.contains('vulkan')) return 2;
+    return 1;
+  }
+
+  Future<String?> autoDetectModelPath() async {
+    final candidates = <String>[
+      '/home/akash/Desktop/PIHUB/backend/inference-service/models/phi-2.Q4_K_M.gguf',
+      '/home/akash/Desktop/NOTIMP/pihub/backend/inference-service/models/model.gguf',
+    ];
+
+    try {
+      final appSupport = await getApplicationSupportDirectory();
+      final modelsDir = Directory('${appSupport.path}/models');
+      if (await modelsDir.exists()) {
+        final files = modelsDir.listSync().whereType<File>();
+        for (final f in files) {
+          if (f.path.toLowerCase().contains('gguf')) {
+            candidates.add(f.path);
+          }
+        }
+      }
+
+      final appDocs = await getApplicationDocumentsDirectory();
+      final docsModelsDir = Directory('${appDocs.path}/models');
+      if (await docsModelsDir.exists()) {
+        final files = docsModelsDir.listSync().whereType<File>();
+        for (final f in files) {
+          if (f.path.toLowerCase().contains('gguf')) {
+            candidates.add(f.path);
+          }
+        }
+      }
+
+      final home = Platform.environment['HOME'];
+      if (home != null) {
+        final searchDirs = [
+          '$home/Desktop/PIHUB/backend/inference-service/models',
+          '$home/Desktop/NOTIMP/pihub/backend/inference-service/models',
+          '$home/Desktop/IDP/models',
+          '$home/Desktop/IDP',
+          '$home/Downloads',
+          '$home/models',
+          '$home/.cache/lm-studio/models',
+          '$home/.ollama/models',
+        ];
+        for (final dirPath in searchDirs) {
+          final dir = Directory(dirPath);
+          if (await dir.exists()) {
+            try {
+              final files = dir.listSync(recursive: false).whereType<File>();
+              for (final f in files) {
+                if (f.path.toLowerCase().endsWith('.gguf')) {
+                  candidates.add(f.path);
+                }
+              }
+            } catch (_) {}
+          }
+        }
+        candidates.add('$home/Downloads/qwen2.5-1.5b-instruct-q4_k_m.gguf');
+        candidates.add('$home/models/model.gguf');
+      }
+    } catch (_) {}
+
+    for (final candidate in candidates) {
+      final file = File(candidate);
+      if (await file.exists() && await file.length() > 0 && await isValidGgufHeader(candidate)) {
+        return candidate;
+      }
+    }
+
+    return null;
+  }
+
+  /// Copies the selected model file into the app support directory in a background isolate
+  /// to prevent UI thread freezing on multi-GB files. Returns the new model path.
   Future<String> copyModelToAppStorage(String modelPath) async {
     final src = File(modelPath);
     if (!await src.exists()) {
@@ -126,28 +264,39 @@ class LinuxLlmConfigService {
     final dir = await getApplicationSupportDirectory();
     final modelsDir = Directory('${dir.path}/models');
     await modelsDir.create(recursive: true);
-    final dest = File('${modelsDir.path}/${src.uri.pathSegments.last}');
-    await src.copy(dest.path);
-    return dest.path;
+    final destPath = '${modelsDir.path}/${src.uri.pathSegments.last}';
+
+    await Isolate.run(() async {
+      final sourceFile = File(modelPath);
+      await sourceFile.copy(destPath);
+    });
+
+    return destPath;
   }
 
   Future<LinuxLlmValidationResult> validate(LinuxLlmConfig config) async {
-    final executable = config.executablePath.trim();
-    final modelPath = config.modelPath.trim();
+    var executable = config.executablePath.trim();
+    var modelPath = config.modelPath.trim();
 
-    if (executable.isEmpty) {
+    var resolvedExecutable = executable == LinuxLlmConfig.defaults.executablePath
+        ? await autoDetectExecutable()
+        : await _resolveExecutable(executable);
+    if (resolvedExecutable == null) {
+      resolvedExecutable = await autoDetectExecutable();
+    }
+
+    if (resolvedExecutable == null) {
       return const LinuxLlmValidationResult(
         ready: false,
         message: 'Select llama runner binary first (llama-completion or llama-cli).',
       );
     }
 
-    final resolvedExecutable = await _resolveExecutable(executable);
-    if (resolvedExecutable == null) {
-      return LinuxLlmValidationResult(
-        ready: false,
-        message: 'Binary not found or not executable: $executable',
-      );
+    if (modelPath.isEmpty || !await File(modelPath).exists()) {
+      final autoModel = await autoDetectModelPath();
+      if (autoModel != null) {
+        modelPath = autoModel;
+      }
     }
 
     if (modelPath.isEmpty) {
@@ -165,9 +314,17 @@ class LinuxLlmConfigService {
       );
     }
 
+    if (!await isValidGgufHeader(modelPath)) {
+      return LinuxLlmValidationResult(
+        ready: false,
+        message: 'Selected model is not a valid GGUF file (invalid header): $modelPath',
+      );
+    }
+
     return LinuxLlmValidationResult(
       ready: true,
-      message: 'Linux model pipeline ready.',
+      message:
+          'GGUF file and llama.cpp runner are configured. Use Validate to test model compatibility.',
       resolvedExecutablePath: resolvedExecutable,
     );
   }
@@ -202,8 +359,13 @@ class LinuxLlmConfigService {
   }
 
   Future<File> _configFile() async {
-    final dir = await getApplicationSupportDirectory();
-    return File('${dir.path}/linux_llm_config.json');
+    try {
+      final dir = await getApplicationSupportDirectory();
+      return File('${dir.path}/linux_llm_config.json');
+    } catch (_) {
+      final home = Platform.environment['HOME'] ?? '.';
+      return File('$home/.config/mentora/linux_llm_config.json');
+    }
   }
 }
 

@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../../../core/theme/idp_colors.dart';
 
 import 'package:flutter/material.dart';
 import 'package:open_filex/open_filex.dart';
@@ -18,8 +19,7 @@ import '../data/local/study_note_repository.dart';
 import 'pdf_viewer_screen.dart';
 import 'video_player_screen.dart';
 
-const String _repoTextbooksPath = '/home/akash/Desktop/IDP/TEXTBOOKS';
-const String _repoVideosPath = '/home/akash/Desktop/IDP/VIDEOS';
+
 const List<String> _androidTextbookRootCandidates = <String>[
   '/storage/emulated/0/TEXTBOOKS',
   '/storage/emulated/0/textbooks',
@@ -357,14 +357,25 @@ class _LearningMaterialsScreenState extends State<LearningMaterialsScreen>
   }
 
   Future<void> _syncRepoMediaToDb() async {
-    final textbookRoots = <String>{
-      _repoTextbooksPath,
-      ..._androidTextbookRootCandidates,
-    };
-    final videoRoots = <String>{
-      _repoVideosPath,
-      ..._androidVideoRootCandidates,
-    };
+    // App-private dirs first (work on iOS/desktop + scoped storage);
+    // legacy absolute /storage paths below are Android-only fallbacks.
+    final textbookRoots = <String>{};
+    final videoRoots = <String>{};
+    try {
+      final docs = await getApplicationDocumentsDirectory();
+      textbookRoots.add(p.join(docs.path, 'content_packs'));
+      textbookRoots.add(p.join(docs.path, 'TEXTBOOKS'));
+      videoRoots.add(p.join(docs.path, 'VIDEOS'));
+      final ext = await getExternalStorageDirectory();
+      if (ext != null) {
+        textbookRoots.add(p.join(ext.path, 'TEXTBOOKS'));
+        videoRoots.add(p.join(ext.path, 'VIDEOS'));
+      }
+    } catch (_) {}
+    if (Platform.isAndroid) {
+      textbookRoots.addAll(_androidTextbookRootCandidates);
+      videoRoots.addAll(_androidVideoRootCandidates);
+    }
 
     if (Platform.isAndroid) {
       textbookRoots.addAll(
@@ -835,10 +846,18 @@ class _TextbooksTabState extends State<_TextbooksTab> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
-              Text(
-                'Install content packs into app storage to make PDFs, videos, quizzes, and other materials available offline.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey.shade700),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.download_rounded),
+                label: const Text('Manage & Sync Content Packs'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: IDPColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () {
+                  Navigator.of(context).pushNamed('/content_packs');
+                },
               ),
             ],
           ),

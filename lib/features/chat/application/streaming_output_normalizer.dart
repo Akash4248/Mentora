@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'markdown_format_normalizer.dart';
 import 'reasoning_output_filter.dart';
 
 class StreamingOutputNormalizer {
@@ -38,6 +39,7 @@ class StreamingOutputNormalizer {
         .replaceAll('</s>', '')
         .replaceAll('<s>', '');
 
+    output = MarkdownFormatNormalizer.normalize(output);
     return output.trim();
   }
 

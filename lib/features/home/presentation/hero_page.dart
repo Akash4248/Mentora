@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
-import 'package:offline_tutor_app/l10n/app_localizations.dart';
-import 'package:offline_tutor_app/core/theme/idp_colors.dart';
-import 'package:offline_tutor_app/core/theme/idp_typography.dart';
-import 'package:offline_tutor_app/core/theme/idp_theme.dart';
+import 'package:mentora/l10n/app_localizations.dart';
+import 'package:mentora/core/theme/idp_colors.dart';
+import 'package:mentora/core/theme/idp_typography.dart';
+import 'package:mentora/core/theme/idp_theme.dart';
 
 /// Hero/Intro page for the Offline Tutor app - matching Stitch Design
 class HeroPage extends StatefulWidget {

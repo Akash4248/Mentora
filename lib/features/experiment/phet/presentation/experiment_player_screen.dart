@@ -1,9 +1,12 @@
 import 'dart:io';
+import '../../../../core/theme/idp_colors.dart';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../simulation_context/providers/simulation_context_provider.dart';
 import '../models/experiment_descriptor.dart';
@@ -56,11 +59,59 @@ class _ExperimentPlayerScreenState
 
   @override
   Widget build(BuildContext context) {
+    final isWebViewSupported = !kIsWeb && !Platform.isLinux && !Platform.isWindows && InAppWebViewPlatform.instance != null;
     final experiment = widget.experiment;
     final localFile = experiment.isInstalled
         ? File(experiment.launchLocation)
         : null;
     final missingLocalFile = localFile != null && !localFile.existsSync();
+
+    if (!isWebViewSupported) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF0F172A),
+        appBar: AppBar(
+          title: Text(experiment.title),
+          backgroundColor: const Color(0xFF1E293B),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.science_outlined, color: Color(0xFF38BDF8), size: 64),
+                const SizedBox(height: 16),
+                Text(
+                  experiment.title,
+                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Interactive PhET simulations are optimized for mobile devices and web browsers.',
+                  style: TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                if (experiment.publicUrl != null)
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      final uri = Uri.tryParse(experiment.publicUrl!);
+                      if (uri != null) launchUrl(uri);
+                    },
+                    icon: const Icon(Icons.open_in_browser),
+                    label: const Text('Open PhET Lab in Web Browser'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: IDPColors.primary,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -87,8 +138,27 @@ class _ExperimentPlayerScreenState
                 mediaPlaybackRequiresUserGesture: false,
                 useHybridComposition: true,
                 transparentBackground: false,
+                cacheMode: CacheMode.LOAD_CACHE_ELSE_NETWORK,
               ),
-              onWebViewCreated: (controller) => _controller = controller,
+              onWebViewCreated: (controller) {
+                _controller = controller;
+                controller.addJavaScriptHandler(
+                  handlerName: 'onSimulationState',
+                  callback: (args) {
+                    if (args.isNotEmpty && args[0] is Map) {
+                      final vars = Map<String, dynamic>.from(args[0] as Map);
+                      ref.read(simulationContextProvider.notifier).update(
+                        experimentId: widget.experiment.id,
+                        experimentName: widget.experiment.title,
+                        subject: widget.experiment.subject,
+                        provider: widget.experiment.provider,
+                        variables: vars,
+                        currentState: 'Running',
+                      );
+                    }
+                  },
+                );
+              },
               onProgressChanged: (_, progress) {
                 if (mounted) {
                   setState(() => _progress = progress / 100);
@@ -96,6 +166,11 @@ class _ExperimentPlayerScreenState
               },
               onLoadStart: (_, _) {
                 if (mounted) setState(() => _loadError = null);
+              },
+              onLoadStop: (controller, url) {
+                controller.evaluateJavascript(
+                  source: 'if(typeof window.postState === "function"){ window.postState(); }',
+                );
               },
               onReceivedError: (_, request, error) {
                 if (request.isForMainFrame != true || !mounted) return;

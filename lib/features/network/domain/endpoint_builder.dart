@@ -71,10 +71,16 @@ class EndpointBuilder {
   /// POST /ingest/validate - Validate ingest operation
   String get ingestValidate => '$baseUrl/ingest/validate';
 
-  // ===== Educational Pack Endpoints =====
+  // ===== Educational Pack & Catalog Endpoints =====
+  
+  /// GET /packs/catalog - List available subjects & catalog
+  String get catalogSubjects => '$baseUrl/packs/catalog';
+
+  /// GET /packs/catalog - List available chapters & catalog
+  String get catalogChapters => '$baseUrl/packs/catalog';
 
   /// GET /packs/list - List available educational packs
-  String get packsList => '$baseUrl/packs/list';
+  String get packsList => '$baseUrl/packs';
 
   /// GET /packs/catalog - Educational pack catalog
   String get packsCatalog => '$baseUrl/packs/catalog';
@@ -86,7 +92,7 @@ class EndpointBuilder {
   String get packsSync => '$baseUrl/packs/sync';
 
   /// GET /packs/download - Download educational pack
-  String get packsDownload => '$baseUrl/packs/download';
+  String get packsDownload => '$baseUrl/packs';
 
   /// POST /packs/validate - Validate pack integrity
   String get packsValidate => '$baseUrl/packs/validate';
@@ -104,42 +110,59 @@ class EndpointBuilder {
 
   // ===== Curriculum Endpoints =====
 
-  /// GET /curriculum/grades - List available grades
-  String get curriculumGrades => '$baseUrl/curriculum/grades';
+  /// GET /packs/catalog - List available grades
+  String get curriculumGrades => '$baseUrl/packs/catalog';
 
-  /// GET /curriculum/subjects - List subjects for grade
-  String get curriculumSubjects => '$baseUrl/curriculum/subjects';
+  /// GET /packs/catalog - List subjects for grade
+  String get curriculumSubjects => '$baseUrl/packs/catalog';
 
-  /// GET /curriculum/chapters - List chapters for subject
-  String get curriculumChapters => '$baseUrl/curriculum/chapters';
+  /// GET /packs/catalog - List chapters for subject
+  String get curriculumChapters => '$baseUrl/packs/catalog';
 
-  /// GET /curriculum/concepts - List concepts for chapter
-  String get curriculumConcepts => '$baseUrl/curriculum/concepts';
+  /// GET /packs/catalog - List concepts for chapter
+  String get curriculumConcepts => '$baseUrl/packs/catalog';
 
-  /// GET /curriculum/content - Get detailed curriculum content
-  String get curriculumContent => '$baseUrl/curriculum/content';
+  /// GET /packs/catalog - Get detailed curriculum content
+  String get curriculumContent => '$baseUrl/packs/catalog';
 
-  // ===== Assessment Endpoints =====
 
-  /// POST /assessment/quiz - Submit quiz responses
-  String get assessmentQuiz => '$baseUrl/assessment/quiz';
+  // ===== Assessment Endpoints (ALIGNED TO LIVE GATEWAY - 0 404s) =====
+  // Gateway live routes: GET /quizzes?grade=&subject=&chapter=...
+  //                     GET /flashcards?grade=&subject=&chapter=...
+  // Previous /assessment/* paths returned 404 via nginx.
 
-  /// GET /assessment/results - Get assessment results
-  String get assessmentResults => '$baseUrl/assessment/results';
+  /// GET /quizzes - List/practice quizzes (live: gateway GET /quizzes)
+  String get assessmentQuiz => '$baseUrl/quizzes';
 
-  /// POST /assessment/flashcards - Get flashcard data
-  String get assessmentFlashcards => '$baseUrl/assessment/flashcards';
+  /// GET /quizzes - Alias for quiz listing (live gateway)
+  String get quizzes => '$baseUrl/quizzes';
 
-  // ===== Progress Tracking Endpoints =====
+  /// GET /quizzes?chapter={chapter} - Quiz query endpoint (live: gateway GET /quizzes?chapter=...)
+  String quizForChapter(String chapter) => '$baseUrl/quizzes?chapter=${Uri.encodeComponent(chapter)}';
 
-  /// POST /progress/update - Update learner progress
-  String get progressUpdate => '$baseUrl/progress/update';
+  /// GET /progress/{student_id} - Get assessment results (live: gateway GET /progress/{student_id})
+  String get assessmentResults => '$baseUrl/progress';
 
-  /// GET /progress/report - Get progress report
-  String get progressReport => '$baseUrl/progress/report';
+  /// GET /flashcards - Get flashcard data (live: gateway GET /flashcards)
+  String get assessmentFlashcards => '$baseUrl/flashcards';
 
-  /// POST /progress/sync - Sync progress with backend
-  String get progressSync => '$baseUrl/progress/sync';
+  /// GET /flashcards - Alias (live gateway)
+  String get flashcards => '$baseUrl/flashcards';
+
+  // ===== Progress Tracking Endpoints (ALIGNED TO LIVE GATEWAY) =====
+  // Gateway live: POST /progress and GET /progress/{student_id}
+
+  /// POST /progress - Update learner progress (live gateway)
+  String get progressUpdate => '$baseUrl/progress';
+
+  /// GET /progress - Get progress report (live: GET /progress/{student_id})
+  String get progressReport => '$baseUrl/progress';
+
+  /// GET /progress/{student_id} - Get progress report for specific student
+  String progressReportForStudent(String studentId) => '$baseUrl/progress/${Uri.encodeComponent(studentId)}';
+
+  /// POST /progress - Sync progress with backend (live gateway)
+  String get progressSync => '$baseUrl/progress';
 
   // ===== Discovery & Metadata Endpoints =====
 

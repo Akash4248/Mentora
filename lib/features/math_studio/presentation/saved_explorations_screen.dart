@@ -31,7 +31,44 @@ class _SavedExplorationsScreenState extends State<SavedExplorationsScreen> {
 
   Future<void> _initRepo() async {
     _repository = await ExplorationRepository.create();
-    await _loadExplorations();
+    var exps = await _repository!.getAllExplorations();
+    if (exps.isEmpty) {
+      final defaultSeed = [
+        SavedExploration(
+          id: 'exp_algebra_1',
+          title: 'Quadratic Balance Equilibrium',
+          type: ExplorationType.algebra,
+          data: {'equation': '2x + 3 = 7'},
+          createdAt: DateTime.now().subtract(const Duration(days: 1)),
+          updatedAt: DateTime.now().subtract(const Duration(hours: 2)),
+        ),
+        SavedExploration(
+          id: 'exp_functions_1',
+          title: 'Sine Wave Harmonic Oscillator',
+          type: ExplorationType.functions,
+          data: {'formula': 'sin(x)'},
+          createdAt: DateTime.now().subtract(const Duration(days: 2)),
+          updatedAt: DateTime.now().subtract(const Duration(hours: 5)),
+        ),
+        SavedExploration(
+          id: 'exp_geometry_1',
+          title: 'Pythagorean Triangle Theorem',
+          type: ExplorationType.geometry,
+          data: {'shape': 'triangle'},
+          createdAt: DateTime.now().subtract(const Duration(days: 3)),
+          updatedAt: DateTime.now().subtract(const Duration(hours: 12)),
+        ),
+      ];
+      for (final s in defaultSeed) {
+        await _repository!.saveExploration(s);
+      }
+      exps = await _repository!.getAllExplorations();
+    }
+    if (!mounted) return;
+    setState(() {
+      _explorations = exps;
+      _isLoading = false;
+    });
   }
 
   Future<void> _loadExplorations() async {

@@ -74,8 +74,23 @@ class ConnectivityService {
   /// Timeout for probe attempt
   final int probeTimeoutSeconds;
 
-  /// Check if device has internet connectivity
-  Future<bool> isConnected() async {
+  /// Check if device has internet or local backend connectivity
+  Future<bool> isConnected({String? backendUrl}) async {
+    if (backendUrl != null && backendUrl.isNotEmpty) {
+      try {
+        final uri = Uri.parse(backendUrl);
+        if (uri.host.isNotEmpty && uri.port > 0) {
+          final socket = await Socket.connect(
+            uri.host,
+            uri.port,
+            timeout: Duration(seconds: probeTimeoutSeconds),
+          );
+          socket.destroy();
+          return true;
+        }
+      } catch (_) {}
+    }
+
     try {
       final result = await InternetAddress.lookup(probeHost).timeout(
         Duration(seconds: probeTimeoutSeconds),
@@ -87,11 +102,13 @@ class ConnectivityService {
     }
   }
 
-  /// Probe backend connectivity with latency
+  /// Probe backend connectivity with latency.
+  /// The Pi/backend socket is the PRIMARY signal (classroom AP has no WAN,
+  /// so the `probeHost` internet lookup must never gate Pi reachability).
   Future<ConnectivitySnapshot> probeBackend({
     required String backendUrl,
   }) async {
-    final isOnline = await isConnected();
+    final isOnline = await isConnected(backendUrl: backendUrl);
     if (!isOnline) {
       return ConnectivitySnapshot.offline();
     }
@@ -120,7 +137,7 @@ class ConnectivityService {
   Future<ConnectivitySnapshot> getSnapshot({
     String? backendUrl,
   }) async {
-    final isOnline = await isConnected();
+    final isOnline = await isConnected(backendUrl: backendUrl);
 
     if (!isOnline) {
       return ConnectivitySnapshot.offline();

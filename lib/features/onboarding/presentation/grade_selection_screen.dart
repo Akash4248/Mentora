@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:offline_tutor_app/l10n/app_localizations.dart';
+import 'package:mentora/l10n/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:offline_tutor_app/core/theme/idp_colors.dart';
-import 'package:offline_tutor_app/core/theme/idp_theme.dart';
-import 'package:offline_tutor_app/core/theme/idp_typography.dart';
+import 'package:mentora/core/theme/idp_colors.dart';
+import 'package:mentora/core/theme/idp_theme.dart';
+import 'package:mentora/core/theme/idp_typography.dart';
 import 'grade_sync_screen.dart';
 import 'dart:ui';
 
@@ -119,7 +119,7 @@ class _GradeSelectionScreenState extends State<GradeSelectionScreen> {
                                 const SizedBox(height: 32),
 
                                 // Grades List
-                                ...List.generate(10, (index) {
+                                ...List.generate(12, (index) {
                                   final grade = index + 1;
                                   final isSelected = _selectedGrade == grade;
                                   

@@ -1,6 +1,7 @@
 import 'package:sqflite/sqflite.dart';
 
 import '../../../course/data/local/app_database.dart';
+import '../../application/semantic_chunking_service.dart';
 import '../../domain/chunk_v2.dart';
 
 /// Repository for enhanced chunks (v2) with semantic typing and formulas
@@ -9,6 +10,30 @@ class RagRepositoryV2 {
       : _database = database ?? AppDatabase.instance;
 
   final AppDatabase _database;
+
+  /// Ensure initial seed data is present in rag_chunks_v2 table
+  Future<void> ensureSeedChunks() async {
+    final db = await _database.database;
+    final count = Sqflite.firstIntValue(
+      await db.rawQuery('SELECT COUNT(*) FROM rag_chunks_v2'),
+    );
+    if ((count ?? 0) > 0) return;
+
+    final now = DateTime.now();
+    await insertChunk(
+      ChunkV2(
+        id: 'chunk_v2_seed_1',
+        chapterId: 'chap_linear_eq',
+        sourceTitle: 'Linear Equations Core Concepts',
+        sourceLanguage: 'en',
+        chunkOrder: 1,
+        contentType: 'text',
+        content: 'A linear equation in one variable has the general form ax + b = 0. Solve by performing inverse operations.',
+        tokenCount: 22,
+        createdAt: now,
+      ),
+    );
+  }
 
   /// Insert new chunk
   Future<void> insertChunk(ChunkV2 chunk) async {
@@ -110,6 +135,31 @@ class RagRepositoryV2 {
     await batch.commit(noResult: true);
   }
 
+  /// Ingest free-text notes for a chapter (single v2 write path).
+  ///
+  /// Chunks with [SemanticChunkingService] (the canonical chunker) and
+  /// inserts into `rag_chunks_v2` (FTS kept in sync by triggers).
+  Future<int> ingestNotes({
+    required String chapterId,
+    required String sourceTitle,
+    required String rawText,
+    String sourceLanguage = 'en',
+    String section = 'notes',
+  }) async {
+    final normalized = rawText.trim();
+    if (normalized.isEmpty) return 0;
+    final chunks = SemanticChunkingService.chunkText(
+      text: normalized,
+      chapterId: chapterId,
+      sourceTitle: sourceTitle,
+      sourceLanguage: sourceLanguage,
+      section: section,
+    );
+    if (chunks.isEmpty) return 0;
+    await insertChunks(chunks);
+    return chunks.length;
+  }
+
   /// Get chunks for chapter
   Future<List<ChunkV2>> getChunksForChapter(
     String chapterId, {
@@ -124,28 +174,6 @@ class RagRepositoryV2 {
           : 'chapter_id = ? AND source_language = ?',
       whereArgs:
           language == null ? [chapterId] : [chapterId, language],
-      orderBy: 'chunk_order ASC',
-    );
-
-    return query.map((row) => ChunkV2.fromJson(row)).toList();
-  }
-
-  /// Get chunks by content type (definitions, examples, etc.)
-  Future<List<ChunkV2>> getChunksByType(
-    String chapterId,
-    String contentType, {
-    String? language,
-  }) async {
-    final db = await _database.database;
-
-    final query = await db.query(
-      'rag_chunks_v2',
-      where: language == null
-          ? 'chapter_id = ? AND content_type = ?'
-          : 'chapter_id = ? AND content_type = ? AND source_language = ?',
-      whereArgs: language == null
-          ? [chapterId, contentType]
-          : [chapterId, contentType, language],
       orderBy: 'chunk_order ASC',
     );
 
@@ -189,6 +217,53 @@ class RagRepositoryV2 {
     }
   }
 
+  /// Search across all chapters without chapter_id restriction (ideal for global offline fallback)
+  Future<List<ChunkV2>> searchAll(
+    String query, {
+    int limit = 3,
+    String? language,
+  }) async {
+    final db = await _database.database;
+    final normalizedQuery = _buildFtsQuery(query);
+
+    if (normalizedQuery.isNotEmpty) {
+      try {
+        final rows = await db.rawQuery(
+          '''
+          SELECT rc.* FROM rag_chunks_v2 rc
+          INNER JOIN rag_chunks_v2_fts fts ON fts.id = rc.id
+          WHERE ${language != null ? 'rc.source_language = ? AND ' : ''}
+            rag_chunks_v2_fts MATCH ?
+          LIMIT ?
+          ''',
+          language == null
+              ? [normalizedQuery, limit]
+              : [language, normalizedQuery, limit],
+        );
+
+        if (rows.isNotEmpty) {
+          return rows.map((row) => ChunkV2.fromJson(row)).toList();
+        }
+      } catch (_) {}
+    }
+
+    try {
+      final rows = await db.query(
+        'rag_chunks_v2',
+        where: language == null
+            ? 'content LIKE ?'
+            : 'content LIKE ? AND source_language = ?',
+        whereArgs: language == null
+            ? ['%$query%']
+            : ['%$query%', language],
+        limit: limit,
+      );
+      return rows.map((row) => ChunkV2.fromJson(row)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
   /// Get count of chunks for chapter
   Future<int> getChunkCount(String chapterId, {String? language}) async {
     final db = await _database.database;
@@ -200,51 +275,6 @@ class RagRepositoryV2 {
     );
 
     return (rows.first['c'] as int?) ?? 0;
-  }
-
-  /// Get chunks with formulas
-  Future<List<ChunkV2>> getChunksWithFormulas(
-    String chapterId, {
-    String? language,
-  }) async {
-    final db = await _database.database;
-
-    final query = await db.query(
-      'rag_chunks_v2',
-      where: language == null
-          ? 'chapter_id = ? AND formulas_json IS NOT NULL AND formulas_json != ?'
-          : 'chapter_id = ? AND source_language = ? AND formulas_json IS NOT NULL AND formulas_json != ?',
-      whereArgs: language == null
-          ? [chapterId, '[]']
-          : [chapterId, language, '[]'],
-      orderBy: 'token_count DESC',
-    );
-
-    return query.map((row) => ChunkV2.fromJson(row)).toList();
-  }
-
-  /// Delete chunks for chapter (for re-ingestion)
-  Future<void> deleteChunksForChapter(String chapterId) async {
-    final db = await _database.database;
-    await db.delete(
-      'rag_chunks_v2',
-      where: 'chapter_id = ?',
-      whereArgs: [chapterId],
-    );
-  }
-
-  /// Get chunk by ID
-  Future<ChunkV2?> getChunkById(String chunkId) async {
-    final db = await _database.database;
-    final rows = await db.query(
-      'rag_chunks_v2',
-      where: 'id = ?',
-      whereArgs: [chunkId],
-      limit: 1,
-    );
-
-    if (rows.isEmpty) return null;
-    return ChunkV2.fromJson(rows.first);
   }
 
   /// Get total count of all chunks across all chapters

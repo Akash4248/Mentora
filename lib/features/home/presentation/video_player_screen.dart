@@ -2,10 +2,12 @@ import 'dart:io';
 import 'dart:ui'; // For ImageFilter
 
 import 'package:flutter/material.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'package:video_player/video_player.dart';
-import 'package:offline_tutor_app/core/theme/idp_theme.dart';
-import 'package:offline_tutor_app/core/theme/idp_colors.dart';
-import 'package:offline_tutor_app/core/theme/idp_typography.dart';
+import 'package:mentora/core/theme/idp_theme.dart';
+import 'package:mentora/core/theme/idp_colors.dart';
+import 'package:mentora/core/theme/idp_typography.dart';
+import 'package:mentora/core/utils/youtube_utils.dart';
 
 /// Screen to play educational videos with playback controls
 class VideoPlayerScreen extends StatefulWidget {
@@ -28,9 +30,12 @@ class VideoPlayerScreen extends StatefulWidget {
 
 class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   VideoPlayerController? _controller;
+  YoutubePlayerController? _youtubeController;
   bool _isInitialized = false;
   double _playbackSpeed = 1.0;
   String? _initError;
+
+  bool get _isYouTube => YouTubeUtils.isYouTubeUrl(widget.videoUrl);
 
   @override
   void initState() {
@@ -39,18 +44,57 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   Future<void> _initializeVideo() async {
+    print('[VIDEO_DEBUG] Initializing VideoPlayerScreen for title: "${widget.title}", URL: "${widget.videoUrl}", isYouTube: $_isYouTube');
     try {
+      if (_isYouTube) {
+        final videoId = YouTubeUtils.extractYouTubeId(widget.videoUrl);
+        if (videoId == null) {
+          if (mounted) {
+            setState(() {
+              _initError = 'Invalid or unparseable YouTube URL.';
+            });
+          }
+          return;
+        }
+        print('[VIDEO_DEBUG] Initializing YoutubePlayerController for videoId: "$videoId"');
+        _youtubeController = YoutubePlayerController.fromVideoId(
+          videoId: videoId,
+          autoPlay: true,
+          params: const YoutubePlayerParams(
+            showControls: true,
+            showFullscreenButton: true,
+            mute: false,
+          ),
+        );
+        if (mounted) {
+          setState(() {
+            _isInitialized = true;
+          });
+        }
+        return;
+      }
+
       if (widget.videoUrl.startsWith('http')) {
         _controller = VideoPlayerController.networkUrl(
           Uri.parse(widget.videoUrl),
         );
       } else {
-        _controller = VideoPlayerController.file(
-          File(widget.videoUrl),
-        );
+        final file = File(widget.videoUrl);
+        if (!await file.exists()) {
+          print('[VIDEO_DEBUG] Local video file not found at ${widget.videoUrl}');
+          if (mounted) {
+            setState(() {
+              _initError =
+                  'Local video file not found at ${widget.videoUrl}. Please download or import the video file.';
+            });
+          }
+          return;
+        }
+        _controller = VideoPlayerController.file(file);
       }
 
       await _controller!.initialize();
+      print('[VIDEO_DEBUG] Non-YouTube VideoPlayerController initialized successfully.');
 
       if (mounted) {
         setState(() {
@@ -64,6 +108,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         }
       });
     } catch (e) {
+      print('[VIDEO_DEBUG] Exception initializing video player: $e');
       if (mounted) {
         setState(() {
           _initError = 'Error loading video: $e';
@@ -74,6 +119,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   @override
   void dispose() {
+    _youtubeController?.close();
     _controller?.dispose();
     super.dispose();
   }
@@ -104,53 +150,47 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: IDPColors.background,
-      extendBodyBehindAppBar: true, // For glassmorphic app bar
-      body: Stack(
-        children: [
-          // Main Scrollable Content
-          SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+      body: SafeArea(
+        child: Stack(
+          children: [
+            Column(
               children: [
-                // Top padding for the fixed app bar
-                SizedBox(height: MediaQuery.of(context).padding.top + 72),
-                if (_initError != null)
-                  _buildErrorState()
-                else ...[
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: IDPSpacing.containerMargin),
+                _buildAppBar(context),
+                Expanded(
+                  child: SingleChildScrollView(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _buildHeroHeader(),
-                        const SizedBox(height: IDPSpacing.xl),
-                        _buildVideoSection(),
-                        const SizedBox(height: IDPSpacing.xxl),
-                        _buildDetailsSection(),
-                        const SizedBox(height: 120), // Bottom padding for FAB
+                        if (_initError != null)
+                          _buildErrorState()
+                        else ...[
+                          _buildVideoSection(),
+                          Padding(
+                            padding: const EdgeInsets.all(IDPSpacing.containerMargin),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildHeroHeader(),
+                                const SizedBox(height: IDPSpacing.lg),
+                                _buildDetailsSection(),
+                                const SizedBox(height: 80),
+                              ],
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
-                ],
+                ),
               ],
             ),
-          ),
-          
-          // Fixed App Bar
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: _buildAppBar(context),
-          ),
-          
-          // Fixed FAB
-          Positioned(
-            bottom: IDPSpacing.xl,
-            right: IDPSpacing.containerMargin,
-            child: _buildAskAIFab(),
-          ),
-        ],
+            Positioned(
+              bottom: IDPSpacing.lg,
+              right: IDPSpacing.containerMargin,
+              child: _buildAskAIFab(),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -198,16 +238,25 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       children: [
         Text(
           widget.title,
-          style: IDPTypography.displayLarge.copyWith(
-            color: IDPColors.onBackground,
-            letterSpacing: -0.02,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF0F172A),
+            height: 1.3,
           ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
         ),
-        if (widget.subtitle != null) ...[
-          const SizedBox(height: IDPSpacing.md),
+        if (widget.subtitle != null && widget.subtitle!.isNotEmpty && widget.subtitle != widget.title) ...[
+          const SizedBox(height: 6),
           Text(
             widget.subtitle!,
-            style: IDPTypography.bodyLarge.copyWith(color: IDPColors.onSurfaceVariant),
+            style: const TextStyle(
+              fontSize: 13,
+              color: Color(0xFF64748B),
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ],
@@ -215,27 +264,22 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   Widget _buildAppBar(BuildContext context) {
-    return ClipRRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: Container(
-          color: IDPColors.surface.withOpacity(0.8),
-          padding: EdgeInsets.only(
-            top: MediaQuery.of(context).padding.top + IDPSpacing.md,
-            bottom: IDPSpacing.md,
-            left: IDPSpacing.containerMargin,
-            right: IDPSpacing.containerMargin,
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: IDPSpacing.containerMargin,
+        vertical: IDPSpacing.md,
+      ),
+      decoration: BoxDecoration(
+        color: IDPColors.surface,
+        border: Border(bottom: BorderSide(color: Colors.black.withValues(alpha: 0.05))),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
           ),
-          decoration: BoxDecoration(
-            border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.1))),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 4,
-                offset: const Offset(0, 1),
-              ),
-            ],
-          ),
+        ],
+      ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -257,7 +301,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'OfflineTutor',
+                        'Mentora',
                         style: IDPTypography.headlineLgMobile.copyWith(color: IDPColors.primary),
                       ),
                       Row(
@@ -293,8 +337,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
               ),
             ],
           ),
-        ),
-      ),
     );
   }
 
@@ -338,35 +380,38 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   Widget _buildVideoSection() {
     return Container(
       decoration: BoxDecoration(
-        color: IDPColors.surfaceContainer,
-        borderRadius: BorderRadius.circular(IDPRadius.defaultRadius), // rounded-lg
+        color: Colors.black,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04), // shadow-sm
-            blurRadius: 4,
-            offset: const Offset(0, 1),
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
-        border: Border.all(color: IDPColors.outlineVariant), // border-outline-variant
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
-          _isInitialized && _controller != null
-              ? AspectRatio(
-                  aspectRatio: 16 / 9,
-                  child: _VideoPlayerWidget(controller: _controller!),
-                )
-              : AspectRatio(
-                  aspectRatio: 16 / 9,
-                  child: Container(
-                    color: IDPColors.backgroundDark,
-                    child: const Center(
-                      child: CircularProgressIndicator(color: IDPColors.primary),
-                    ),
-                  ),
+          if (_isYouTube && _youtubeController != null)
+            YoutubePlayer(
+              controller: _youtubeController!,
+            )
+          else if (_isInitialized && _controller != null)
+            AspectRatio(
+              aspectRatio: 16 / 9,
+              child: _VideoPlayerWidget(controller: _controller!),
+            )
+          else
+            AspectRatio(
+              aspectRatio: 16 / 9,
+              child: Container(
+                color: IDPColors.backgroundDark,
+                child: const Center(
+                  child: CircularProgressIndicator(color: IDPColors.primary),
                 ),
-          if (_isInitialized && _controller != null)
+              ),
+            ),
+          if (!_isYouTube && _isInitialized && _controller != null)
             Container(
               padding: const EdgeInsets.all(IDPSpacing.md),
               color: IDPColors.surfaceContainerHighest,

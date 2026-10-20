@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../network/application/pi_hub_discovery_coordinator.dart';
 import '../../network/application/connectivity_controller.dart';
-import '../../rag/data/local/rag_repository.dart';
 import '../../course/data/local/app_database.dart';
 import '../../educational/data/educational_database.dart';
 import '../../../core/theme/idp_colors.dart';
@@ -33,17 +32,17 @@ class _DatabaseDiagnosticsScreenState extends State<DatabaseDiagnosticsScreen> {
     setState(() => _loading = true);
 
     try {
-      final ragRepo = RagRepository();
       final appDb = await AppDatabase.instance.database;
 
+      // Canonical v2 store (legacy rag_chunks is no longer written).
       final ragCount = Sqflite.firstIntValue(
-        await appDb.rawQuery('SELECT COUNT(*) FROM rag_chunks'),
+        await appDb.rawQuery('SELECT COUNT(*) FROM rag_chunks_v2'),
       ) ?? 0;
 
       bool ftsAvailable = false;
       int ftsCount = 0;
       try {
-        final ftsRows = await appDb.rawQuery('SELECT COUNT(*) FROM rag_chunks_fts');
+        final ftsRows = await appDb.rawQuery('SELECT COUNT(*) FROM rag_chunks_v2_fts');
         ftsAvailable = true;
         ftsCount = Sqflite.firstIntValue(ftsRows) ?? 0;
       } catch (_) {

@@ -2,10 +2,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-import 'package:offline_tutor_app/features/network/application/classroom_recovery_coordinator.dart';
-import 'package:offline_tutor_app/features/network/application/classroom_session_manager.dart';
-import 'package:offline_tutor_app/features/network/application/heartbeat_recovery_service.dart';
-import 'package:offline_tutor_app/features/network/application/session_persistence_manager.dart';
+import 'package:mentora/features/network/application/classroom_recovery_coordinator.dart';
+import 'package:mentora/features/network/application/classroom_session_manager.dart';
+import 'package:mentora/features/network/application/heartbeat_recovery_service.dart';
+import 'package:mentora/features/network/application/session_persistence_manager.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

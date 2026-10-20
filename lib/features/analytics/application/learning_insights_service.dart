@@ -2,34 +2,29 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../domain/learning_profile_models.dart';
 import '../../assessment/data/local/quiz_result_repository.dart';
-import '../../experiment/domain/experiment_progress_repository.dart';
 import 'achievement_service.dart';
 
 class LearningInsightsService {
   final SharedPreferences prefs;
   final QuizResultRepository quizRepo;
-  final ExperimentProgressRepository expRepo;
   final AchievementService achievementService;
 
   LearningInsightsService({
     required this.prefs,
     required this.quizRepo,
-    required this.expRepo,
     required this.achievementService,
   });
 
   static Future<LearningInsightsService> create() async {
     final futures = await Future.wait([
       SharedPreferences.getInstance(),
-      ExperimentProgressRepository.create(),
       AchievementService.create(),
     ]);
 
     return LearningInsightsService(
       prefs: futures[0] as SharedPreferences,
       quizRepo: QuizResultRepository(),
-      expRepo: futures[1] as ExperimentProgressRepository,
-      achievementService: futures[2] as AchievementService,
+      achievementService: futures[1] as AchievementService,
     );
   }
 

@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:offline_tutor_app/features/simulation_context/models/simulation_context.dart';
+import 'package:mentora/features/simulation_context/models/simulation_context.dart';
 
 void main() {
   // ─── SimulationContext model ─────────────────────────────────────

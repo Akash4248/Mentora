@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../educational/application/sync_manager.dart';
 import '../../educational/domain/pack_sync_entry.dart';
-import '../../home/presentation/main_dashboard_screen.dart';
+import '../../home/presentation/mentora_home_screen.dart';
 import '../../course/data/local/course_repository.dart';
 import '../application/background_prefetch_service.dart';
 
@@ -168,13 +168,11 @@ class _GradeSyncScreenState extends State<GradeSyncScreen> {
       // PHASE 6: BACKGROUND PREFETCH
       BackgroundPrefetchService.schedulePrefetch();
 
-      Navigator.of(context).pushReplacement(
+      Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
-          builder: (_) => MainDashboardScreen(
-            courseRepository: CourseRepository(),
-            languageCode: widget.languageCode,
-          ),
+          builder: (_) => const MentoraHomeScreen(),
         ),
+        (route) => false,
       );
     }
   }
@@ -264,13 +262,11 @@ class _GradeSyncScreenState extends State<GradeSyncScreen> {
           onPressed: _totalPacks > 0
               ? _startSync
               : () {
-                  Navigator.of(context).pushReplacement(
+                  Navigator.of(context).pushAndRemoveUntil(
                     MaterialPageRoute(
-                      builder: (_) => MainDashboardScreen(
-                        courseRepository: CourseRepository(),
-                        languageCode: widget.languageCode,
-                      ),
+                      builder: (_) => const MentoraHomeScreen(),
                     ),
+                    (route) => false,
                   );
                 },
           icon: const Icon(Icons.download_rounded),

@@ -19,10 +19,11 @@ class PipelineDiagnosticRunner {
       print('[RAG_VERIFY] QUERY=$q');
       try {
         final result = await repo.searchChunksForChapter(
-          chapterId: 'any', // Using chapterId 'any' won't work if they are filtered by chapter. Wait, searchChunksForChapter requires a chapterId. Let's use localRagPreCheck? No, localRagPreCheck requires chapterId too.
+          chapterId: '', // Empty chapter searches all chapters (global search).
           query: q,
           limit: 4,
         );
+        print('[RAG_VERIFY] HITS=${result.length}');
         // Wait, if we don't know the chapterId, we need a global search.
         // I will write a custom SQLite query to search all chapters just for verification.
       } catch (e) {

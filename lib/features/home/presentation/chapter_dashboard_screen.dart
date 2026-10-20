@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+import 'package:mentora/core/utils/youtube_utils.dart';
 
 import '../../course/domain/curriculum_models.dart';
 import '../../course/domain/course_tree.dart';
-import '../../chat/presentation/chapter_chat_screen.dart';
 import 'pdf_chapter_reader_screen.dart';
 import 'quiz_player_screen.dart';
 import 'chapter_summary_screen.dart';
-import 'widgets/chapter_experiments_section.dart';
+import 'video_player_screen.dart';
+import '../data/local/video_resource_repository.dart';
 
 import '../../analytics/domain/learning_profile_models.dart';
 import '../../analytics/application/learning_insights_service.dart';
@@ -32,6 +35,8 @@ class ChapterDashboardScreen extends StatefulWidget {
 
 class _ChapterDashboardScreenState extends State<ChapterDashboardScreen> {
   ChapterAnalytics? _analytics;
+  List<ChapterVideoResource> _videos = [];
+  final VideoResourceRepository _videoRepo = VideoResourceRepository();
   bool _loading = true;
 
   @override
@@ -43,9 +48,11 @@ class _ChapterDashboardScreenState extends State<ChapterDashboardScreen> {
   Future<void> _loadAnalytics() async {
     final insights = await LearningInsightsService.create();
     final analytics = await insights.getChapterAnalytics(widget.chapter.packId);
+    final videos = await _videoRepo.getVideosForChapter(widget.chapter.packId, grade: widget.chapter.grade);
     if (mounted) {
       setState(() {
         _analytics = analytics;
+        _videos = videos;
         _loading = false;
       });
     }
@@ -196,40 +203,21 @@ class _ChapterDashboardScreenState extends State<ChapterDashboardScreen> {
               icon: Icons.chat_bubble_rounded,
               colors: [const Color(0xFF8B5CF6), const Color(0xFF6D28D9)],
               onTap: () {
-                // Map to legacy models to pass to ChapterChatScreen
-                final legacyCourse = Course(
-                  id: 'grade_${widget.chapter.grade}',
-                  name: 'Grade ${widget.chapter.grade}',
-                );
-                final legacySubject = Subject(
-                  id: 'sub_${widget.subject.name.toLowerCase()}',
-                  courseId: legacyCourse.id,
-                  name: widget.subject.name,
-                );
-                final legacyChapter = Chapter(
-                  id: widget.chapter.packId,
-                  subjectId: legacySubject.id,
-                  title: widget.chapter.title,
-                  summary: widget.chapter.summary,
-                );
-
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => ChapterChatScreen(
-                      course: legacyCourse,
-                      subject: legacySubject,
-                      chapter: legacyChapter,
-                    ),
-                  ),
+                // Canonical chat: chapter workspace, Chat tab (index 0).
+                Navigator.of(context).pushNamed(
+                  '/chapter_workspace',
+                  arguments: {
+                    'chapterTitle': widget.chapter.title,
+                    'subjectName': widget.subject.name,
+                    'grade': widget.chapter.grade,
+                    'initialTabIndex': 0,
+                  },
                 ).then((_) => _loadAnalytics());
               },
             ),
 
-            // Inject the new Experiments Section here
-            ChapterExperimentsSection(
-              chapter: widget.chapter,
-              subject: widget.subject,
-            ),
+            const SizedBox(height: 24),
+            _buildVideoSectionCard(context),
           ],
         ),
       ),
@@ -390,4 +378,297 @@ class _ChapterDashboardScreenState extends State<ChapterDashboardScreen> {
       ),
     );
   }
+
+  Widget _buildVideoSectionCard(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Top Ranked Video Lectures',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1E293B),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF6366F1).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '${_videos.length} Channels',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF6366F1),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (_videos.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.video_library_outlined, color: Color(0xFF94A3B8)),
+                SizedBox(width: 12),
+                Text(
+                  'No video links available for this chapter.',
+                  style: TextStyle(color: Color(0xFF64748B)),
+                ),
+              ],
+            ),
+          )
+        else
+          ..._videos.map(
+            (video) => _YouTubeDashboardInlinePlayerCard(
+              videoUrl: video.videoUrl,
+              videoTitle: video.videoTitle,
+              channelName: video.channelName,
+              description: video.description,
+              rank: video.rank,
+            ),
+          ),
+      ],
+    );
+  }
 }
+
+class _YouTubeDashboardInlinePlayerCard extends StatefulWidget {
+  final String videoUrl;
+  final String videoTitle;
+  final String channelName;
+  final String description;
+  final int rank;
+
+  const _YouTubeDashboardInlinePlayerCard({
+    required this.videoUrl,
+    required this.videoTitle,
+    required this.channelName,
+    required this.description,
+    required this.rank,
+  });
+
+  @override
+  State<_YouTubeDashboardInlinePlayerCard> createState() => _YouTubeDashboardInlinePlayerCardState();
+}
+
+class _YouTubeDashboardInlinePlayerCardState extends State<_YouTubeDashboardInlinePlayerCard> {
+  bool _isPlayingInline = false;
+  YoutubePlayerController? _youtubeController;
+
+  void _startInlinePlayback() {
+    final videoId = YouTubeUtils.extractYouTubeId(widget.videoUrl);
+    if (videoId == null) return;
+    print('[VIDEO_DEBUG] Initializing inline YoutubePlayerController for videoId "$videoId"');
+    _youtubeController?.close();
+    _youtubeController = YoutubePlayerController.fromVideoId(
+      videoId: videoId,
+      autoPlay: true,
+      params: const YoutubePlayerParams(
+        showControls: true,
+        showFullscreenButton: true,
+        mute: false,
+      ),
+    );
+    setState(() {
+      _isPlayingInline = true;
+    });
+  }
+
+  void _stopInlinePlayback() {
+    _youtubeController?.pauseVideo();
+    _youtubeController?.close();
+    _youtubeController = null;
+    setState(() {
+      _isPlayingInline = false;
+    });
+  }
+
+  @override
+  void dispose() {
+    _youtubeController?.close();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AspectRatio(
+            aspectRatio: 16 / 9,
+            child: (_isPlayingInline && _youtubeController != null)
+                ? YoutubePlayer(
+                    controller: _youtubeController!,
+                  )
+                : Stack(
+                    children: [
+                      Container(
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                        ),
+                      ),
+                      Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: _startInlinePlayback,
+                                customBorder: const CircleBorder(),
+                                child: Container(
+                                  padding: const EdgeInsets.all(14),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: IDPColors.primary,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: IDPColors.primary.withOpacity(0.4),
+                                        blurRadius: 12,
+                                        spreadRadius: 2,
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Icon(
+                                    Icons.play_arrow_rounded,
+                                    color: Colors.white,
+                                    size: 38,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              child: Text(
+                                widget.videoTitle,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            const Text(
+                              '▶ Tap Play to watch inline directly on this screen',
+                              style: TextStyle(
+                                color: Color(0xFF94A3B8),
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Positioned(
+                        top: 10,
+                        left: 10,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.7),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            'Rank #${widget.rank}',
+                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEEF2FF),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        widget.channelName,
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4338CA)),
+                      ),
+                    ),
+                    if (_isPlayingInline)
+                      TextButton.icon(
+                        onPressed: _stopInlinePlayback,
+                        icon: const Icon(Icons.close, size: 14, color: Color(0xFF64748B)),
+                        label: const Text('Close Player', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  widget.videoTitle,
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (widget.description.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    widget.description,
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.4),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+

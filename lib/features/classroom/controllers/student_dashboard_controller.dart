@@ -5,7 +5,6 @@ import '../models/classroom_session.dart';
 import '../models/classroom_assignment.dart';
 import '../models/classroom_submission.dart';
 import '../repositories/classroom_repository.dart';
-import '../../experiment/analytics/telemetry_service.dart';
 
 class StudentDashboardController extends ChangeNotifier {
   final ClassroomRepository _repository;
@@ -54,7 +53,6 @@ class StudentDashboardController extends ChangeNotifier {
       resultMetrics: {'score': 100, 'timeSpentSeconds': 120},
     );
     await _repository.submitAssignment(submission);
-    TelemetryService().trackEvent('classroom_assignment_submitted');
   }
 
   bool isSubmitted(String assignmentId) {

@@ -109,7 +109,7 @@ class BackendApiService {
     String? context,
     String? systemPrompt,
     String? language,
-    int maxTokens = 512,
+    int maxTokens = 1024,
   }) async {
     final body = <String, dynamic>{
       'question': question,
@@ -155,7 +155,7 @@ class BackendApiService {
     String? context,
     String? systemPrompt,
     String? language,
-    int maxTokens = 512,
+    int maxTokens = 1024,
   }) async* {
     AppEnvironment.log('BACKEND', 'Starting streaming answer request');
 
@@ -177,7 +177,7 @@ class BackendApiService {
 
     try {
       await for (final chunk in _httpClient.stream(
-        '/ai/chat/stream',
+        '/ai/chat',
         body: body,
       )) {
         final trimmed = chunk.trim();
@@ -193,7 +193,7 @@ class BackendApiService {
           }
           try {
             final data = jsonDecode(jsonStr) as Map<String, dynamic>;
-            final token = data['token'] as String? ?? '';
+            final token = data['token'] as String? ?? data['answer'] as String? ?? '';
             if (token.isNotEmpty) {
               yield token;
             }
@@ -211,15 +211,16 @@ class BackendApiService {
     }
   }
 
-  /// Retrieve documents for RAG
+  /// Retrieve documents for RAG using /rag/search
   Future<BackendResponse<List<String>>> retrieveDocuments({
     required String query,
     int limit = 5,
   }) async {
     final response = await _httpClient.post(
-      '/rag/retrieve',
+      '/rag/search',
       body: <String, dynamic>{'query': query, 'limit': limit},
     );
+
 
     if (response.isFailure) {
       return BackendResponse.failure(

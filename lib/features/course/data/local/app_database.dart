@@ -17,12 +17,22 @@ class AppDatabase {
 
     _database = await openDatabase(
       fullPath,
-      version: 18,
+      version: 21,
+      singleInstance: true,
+      onConfigure: (db) async {
+        // Enable WAL for better concurrent read performance (write-heavy workloads)
+        await db.rawQuery('PRAGMA journal_mode=WAL');
+        // Enforce foreign key constraints (SQLite disables them by default)
+        await db.rawQuery('PRAGMA foreign_keys=ON');
+        // Wait up to 10 seconds on busy locks before throwing exception
+        await db.rawQuery('PRAGMA busy_timeout=10000');
+      },
       onCreate: (db, version) async {
         await _createBaseTables(db);
         await _createRagTables(db);
         await _createRagFtsArtifacts(db);
         await _createRagV2Tables(db);
+        await _createRagV2FtsArtifacts(db);
         await _createEmbeddingMetadataTable(db);
         await _createStageThreeTables(db);
         await _createP2PTables(db);
@@ -36,11 +46,12 @@ class AppDatabase {
         await _createContentPackTables(db);
         await _createTranslationCacheTables(db);
         await _createPendingSyncQueueTable(db);
+        await _createChapterVideoResourcesTable(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
-        if (oldVersion < 18) {
-          await _createPendingSyncQueueTable(db);
-        }
+        // Migrations must run in ascending version order.
+        // Each block is guarded by oldVersion < N so that upgrading across
+        // multiple versions (e.g. v1→v20) runs every intermediate step.
         if (oldVersion < 2) {
           await _createRagTables(db);
         }
@@ -73,6 +84,7 @@ class AppDatabase {
         }
         if (oldVersion < 8) {
           await _createRagV2Tables(db);
+          await _createRagV2FtsArtifacts(db);
         }
         if (oldVersion < 9) {
           await _createMediaResourcesTable(db);
@@ -104,10 +116,53 @@ class AppDatabase {
           // via onCreate which previously omitted _createTranslationCacheTables.
           await _createTranslationCacheTables(db);
         }
+        if (oldVersion < 18) {
+          await _createPendingSyncQueueTable(db);
+        }
+        if (oldVersion < 19) {
+          await _createChapterVideoResourcesTable(db);
+        }
+        if (oldVersion < 20) {
+          await _createRagV2FtsArtifacts(db);
+          await db.execute('''
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_chapter_video_unique
+            ON chapter_video_resources(chapter_id, video_id);
+          ''');
+        }
+        if (oldVersion < 21) {
+          // Rebuild v2 FTS as FTS5 (was FTS4-only → bm25() threw).
+          // Triggers are recreated by the helper; backfill existing rows.
+          await db.execute('DROP TRIGGER IF EXISTS trig_rag_chunks_v2_ai');
+          await db.execute('DROP TRIGGER IF EXISTS trig_rag_chunks_v2_au');
+          await db.execute('DROP TRIGGER IF EXISTS trig_rag_chunks_v2_ad');
+          await db.execute('DROP TABLE IF EXISTS rag_chunks_v2_fts');
+          await _createRagV2FtsArtifacts(db);
+          try {
+            await db.execute('''
+              INSERT INTO rag_chunks_v2_fts(id, chapter_id, content)
+              SELECT id, chapter_id, content FROM rag_chunks_v2
+            ''');
+          } catch (_) {}
+          await db.execute('''
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_chapter_video_unique
+            ON chapter_video_resources(chapter_id, video_id);
+          ''');
+        }
       },
     );
 
     return _database!;
+  }
+
+  Future<void> close() async {
+    await _database?.close();
+    _database = null;
+  }
+
+  Future<void> delete() async {
+    final dbPath = await getDatabasesPath();
+    await close();
+    await deleteDatabase(path.join(dbPath, 'offline_tutor_stage1.db'));
   }
 
   Future<void> _createBaseTables(Database db) async {
@@ -166,22 +221,30 @@ class AppDatabase {
   }
 
   Future<void> _createRagFtsArtifacts(Database db) async {
-    // Re-enabled FTS4 table for fast RAG lookups, fallback to FTS3, or ignore
+    // Re-enabled FTS5 table for fast RAG lookups with BM25 ranking, fallback to FTS4/FTS3
     try {
       await db.execute('''
         CREATE VIRTUAL TABLE IF NOT EXISTS rag_chunks_fts 
-        USING fts4(id, chapter_id, content)
+        USING fts5(id UNINDEXED, chapter_id UNINDEXED, content, tokenize='unicode61')
       ''');
-      print('[FTS] AppDatabase FTS_MODULE=fts4 STATUS=ok');
+      print('[FTS] AppDatabase FTS_MODULE=fts5 STATUS=ok');
     } catch (e) {
       try {
         await db.execute('''
           CREATE VIRTUAL TABLE IF NOT EXISTS rag_chunks_fts 
-          USING fts3(id, chapter_id, content)
+          USING fts4(id, chapter_id, content)
         ''');
-        print('[FTS] AppDatabase FTS_MODULE=fts3 STATUS=ok');
+        print('[FTS] AppDatabase FTS_MODULE=fts4 STATUS=ok');
       } catch (e2) {
-        print('[FTS] AppDatabase FTS_MODULE=none STATUS=degraded error=\$e2');
+        try {
+          await db.execute('''
+            CREATE VIRTUAL TABLE IF NOT EXISTS rag_chunks_fts 
+            USING fts3(id, chapter_id, content)
+          ''');
+          print('[FTS] AppDatabase FTS_MODULE=fts3 STATUS=ok');
+        } catch (e3) {
+          print('[FTS] AppDatabase FTS_MODULE=none STATUS=degraded error=\$e3');
+        }
       }
     }
   }
@@ -219,8 +282,55 @@ class AppDatabase {
       CREATE INDEX IF NOT EXISTS idx_chunks_v2_type
       ON rag_chunks_v2(content_type);
     ''');
+  }
 
-    // FTS4 not supported on this system - using LIKE queries instead
+  Future<void> _createRagV2FtsArtifacts(Database db) async {
+    // Prefer FTS5 (bm25 ranking used by HybridRetrievalService); fall back to
+    // FTS4 on old Android SQLite builds. Retrieval code already try/catches.
+    try {
+      await db.execute('''
+        CREATE VIRTUAL TABLE IF NOT EXISTS rag_chunks_v2_fts
+        USING fts5(id UNINDEXED, chapter_id UNINDEXED, content, tokenize='unicode61')
+      ''');
+    } catch (_) {
+      try {
+        await db.execute('''
+          CREATE VIRTUAL TABLE IF NOT EXISTS rag_chunks_v2_fts
+          USING fts4(id, chapter_id, content)
+        ''');
+      } catch (e) {
+        print('[FTS] AppDatabase RAG_V2_FTS_STATUS=degraded error=$e');
+        return;
+      }
+    }
+
+      await db.execute('''
+        CREATE TRIGGER IF NOT EXISTS trig_rag_chunks_v2_ai
+        AFTER INSERT ON rag_chunks_v2
+        BEGIN
+          INSERT INTO rag_chunks_v2_fts(id, chapter_id, content)
+          VALUES (new.id, new.chapter_id, new.content);
+        END;
+      ''');
+
+      await db.execute('''
+        CREATE TRIGGER IF NOT EXISTS trig_rag_chunks_v2_au
+        AFTER UPDATE ON rag_chunks_v2
+        BEGIN
+          UPDATE rag_chunks_v2_fts
+          SET chapter_id = new.chapter_id, content = new.content
+          WHERE id = old.id;
+        END;
+      ''');
+
+      await db.execute('''
+        CREATE TRIGGER IF NOT EXISTS trig_rag_chunks_v2_ad
+        AFTER DELETE ON rag_chunks_v2
+        BEGIN
+          DELETE FROM rag_chunks_v2_fts WHERE id = old.id;
+        END;
+      ''');
+      print('[FTS] AppDatabase RAG_V2_FTS_STATUS=ok');
   }
 
   Future<void> _createEmbeddingMetadataTable(Database db) async {
@@ -522,6 +632,37 @@ class AppDatabase {
     await db.execute('''
       CREATE INDEX IF NOT EXISTS idx_pending_sync_queue_status
       ON pending_sync_queue(status, created_at);
+    ''');
+  }
+
+  Future<void> _createChapterVideoResourcesTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS chapter_video_resources (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        chapter_id TEXT NOT NULL,
+        grade INTEGER NOT NULL,
+        subject TEXT NOT NULL,
+        chapter_title TEXT NOT NULL,
+        channel_name TEXT NOT NULL,
+        video_title TEXT NOT NULL,
+        video_url TEXT NOT NULL,
+        video_id TEXT NOT NULL,
+        rank INTEGER NOT NULL,
+        duration_seconds INTEGER DEFAULT 0,
+        language TEXT DEFAULT 'en',
+        description TEXT DEFAULT '',
+        created_at INTEGER DEFAULT 0
+      );
+    ''');
+
+    await db.execute('''
+      CREATE INDEX IF NOT EXISTS idx_chapter_video_chapter_id
+      ON chapter_video_resources(chapter_id);
+    ''');
+
+    await db.execute('''
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_chapter_video_unique
+      ON chapter_video_resources(chapter_id, video_id);
     ''');
   }
 }
