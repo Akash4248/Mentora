@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../application/visual_resolver.dart';
 import '../../domain/visual_intent.dart';
+import 'circuit_canvas.dart';
 import 'geometry_canvas.dart';
 import 'motion_trajectory_canvas.dart';
 import 'ray_optics_canvas.dart';
@@ -34,6 +35,9 @@ class VisualCardWidget extends StatelessWidget {
 
       case GeometryVisualPayload():
         return GeometryCanvas(payload: payload);
+
+      case CircuitVisualPayload():
+        return CircuitCanvas(payload: payload);
 
       case SimulationVisualPayload():
         return SimulationCard(payload: payload);

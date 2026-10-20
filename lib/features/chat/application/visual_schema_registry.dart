@@ -85,6 +85,10 @@ final class VisualSchemaRegistry {
         _validateGeometryConstruction(intent, errors);
         break;
 
+      case VisualType.circuitSchematic:
+        _validateCircuitSchematic(intent, errors);
+        break;
+
       case VisualType.conceptSequence:
       case VisualType.unknown:
         break;
@@ -238,6 +242,38 @@ final class VisualSchemaRegistry {
       final r = (rawRadius as num).toDouble();
       if (r <= 0 || r > 10000) {
         errors.add('Geometry circle radius must be strictly positive: $r.');
+      }
+    }
+  }
+
+  void _validateCircuitSchematic(VisualIntent intent, List<String> errors) {
+    final inputs = intent.inputs;
+    final scenario = intent.scenario.toLowerCase().trim();
+    if (scenario.isEmpty) {
+      errors.add('circuit.schematic requires a scenario (e.g. simple_circuit, series_circuit, parallel_circuit).');
+    }
+
+    final rawV = inputs['voltage'] ?? inputs['v'] ?? inputs['voltage_v'];
+    if (rawV != null) {
+      final v = (rawV as num).toDouble();
+      if (v <= 0 || v > 1000) {
+        errors.add('Circuit voltage must be strictly positive and <= 1000 V: $v.');
+      }
+    }
+
+    final rawR = inputs['resistance'] ?? inputs['r'];
+    if (rawR != null) {
+      if (rawR is num) {
+        final r = rawR.toDouble();
+        if (r <= 0 || r > 1000000) {
+          errors.add('Circuit resistance must be strictly positive and <= 1000000 Ω: $r.');
+        }
+      } else if (rawR is List) {
+        for (final item in rawR) {
+          if (item is num && (item <= 0 || item > 1000000)) {
+            errors.add('Circuit resistance values must be strictly positive: $item.');
+          }
+        }
       }
     }
   }

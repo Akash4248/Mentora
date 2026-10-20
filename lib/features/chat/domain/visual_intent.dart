@@ -8,6 +8,7 @@ enum VisualType {
   simulationLauncher('simulation.launcher'),
   opticsRayDiagram('optics.ray_diagram'),
   geometryConstruction('geometry.construction'),
+  circuitSchematic('circuit.schematic'),
   physicsForceDiagram('physics.force_diagram'),
   conceptSequence('concept.sequence'),
   labSetup('lab.setup'),

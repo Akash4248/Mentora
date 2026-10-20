@@ -84,6 +84,51 @@ flutter:
     # Secrets are injected at build time via --dart-define flags.
     # For local dev, place a .env file in the project root (gitignored).
     - assets/experiment_scenes/
+    - assets/experiment_scenes/chemical_reaction/actors/
+    - assets/experiment_scenes/chemical_reaction/background/
+    - assets/experiment_scenes/chemical_reaction/effects/
+    - assets/experiment_scenes/circuit/actors/
+    - assets/experiment_scenes/circuit/background/
+    - assets/experiment_scenes/circuit/effects/
+    - assets/experiment_scenes/food_chain/actors/
+    - assets/experiment_scenes/food_chain/background/
+    - assets/experiment_scenes/food_chain/effects/
+    - assets/experiment_scenes/heart_rate/actors/
+    - assets/experiment_scenes/heart_rate/background/
+    - assets/experiment_scenes/heart_rate/effects/
+    - assets/experiment_scenes/human_body/actors/
+    - assets/experiment_scenes/human_body/background/
+    - assets/experiment_scenes/human_body/effects/
+    - assets/experiment_scenes/lens/actors/
+    - assets/experiment_scenes/lens/background/
+    - assets/experiment_scenes/lens/effects/
+    - assets/experiment_scenes/matter/actors/
+    - assets/experiment_scenes/matter/background/
+    - assets/experiment_scenes/matter/effects/
+    - assets/experiment_scenes/mirror/actors/
+    - assets/experiment_scenes/mirror/background/
+    - assets/experiment_scenes/mirror/effects/
+    - assets/experiment_scenes/motion/actors/
+    - assets/experiment_scenes/motion/background/
+    - assets/experiment_scenes/motion/effects/
+    - assets/experiment_scenes/pendulum/actors/
+    - assets/experiment_scenes/pendulum/background/
+    - assets/experiment_scenes/pendulum/effects/
+    - assets/experiment_scenes/plant_growth/actors/
+    - assets/experiment_scenes/plant_growth/background/
+    - assets/experiment_scenes/plant_growth/effects/
+    - assets/experiment_scenes/simple_machines/actors/
+    - assets/experiment_scenes/simple_machines/background/
+    - assets/experiment_scenes/simple_machines/effects/
+    - assets/experiment_scenes/solar_system/actors/
+    - assets/experiment_scenes/solar_system/background/
+    - assets/experiment_scenes/solar_system/effects/
+    - assets/experiment_scenes/water_cycle/actors/
+    - assets/experiment_scenes/water_cycle/background/
+    - assets/experiment_scenes/water_cycle/effects/
+    - assets/experiment_scenes/wave/actors/
+    - assets/experiment_scenes/wave/background/
+    - assets/experiment_scenes/wave/effects/
     - assets/asset_registry.json
     - assets/experiment_blueprints/
     - assets/scene_blueprints/

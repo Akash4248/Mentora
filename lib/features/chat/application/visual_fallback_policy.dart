@@ -176,6 +176,44 @@ final class VisualFallbackPolicy {
       );
     }
 
+    // 6. Circuit schematic matching
+    if (clean.contains('series circuit') ||
+        clean.contains('resistors in series') ||
+        clean.contains('series resistance')) {
+      return const VisualIntent(
+        type: VisualType.circuitSchematic,
+        scenario: 'series_circuit',
+        inputs: {'voltage': 12.0, 'resistances': [10.0, 20.0]},
+        title: 'Series Resistor Network',
+        description: 'Interactive DC circuit showing Req = R1 + R2 and uniform current flow.',
+      );
+    }
+
+    if (clean.contains('parallel circuit') ||
+        clean.contains('resistors in parallel') ||
+        clean.contains('parallel resistance')) {
+      return const VisualIntent(
+        type: VisualType.circuitSchematic,
+        scenario: 'parallel_circuit',
+        inputs: {'voltage': 12.0, 'resistances': [10.0, 10.0]},
+        title: 'Parallel Resistor Network',
+        description: 'Interactive DC circuit showing 1/Req = 1/R1 + 1/R2 and branch currents.',
+      );
+    }
+
+    if (clean.contains('circuit') ||
+        clean.contains("ohm's law") ||
+        clean.contains('electric current') ||
+        clean.contains('battery and bulb')) {
+      return const VisualIntent(
+        type: VisualType.circuitSchematic,
+        scenario: 'simple_circuit',
+        inputs: {'voltage': 12.0, 'resistances': [20.0]},
+        title: "Ohm's Law DC Circuit",
+        description: 'Interactive circuit demonstrating V = IR, switch toggle, and bulb brightness.',
+      );
+    }
+
     return null;
   }
 }

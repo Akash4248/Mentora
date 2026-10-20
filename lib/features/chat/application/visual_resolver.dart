@@ -1,5 +1,6 @@
 import '../../experiment/sensor_lab/domain/lab_experiment_definition.dart';
 import '../domain/visual_intent.dart';
+import 'circuit_engine.dart';
 import 'geometry_engine.dart';
 import 'kinematics_engine.dart';
 import 'optics_engine.dart';
@@ -83,6 +84,15 @@ final class GeometryVisualPayload extends ResolvedVisualPayload {
   final GeometryConstructionResult result;
 }
 
+final class CircuitVisualPayload extends ResolvedVisualPayload {
+  const CircuitVisualPayload({
+    required super.intent,
+    required this.result,
+  });
+
+  final CircuitCalculationResult result;
+}
+
 final class FallbackTextVisualPayload extends ResolvedVisualPayload {
   const FallbackTextVisualPayload({
     required super.intent,
@@ -100,17 +110,20 @@ final class VisualResolver {
     KinematicsEngine? kinematicsEngine,
     OpticsEngine? opticsEngine,
     GeometryEngine? geometryEngine,
+    CircuitEngine? circuitEngine,
     Map<String, Map<String, String>>? simulationCatalog,
   })  : _schemaRegistry = schemaRegistry ?? const VisualSchemaRegistry(),
         _kinematicsEngine = kinematicsEngine ?? const KinematicsEngine(),
         _opticsEngine = opticsEngine ?? const OpticsEngine(),
         _geometryEngine = geometryEngine ?? const GeometryEngine(),
+        _circuitEngine = circuitEngine ?? const CircuitEngine(),
         _simulationCatalog = simulationCatalog ?? _defaultSimulationCatalog;
 
   final VisualSchemaRegistry _schemaRegistry;
   final KinematicsEngine _kinematicsEngine;
   final OpticsEngine _opticsEngine;
   final GeometryEngine _geometryEngine;
+  final CircuitEngine _circuitEngine;
   final Map<String, Map<String, String>> _simulationCatalog;
 
   static const _defaultSimulationCatalog = {
@@ -173,6 +186,9 @@ final class VisualResolver {
 
         case VisualType.geometryConstruction:
           return _resolveGeometryConstruction(intent);
+
+        case VisualType.circuitSchematic:
+          return _resolveCircuitSchematic(intent);
 
         case VisualType.physicsForceDiagram:
         case VisualType.conceptSequence:
@@ -313,6 +329,34 @@ final class VisualResolver {
     );
 
     return GeometryVisualPayload(
+      intent: intent,
+      result: result,
+    );
+  }
+
+  CircuitVisualPayload _resolveCircuitSchematic(VisualIntent intent) {
+    final inputs = intent.inputs;
+    final scenario = CircuitScenario.fromIdentifier(intent.scenario);
+    final rawV = inputs['voltage'] ?? inputs['v'] ?? inputs['voltage_v'] ?? 12.0;
+    final voltage = (rawV as num).toDouble();
+    final isClosed = (inputs['switch_closed'] ?? inputs['closed'] ?? true) as bool;
+
+    List<double>? resistances;
+    final rawR = inputs['resistances'] ?? inputs['resistance'] ?? inputs['r'];
+    if (rawR is List) {
+      resistances = rawR.map((e) => (e as num).toDouble()).toList();
+    } else if (rawR is num) {
+      resistances = [rawR.toDouble()];
+    }
+
+    final result = _circuitEngine.solve(
+      scenario: scenario,
+      voltageVolts: voltage,
+      isSwitchClosed: isClosed,
+      resistances: resistances,
+    );
+
+    return CircuitVisualPayload(
       intent: intent,
       result: result,
     );
