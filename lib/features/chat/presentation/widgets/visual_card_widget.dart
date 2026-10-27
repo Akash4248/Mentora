@@ -72,7 +72,32 @@ class VisualCardWidget extends StatelessWidget {
         return LabSetupCard(definition: payload.definition);
 
       case FallbackTextVisualPayload():
-        // Graceful fallback: do not crash, display nothing or a minor indicator
+        // If engine resolution fell back, render an informative concept card rather than vanishing
+        if (payload.intent.scenario.isNotEmpty || payload.intent.title != null) {
+          final displayTitle = payload.intent.title ??
+              (payload.intent.scenario.isNotEmpty ? payload.intent.scenario : 'Educational Concept');
+          return Container(
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.lightbulb_outline_rounded, color: Color(0xFF0284C7)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    displayTitle,
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF1E293B)),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
         return const SizedBox.shrink();
     }
   }

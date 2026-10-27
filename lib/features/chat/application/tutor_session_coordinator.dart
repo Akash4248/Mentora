@@ -16,6 +16,7 @@ import 'mentora_tutor_agent_provider.dart';
 import 'tutor_evaluation_logger.dart';
 import 'visual_fallback_policy.dart';
 import 'visual_stream_parser.dart';
+import '../domain/visual_intent.dart';
 
 enum TutorRunState {
   idle,
@@ -193,14 +194,28 @@ final class TutorSessionCoordinator {
 
             var finalText = text;
             final parsed = const VisualStreamParser().parse(text);
-            if (parsed.visualIntents.isEmpty) {
+
+            // Domain mismatch guard: Check if the model hallucinated a physics projectile
+            // for a mathematics / algebra query (e.g. binomial theorem).
+            final isMath = _isPureMathQuestion(question);
+            final hasMismatchedTrajectory = parsed.visualIntents.any(
+              (i) => i.type == VisualType.motionTrajectory && isMath,
+            );
+
+            if (parsed.visualIntents.isEmpty || hasMismatchedTrajectory) {
               final fallback = const VisualFallbackPolicy().matchDeterministicFallback(
                 question: question,
-                existingIntents: parsed.visualIntents,
+                existingIntents: hasMismatchedTrajectory ? const [] : parsed.visualIntents,
               );
               if (fallback != null) {
+                if (hasMismatchedTrajectory) {
+                  finalText = finalText.replaceAll(
+                    RegExp(r'```(?:mentora|merora|mentor|m)?[_\-]?visual[\s\S]*?```', caseSensitive: false),
+                    '',
+                  ).trimRight();
+                }
                 final visualBlock = '\n\n```mentora-visual\n${jsonEncode(fallback.toJson())}\n```';
-                finalText = '$text$visualBlock';
+                finalText = '$finalText$visualBlock';
               }
             }
             yield TutorTurnCompletedEvent(finalText);
@@ -328,5 +343,22 @@ final class TutorSessionCoordinator {
       }
     }
     return messages;
+  }
+
+  static bool _isPureMathQuestion(String question) {
+    final clean = question.toLowerCase();
+    const mathKeywords = [
+      'binomial',
+      'bionomial',
+      'algebra',
+      'polynomial',
+      'quadratic',
+      'trigonometry',
+      'pascal',
+      'matrix',
+      'determinant',
+      'calculus',
+    ];
+    return mathKeywords.any((k) => clean.contains(k));
   }
 }

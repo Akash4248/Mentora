@@ -126,5 +126,36 @@ Here is the explanation for the pendulum motion.
       expect(intent.inputs['object_distance_cm'], 30);
       expect(result.proseText, isEmpty);
     });
+
+    test('intercepts model tool-call escaping into ```mermaid fence and extracts visual intent', () {
+      const rawText =
+          '```mermaid {"name": "geometry.construction", "arguments": {"scenario": "bionomial", "inputs": {"base": 10, "height": 6, "radius": 3, "distance": 4}}} ```';
+
+      final result = parser.parse(rawText);
+      expect(result.visualIntents.length, 1);
+      final intent = result.visualIntents.first;
+      expect(intent.type, VisualType.geometryConstruction);
+      expect(intent.scenario, 'bionomial');
+      expect(intent.inputs['base'], 10);
+      expect(result.proseText, isEmpty);
+    });
+
+    test('preserves legitimate Mermaid diagram flowchart syntax in proseText', () {
+      const rawText = '''
+Here is the lifecycle of a plant:
+```mermaid
+graph TD
+  A[Seed] --> B[Sprout]
+  B --> C[Plant]
+```
+Notice each stage.
+''';
+
+      final result = parser.parse(rawText);
+      expect(result.visualIntents, isEmpty);
+      expect(result.proseText, contains('graph TD'));
+      expect(result.proseText, contains('A[Seed] --> B[Sprout]'));
+      expect(result.proseText, contains('Notice each stage.'));
+    });
   });
 }

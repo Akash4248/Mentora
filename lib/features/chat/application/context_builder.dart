@@ -160,19 +160,32 @@ Answer directly and clearly using Markdown formatting, bullet points, and key fo
 IMPORTANT: If the user asks in Kannada or any regional language, respond in that language.
 Do not output internal monologues or planning steps.$historyBlock
 DIAGRAM & VISUAL RULES:
-- When a student asks for a visual explanation, simulation, dynamics, graph, circuit, or diagram, call the show_visualization tool OR embed an interactive visualizer widget by emitting a ```mentora-visual block with JSON:
-```mentora-visual
-{"type": "motion.trajectory", "scenario": "projectile", "inputs": {"launch_velocity_mps": 20.0, "launch_angle_deg": 45.0}, "title": "Projectile Motion"}
-```
-Supported types:
-1. "motion.trajectory" (scenarios: "projectile", "vertical_toss"; inputs: launch_velocity_mps, launch_angle_deg)
-2. "circuit.schematic" (scenarios: "simple_circuit", "series_circuit", "parallel_circuit"; inputs: voltage, resistances)
-3. "optics.ray_diagram" (scenarios: "concave_mirror", "convex_mirror", "convex_lens", "concave_lens"; inputs: focal_length_cm, object_distance_cm)
-4. "geometry.construction" (scenarios: "right_triangle", "circle_tangents"; inputs: base, height, radius, distance)
-
-- Never use Mermaid diagrams (```mermaid) to flowchart answering steps, prompt instructions, lesson outlines, or tool summaries.
-- Mermaid diagrams are ONLY for actual domain scientific concepts (e.g. food webs, life cycles, state machines). Nodes must contain subject matter facts only.
-- Never output prompt instructions or meta-labels (such as 'Real-world analogy:', 'Conceptual observation:', or tool names) as diagram nodes or section headings.
+- When a student asks for a visual explanation, simulation, dynamics, graph, circuit, or diagram, emit an interactive visualizer block using ```mentora-visual containing JSON tailored to the subject:
+  * For mechanics/projectile physics ONLY:
+    ```mentora-visual
+    {"type": "motion.trajectory", "scenario": "projectile", "inputs": {"launch_velocity_mps": 20.0, "launch_angle_deg": 45.0}, "title": "Projectile Motion"}
+    ```
+  * For optics/mirrors/lenses:
+    ```mentora-visual
+    {"type": "optics.ray_diagram", "scenario": "concave_mirror", "inputs": {"focal_length_cm": 15, "object_distance_cm": 30}, "title": "Concave Mirror Ray Tracing"}
+    ```
+  * For circuits/electricity:
+    ```mentora-visual
+    {"type": "circuit.schematic", "scenario": "series_circuit", "inputs": {"voltage": 12, "resistances": [10, 20]}, "title": "Series Resistor Circuit"}
+    ```
+  * For geometry/shapes:
+    ```mentora-visual
+    {"type": "geometry.construction", "scenario": "right_triangle", "inputs": {"base": 4, "height": 3}, "title": "Right Triangle Construction"}
+    ```
+  * For mathematics, algebra, or binomial theorem:
+    ```mentora-visual
+    {"type": "steps.solution", "scenario": "binomial_theorem", "inputs": {"expression": "(a+b)^n", "steps": ["Use Pascal triangle for coefficients", "Expand terms with descending powers"]}, "title": "Binomial Theorem Expansion"}
+    ```
+CRITICAL INVARIANTS:
+1. NEVER use "motion.trajectory" for mathematics, algebra, geometry, optics, or circuits.
+2. NEVER enclose tool calls or JSON inside ```mermaid fences. Visualizer blocks must strictly use ```mentora-visual.
+3. Mermaid diagrams (```mermaid) are strictly for non-JSON domain diagrams (e.g. food chains, state charts). Do not use Mermaid for meta answering steps.
+4. Never output prompt instructions or meta-labels (such as 'Real-world analogy:', 'Conceptual observation:', or tool names) as diagram nodes or section headings.
 <|im_end|>''';
 
     // 9. Token accounting and budget report (~4 chars per token)

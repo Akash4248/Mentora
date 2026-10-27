@@ -65,5 +65,17 @@ void main() {
 
       expect(fallback, isNull);
     });
+
+    test('deterministically matches binomial theorem question to steps.solution', () {
+      final fallback = policy.matchDeterministicFallback(
+        question: 'give me the visuals for bionomial',
+        existingIntents: const [],
+      );
+
+      expect(fallback, isNotNull);
+      expect(fallback!.type, VisualType.stepsSolution);
+      expect(fallback.scenario, 'binomial_theorem');
+      expect(fallback.title, contains('Binomial'));
+    });
   });
 }

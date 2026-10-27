@@ -189,6 +189,9 @@ void main() {
         'draw circuit for resistors in series',
         'show ray diagram for concave mirror',
         'visualize a simple circuit',
+        'give me the visuals for bionomial',
+        'provide a visual for ray optics',
+        'give the visuals for series resistors',
       ];
 
       for (final query in visualQueries) {

@@ -31,7 +31,7 @@ final class VisualStreamParser {
   const VisualStreamParser();
 
   static final _openFenceRegex = RegExp(
-    r'```(?:json:)?(?:mentora|merora|mentor|m)?[_\-]?visual\b\s*',
+    r'```(?:json:)?(?:mentora|merora|mentor|m)?[_\-]?visual\b\s*|```mermaid\b\s*',
     caseSensitive: false,
   );
   static const _closeFence = '```';
@@ -66,7 +66,7 @@ final class VisualStreamParser {
     final length = sanitizedText.length;
 
     while (currentIndex < length) {
-      // Look for the next open fence matching any visual variant
+      // Look for the next open fence matching any visual variant or mermaid
       final match = _openFenceRegex.firstMatch(sanitizedText.substring(currentIndex));
       if (match == null) {
         // No more visual blocks, append the rest to prose
@@ -76,6 +76,8 @@ final class VisualStreamParser {
 
       final openIdx = currentIndex + match.start;
       final fenceLen = match.end - match.start;
+      final matchedFenceStr = match[0]!.toLowerCase();
+      final isMermaidFence = matchedFenceStr.contains('mermaid');
 
       // Append preceding text to prose
       proseBuffer.write(sanitizedText.substring(currentIndex, openIdx));
@@ -85,16 +87,27 @@ final class VisualStreamParser {
       final closeIdx = sanitizedText.indexOf(_closeFence, contentStart);
 
       if (closeIdx == -1) {
-        // Fenced block is currently being streamed, wait for completion
-        hasIncomplete = true;
-        break;
+        if (isMermaidFence) {
+          // If unclosed mermaid block, let it stream into prose normally
+          proseBuffer.write(sanitizedText.substring(openIdx));
+          break;
+        } else {
+          // Fenced visual block is currently being streamed, wait for completion
+          hasIncomplete = true;
+          break;
+        }
       }
 
       // Extract JSON content between fences
-      final jsonBlock = sanitizedText.substring(contentStart, closeIdx).trim();
-      final parsed = VisualIntent.tryParse(jsonBlock);
+      final blockContent = sanitizedText.substring(contentStart, closeIdx).trim();
+      final parsed = VisualIntent.tryParse(blockContent);
+
       if (parsed != null) {
+        // Successfully parsed a visual intent (either from ```mentora-visual or intercepted from ```mermaid)
         intents.add(parsed);
+      } else if (isMermaidFence) {
+        // Legitimate Mermaid diagram syntax (not a JSON tool-call) — preserve in prose!
+        proseBuffer.write(sanitizedText.substring(openIdx, closeIdx + _closeFence.length));
       }
 
       currentIndex = closeIdx + _closeFence.length;

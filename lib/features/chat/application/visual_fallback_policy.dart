@@ -265,6 +265,42 @@ final class VisualFallbackPolicy {
       );
     }
 
+    // 7. Mathematics & Algebra step solutions and graphs
+    if (clean.contains('binomial') ||
+        clean.contains('bionomial') ||
+        clean.contains('pascal triangle') ||
+        clean.contains('pascals triangle') ||
+        clean.contains('binomial expansion') ||
+        clean.contains('binomial theorem')) {
+      return const VisualIntent(
+        type: VisualType.stepsSolution,
+        scenario: 'binomial_theorem',
+        inputs: {
+          'expression': '(a + b)^n',
+          'steps': [
+            'General formula: (a + b)^n = \\sum_{k=0}^{n} \\binom{n}{k} a^{n-k} b^k',
+            'Pascal coefficients for n=3: 1, 3, 3, 1',
+            'Expanded form for n=3: a^3 + 3a^2b + 3ab^2 + b^3',
+            'Pattern: Exponents of "a" decrease from n to 0, while exponents of "b" increase from 0 to n.',
+          ],
+        },
+        title: 'Binomial Theorem Expansion & Pascal Triangle',
+        description: 'Interactive step-by-step expansion and combinatorial coefficients for (a + b)^n.',
+      );
+    }
+
+    if (clean.contains('quadratic') ||
+        clean.contains('parabola') ||
+        clean.contains('roots of quadratic')) {
+      return const VisualIntent(
+        type: VisualType.mathFunctionGraph,
+        scenario: 'quadratic_function',
+        inputs: {'a': 1.0, 'b': -2.0, 'c': -3.0},
+        title: 'Quadratic Function & Roots',
+        description: 'Plot of f(x) = ax² + bx + c showing vertex, axis of symmetry, and real roots.',
+      );
+    }
+
     return null;
   }
 }

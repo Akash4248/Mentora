@@ -28,6 +28,12 @@ class FormattedTextWidget extends StatelessWidget {
 
     final parsedTurn = const VisualStreamParser().parse(text);
     if (parsedTurn.proseText.isEmpty && parsedTurn.visualIntents.isEmpty) {
+      if (text.trim().isNotEmpty) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: _buildRichText(text.trim()),
+        );
+      }
       return const SizedBox.shrink();
     }
 
@@ -84,6 +90,19 @@ class FormattedTextWidget extends StatelessWidget {
       if (currentCodeBlockLines.isNotEmpty || inCodeBlock) {
         final codeContent = currentCodeBlockLines.join('\n');
         if (codeBlockLang == 'mermaid') {
+          // If the model mistakenly outputs a visual tool call or JSON inside ```mermaid fences,
+          // intercept it and render VisualCardWidget instead of letting mermaid_flutter crash or show a syntax error!
+          final trimmed = codeContent.trim();
+          if (trimmed.startsWith('{') && (trimmed.contains('"arguments"') || trimmed.contains('"type"') || trimmed.contains('"name"'))) {
+            final intent = VisualIntent.tryParse(trimmed);
+            if (intent != null) {
+              children.add(VisualCardWidget(intent: intent));
+              currentCodeBlockLines = [];
+              inCodeBlock = false;
+              codeBlockLang = '';
+              return;
+            }
+          }
           children.add(MermaidDiagramCard(
             source: codeContent,
             isStreaming: isStillStreaming,
@@ -304,6 +323,16 @@ class FormattedTextWidget extends StatelessWidget {
 
     for (final intent in intents) {
       children.add(VisualCardWidget(intent: intent));
+    }
+
+    if (children.isEmpty) {
+      if (text.trim().isNotEmpty) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: _buildRichText(text.trim()),
+        );
+      }
+      return const SizedBox.shrink();
     }
 
     return Column(

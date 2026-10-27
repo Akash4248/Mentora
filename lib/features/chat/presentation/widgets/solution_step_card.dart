@@ -46,6 +46,33 @@ class SolutionStepCard extends StatelessWidget {
               ),
             ],
           ),
+          if (payload.intent.inputs['expression'] != null) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFBFDBFE)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.functions_rounded, size: 16, color: Color(0xFF2563EB)),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Expression: ${payload.intent.inputs['expression']}',
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      color: Color(0xFF1E40AF),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           ...payload.steps.map((step) {
             final num = step['step'] ?? step['stepNumber'] ?? 1;

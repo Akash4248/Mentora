@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mentora/features/chat/presentation/formatted_text_widget.dart';
+import 'package:mentora/features/chat/presentation/widgets/geometry_canvas.dart';
 import 'package:mentora/features/chat/presentation/widgets/ray_optics_canvas.dart';
+import 'package:mentora/features/chat/presentation/widgets/solution_step_card.dart';
+import 'package:mentora/features/chat/presentation/widgets/visual_card_widget.dart';
 
 void main() {
   group('FormattedTextWidget', () {
@@ -218,6 +221,53 @@ Kirchhoff's Current Law states that the total current entering a junction must e
       expect(find.text('Rays Reflecting from a Concave Mirror'), findsOneWidget);
       expect(find.text('MERORA-VISUAL'), findsNothing);
       expect(find.byType(RayOpticsCanvas), findsOneWidget);
+    });
+
+    testWidgets('intercepts tool-call escaping into ```mermaid and renders visual card without syntax error', (tester) async {
+      const markdown =
+          '```mermaid {"name": "geometry.construction", "arguments": {"scenario": "bionomial", "inputs": {"base": 10, "height": 6, "radius": 3, "distance": 4}}} ```';
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: FormattedTextWidget(text: markdown),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Verify that Mermaid error banner is NOT displayed
+      expect(find.textContaining('Diagram layout pending syntax completion'), findsNothing);
+      expect(find.textContaining('syntax error'), findsNothing);
+      // Verify visual intent was intercepted and geometry canvas is rendered
+      expect(find.byType(VisualCardWidget), findsOneWidget);
+      expect(find.byType(GeometryCanvas), findsOneWidget);
+    });
+
+    testWidgets('renders SolutionStepCard when model emits steps.solution inside mermaid without disappearing', (tester) async {
+      const markdown =
+          '```mermaid {"name": "steps.solution", "arguments": {"expression": "(a + b)^n", "steps": ["Use Pascal\'s triangle to find the coefficients of the expansion", "Expand each term using the binomial theorem", "Combine like terms to get the final expression"]}} ```';
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: FormattedTextWidget(text: markdown),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Verify that Mermaid error banner is NOT displayed
+      expect(find.textContaining('Diagram layout pending syntax completion'), findsNothing);
+      // Verify that SolutionStepCard was rendered and did NOT disappear
+      expect(find.byType(SolutionStepCard), findsOneWidget);
+      expect(find.textContaining('(a + b)^n'), findsWidgets);
+      expect(find.textContaining("Use Pascal's triangle"), findsOneWidget);
+      expect(find.textContaining("Expand each term"), findsOneWidget);
     });
   });
 }

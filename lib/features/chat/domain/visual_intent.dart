@@ -19,9 +19,24 @@ enum VisualType {
 
   static VisualType fromIdentifier(String? id) {
     if (id == null) return VisualType.unknown;
+    final normalized = id.toLowerCase().trim().replaceAll('-', '_');
     for (final type in values) {
-      if (type.identifier == id) return type;
+      if (type.identifier == normalized || type.identifier.replaceAll('.', '_') == normalized) {
+        return type;
+      }
     }
+    if (normalized.contains('circuit')) return VisualType.circuitSchematic;
+    if (normalized.contains('ray') || normalized.contains('optic')) return VisualType.opticsRayDiagram;
+    if (normalized.contains('trajectory') || normalized.contains('projectile')) return VisualType.motionTrajectory;
+    if (normalized.contains('force')) return VisualType.physicsForceDiagram;
+    if (normalized.contains('solution') || normalized.contains('step')) return VisualType.stepsSolution;
+    if (normalized.contains('graph') || normalized.contains('function')) return VisualType.mathFunctionGraph;
+    if (normalized.contains('geometry') || normalized.contains('construction') || normalized.contains('shape')) {
+      return VisualType.geometryConstruction;
+    }
+    if (normalized.contains('simulation') || normalized.contains('launcher')) return VisualType.simulationLauncher;
+    if (normalized.contains('lab')) return VisualType.labSetup;
+    if (normalized.contains('concept')) return VisualType.conceptSequence;
     return VisualType.unknown;
   }
 }
@@ -92,22 +107,39 @@ final class VisualIntent {
         return null;
       }
 
-      final typeStr = map['type'] as String?;
-      final type = VisualType.fromIdentifier(typeStr);
-      final scenario = (map['scenario'] as String?)?.trim() ?? '';
+      String? typeStr;
+      String scenario;
+      Map<String, dynamic> inputs;
+      String? title;
+      String? description;
+      Map<String, dynamic>? focus;
 
-      final rawInputs = map['inputs'];
-      final Map<String, dynamic> inputs;
-      if (rawInputs is Map) {
-        inputs = Map<String, dynamic>.from(rawInputs);
+      if (map.containsKey('arguments') && map['arguments'] is Map) {
+        final args = Map<String, dynamic>.from(map['arguments'] as Map);
+        typeStr = (args['type'] ?? map['name'] ?? map['tool']) as String?;
+        scenario = (args['scenario'] ?? map['scenario'] ?? args['expression'] ?? '').toString().trim();
+        final rawInputs = args['inputs'] ?? map['inputs'] ?? args;
+        inputs = rawInputs is Map ? Map<String, dynamic>.from(rawInputs) : const {};
+        title = (args['title'] ?? map['title']) as String?;
+        description = (args['description'] ?? map['description']) as String?;
+        if (args['focus'] is Map) {
+          focus = Map<String, dynamic>.from(args['focus'] as Map);
+        } else if (map['focus'] is Map) {
+          focus = Map<String, dynamic>.from(map['focus'] as Map);
+        }
       } else {
-        inputs = const {};
+        typeStr = (map['type'] ?? map['name']) as String?;
+        scenario = (map['scenario'] as String?)?.trim() ?? '';
+        final rawInputs = map['inputs'];
+        inputs = rawInputs is Map ? Map<String, dynamic>.from(rawInputs) : const {};
+        title = map['title'] as String?;
+        description = map['description'] as String?;
+        if (map['focus'] is Map) {
+          focus = Map<String, dynamic>.from(map['focus'] as Map);
+        }
       }
 
-      final rawFocus = map['focus'];
-      final Map<String, dynamic>? focus =
-          rawFocus is Map ? Map<String, dynamic>.from(rawFocus) : null;
-
+      final type = VisualType.fromIdentifier(typeStr);
       final version = map['schema_version'] as int? ?? 1;
 
       return VisualIntent(
@@ -116,8 +148,8 @@ final class VisualIntent {
         scenario: scenario,
         inputs: inputs,
         focus: focus,
-        title: map['title'] as String?,
-        description: map['description'] as String?,
+        title: title,
+        description: description,
       );
     } catch (_) {
       return null;
